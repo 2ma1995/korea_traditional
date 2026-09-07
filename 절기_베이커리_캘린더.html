@@ -1,0 +1,541 @@
+<title>절기 베이커리 캘린더</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#eff1ec;
+    --raised:#f7f8f4;
+    --ink:#1d211b;
+    --muted:#6b7266;
+    --faint:#8e9587;
+    --rule:#d3d8cd;
+    --rule-soft:#e2e6dd;
+    --spring:#5f7a4e;
+    --summer:#1f6b6b;
+    --autumn:#8f6410;
+    --winter:#7e2b2b;
+    --accent:var(--winter);
+
+    --display:"Gowun Batang","Apple SD Gothic Neo",serif;
+    --body:"IBM Plex Sans KR","Apple SD Gothic Neo",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+
+    --s-1:12.5px; --s0:15px; --s1:17px; --s2:21px; --s3:27px; --s4:38px; --s5:clamp(34px,5.2vw,58px);
+    --gap:clamp(18px,3vw,30px);
+    --pad:clamp(20px,4vw,52px);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#151812; --raised:#1c211a; --ink:#e4e8de; --muted:#98a08f; --faint:#7d8574;
+      --rule:#2e332a; --rule-soft:#252a22;
+      --spring:#93ab7d; --summer:#54a7a0; --autumn:#c9a34a; --winter:#c9776f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#151812; --raised:#1c211a; --ink:#e4e8de; --muted:#98a08f; --faint:#7d8574;
+    --rule:#2e332a; --rule-soft:#252a22;
+    --spring:#93ab7d; --summer:#54a7a0; --autumn:#c9a34a; --winter:#c9776f;
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:var(--s0);line-height:1.7;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin-inline:auto;padding:var(--pad) var(--pad) 76px}
+  h1,h2,h3{margin:0;text-wrap:balance}
+  p{margin:0}
+  a{color:inherit}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+  .eyebrow{font-family:var(--mono);font-size:var(--s-1);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  h1{font-family:var(--display);font-weight:700;font-size:var(--s5);line-height:1.08;letter-spacing:-.02em;margin-top:14px}
+  .standfirst{margin-top:20px;max-width:56ch;font-size:var(--s1);line-height:1.75;color:var(--muted);font-weight:300}
+  .standfirst b{color:var(--ink);font-weight:500}
+
+  .tally{display:flex;flex-wrap:wrap;gap:0;margin-top:32px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+  .tally>div{flex:1 1 130px;padding:16px 22px 15px;border-left:1px solid var(--rule-soft)}
+  .tally>div:first-child{border-left:0;padding-left:0}
+  .tally dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);margin:0}
+  .tally dd{margin:5px 0 0;font-family:var(--display);font-size:var(--s3);font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  .tally dd small{font-family:var(--body);font-size:var(--s-1);font-weight:400;color:var(--muted);letter-spacing:0;margin-left:5px}
+
+  .ring-block{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:clamp(24px,5vw,58px);align-items:center;margin-top:56px}
+  .ring-fig{margin:0}
+  .ring-fig svg{width:100%;height:auto;display:block}
+  .ring-note h2{font-family:var(--display);font-size:var(--s3);font-weight:700;letter-spacing:-.01em}
+  .ring-note p{margin-top:14px;color:var(--muted);max-width:48ch}
+  .ring-note p+p{margin-top:11px}
+  .ring-note .sun{font-family:var(--mono);font-size:var(--s-1);color:var(--ink)}
+  .legend{display:flex;flex-wrap:wrap;gap:7px 18px;margin-top:20px;font-family:var(--mono);font-size:var(--s-1);letter-spacing:.03em}
+  .legend span{display:inline-flex;align-items:center;gap:7px;color:var(--muted)}
+  .legend i{width:9px;height:9px;border-radius:50%;flex:none}
+
+  .engines{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:1px;margin-top:60px;background:var(--rule-soft);border:1px solid var(--rule-soft)}
+  .engine{background:var(--raised);padding:26px 24px 28px}
+  .engine .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+  .engine h3{font-family:var(--display);font-size:var(--s2);font-weight:700;margin-top:10px;letter-spacing:-.01em}
+  .engine p{margin-top:11px;color:var(--muted);font-size:var(--s-1);line-height:1.75}
+  .engine .count{font-family:var(--mono);font-size:var(--s-1);color:var(--ink);margin-top:14px;display:block}
+
+  .season{margin-top:66px}
+  .season-head{display:flex;align-items:baseline;gap:16px;padding-bottom:13px;border-bottom:2px solid var(--sc)}
+  .season-head .num{font-family:var(--mono);font-size:var(--s-1);color:var(--sc);letter-spacing:.1em}
+  .season-head h2{font-family:var(--display);font-size:var(--s4);font-weight:700;letter-spacing:-.02em;line-height:1}
+  .season-head .arc{margin-left:auto;font-family:var(--mono);font-size:var(--s-1);color:var(--faint);font-variant-numeric:tabular-nums}
+  .season-1{--sc:var(--spring)} .season-2{--sc:var(--summer)}
+  .season-3{--sc:var(--autumn)} .season-4{--sc:var(--winter)}
+
+  .scroller{overflow-x:auto;margin-top:0}
+  table{width:100%;border-collapse:collapse;min-width:900px;font-size:var(--s-1)}
+  thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:400;text-align:left;padding:14px 14px 12px;border-bottom:1px solid var(--rule);white-space:nowrap}
+  tbody td{padding:17px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.65}
+  tbody tr:last-child td{border-bottom:0}
+  thead th:first-child,tbody td:first-child{padding-left:0}
+  thead th:last-child,tbody td:last-child{padding-right:0}
+
+  .term{font-family:var(--display);font-size:var(--s1);font-weight:700;letter-spacing:-.01em;display:block;white-space:nowrap}
+  .term .han{font-size:var(--s-1);font-weight:400;color:var(--faint);margin-left:6px}
+  .anchor{display:inline-block;color:var(--sc);font-size:11px;vertical-align:top;margin-left:4px}
+  .when{font-family:var(--mono);white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .when em{display:block;font-style:normal;color:var(--faint);font-size:11px;margin-top:3px}
+  .lunar{color:var(--muted)}
+  .lunar b{color:var(--ink);font-weight:500}
+  .lunar .none{color:var(--faint)}
+  .trad{color:var(--muted);min-width:200px}
+  .trad b{color:var(--ink);font-weight:500}
+  .prod{min-width:190px}
+  .prod b{font-weight:500}
+  .prod em{font-style:normal;display:block;color:var(--faint);font-size:11px;margin-top:4px}
+
+  .ev{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;padding:3px 8px 2px;border-radius:2px;white-space:nowrap;display:inline-block}
+  .ev-3{background:var(--ink);color:var(--paper)}
+  .ev-2{border:1px solid var(--rule);color:var(--muted)}
+  .ev-1{border:1px dashed var(--rule);color:var(--faint)}
+
+  .closing{margin-top:76px;display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:var(--gap)}
+  .closing section h3{font-family:var(--display);font-size:var(--s2);font-weight:700;letter-spacing:-.01em;padding-bottom:11px;border-bottom:1px solid var(--rule)}
+  .closing ul{margin:15px 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:13px}
+  .closing li{color:var(--muted);font-size:var(--s-1);line-height:1.75;padding-left:15px;position:relative}
+  .closing li::before{content:"";position:absolute;left:0;top:.62em;width:5px;height:1px;background:var(--faint)}
+  .closing li b{color:var(--ink);font-weight:500}
+  .closing code{font-family:var(--mono);font-size:11.5px;background:var(--raised);padding:1px 5px;border-radius:2px}
+
+  .caution{margin-top:44px;border-left:2px solid var(--winter);padding:4px 0 4px 22px}
+  .caution h3{font-family:var(--display);font-size:var(--s1);font-weight:700}
+  .caution p{margin-top:9px;color:var(--muted);font-size:var(--s-1);line-height:1.78;max-width:74ch}
+  .caution p+p{margin-top:8px}
+
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--faint);display:flex;flex-wrap:wrap;gap:6px 20px}
+
+  @media (max-width:760px){
+    .ring-block{grid-template-columns:1fr;gap:30px}
+    .ring-fig{max-width:320px;margin-inline:auto}
+    .tally>div{border-left:0;padding-left:0}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">SWEETNSWITZ · MAKJI — 기업연계 프로젝트 / 산출물 ②</p>
+    <h1>절기 베이커리 캘린더</h1>
+    <p class="standfirst">24절기·세시를 <b>글루텐프리·저당·비건</b>으로 다시 읽은 연간 제품 라인업. 전통 재료가 쌀·팥·잡곡·견과·쑥이라 <b>밀가루가 아닌 자리에서 이미 겹칩니다.</b> 근거가 강한 절기와 그렇지 않은 절기를 구분해 표기했습니다.</p>
+
+    <dl class="tally">
+      <div><dt>절기</dt><dd>24<small>양력 고정</small></dd></div>
+      <div><dt>앵커 품목</dt><dd>8<small>6~7주 간격</small></dd></div>
+      <div><dt>근거 강함</dt><dd>13<small>세시음식 명확</small></dd></div>
+      <div><dt>근거 보통</dt><dd>7<small>풍속 연계</small></dd></div>
+      <div><dt>근거 약함</dt><dd>4<small>제철로 대체</small></dd></div>
+    </dl>
+  </header>
+
+  <div class="ring-block">
+    <figure class="ring-fig" id="ring"></figure>
+    <div class="ring-note">
+      <h2>절기는 원래 원이다</h2>
+      <p>24절기는 태양의 황경(黃經)을 <span class="sun">15°</span>씩 24등분한 것입니다. 그래서 라인업의 골격은 목록이 아니라 원이고, 계절은 각각 정확히 <span class="sun">90°</span>를 차지합니다.</p>
+      <p>사방에 놓이는 네 지점이 이분이지입니다 — 춘분 <span class="sun">0°</span>, 하지 <span class="sun">90°</span>, 추분 <span class="sun">180°</span>, 동지 <span class="sun">270°</span>. 라인업의 기둥을 세울 자리도 여기서 나옵니다.</p>
+      <div class="legend">
+        <span><i style="background:var(--spring)"></i>봄 307.5°–37.5°</span>
+        <span><i style="background:var(--summer)"></i>여름 37.5°–127.5°</span>
+        <span><i style="background:var(--autumn)"></i>가을 127.5°–217.5°</span>
+        <span><i style="background:var(--winter)"></i>겨울 217.5°–307.5°</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="engines">
+    <div class="engine">
+      <p class="tag">엔진 A — 전통</p>
+      <h3>세시음식이 있는 날</h3>
+      <p>동지 팥죽, 정월대보름 부럼, 곡우 우전차처럼 먹는 음식이 정해진 날입니다. 재료가 이미 정해져 있으니 제품 기획이 곧바로 나옵니다.</p>
+      <span class="count">20 / 24 절기</span>
+    </div>
+    <div class="engine">
+      <p class="tag">엔진 B — 시세</p>
+      <h3>세시음식이 없는 날</h3>
+      <p>우수·입추·처서·소한에는 고유 세시음식이 사실상 없습니다. 이 자리는 KAMIS 농산물 도매가로 채웁니다 — 그날 싼 제철 작물이 주제가 됩니다.</p>
+      <span class="count">4 / 24 절기</span>
+    </div>
+    <div class="engine">
+      <p class="tag">두 엔진의 관계</p>
+      <h3>빈칸이 남지 않는다</h3>
+      <p>전통이 있는 날은 전통으로, 없는 날은 시세로 채워 24칸이 모두 메워집니다. 절기는 15일마다 바뀌는 무대, 도매가는 매일 바뀌는 엔진입니다.</p>
+      <span class="count">24 / 24 절기</span>
+    </div>
+  </div>
+
+  <!-- 봄 -->
+  <section class="season season-1">
+    <div class="season-head">
+      <span class="num">01</span>
+      <h2>봄</h2>
+      <span class="arc">입춘 315° → 곡우 30°</span>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>절기</th><th>양력 · 황경</th><th>세시 연계</th><th>전통 음식 · 재료</th><th>MAKJI 제품</th><th>근거</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="term">입춘<span class="han">立春</span></span></td>
+            <td class="when">2월 4일<em>315°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad">궁중 <b>오신반</b>, 민간 <b>세생채(입춘채)</b> — 겨우내 부족한 영양을 채우는 햇나물. 움파·산갓·당귀·미나리</td>
+            <td class="prod"><b>봄나물 사워도우 냉동생지</b><em>미나리·당귀 향 스콘</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">우수<span class="han">雨水</span></span></td>
+            <td class="when">2월 19일<em>330°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad">눈이 비로 바뀌는 절기. <b>고유 세시음식 없음</b></td>
+            <td class="prod"><b>딸기 휘낭시에</b><em>제철 — 딸기 성출하기</em></td>
+            <td><span class="ev ev-1">약함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">경칩<span class="han">驚蟄</span></span></td>
+            <td class="when">3월 6일<em>345°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad"><b>고로쇠·단풍나무 수액</b> 마시기</td>
+            <td class="prod"><b>수액 시럽 저당 스콘</b><em>정제당 대체 서사와 직결</em></td>
+            <td><span class="ev ev-2">보통</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">춘분<span class="han">春分</span></span></td>
+            <td class="when">3월 21일<em>0°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad"><b>볶은 콩</b> 나눠 먹기(지역 풍속), 나이떡 기록</td>
+            <td class="prod"><b>미숫가루 휘낭시에</b><em>볶은 곡물·콩가루</em></td>
+            <td><span class="ev ev-2">보통</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">청명<span class="han">淸明</span></span><span class="anchor">★</span></td>
+            <td class="when">4월 5일<em>15°</em></td>
+            <td class="lunar"><b>한식</b> 동지+105일<br><b>삼월삼일</b> 음 3/3</td>
+            <td class="trad">한식엔 불을 쓰지 않아 <b>찬 음식</b>. 삼월삼일 <b>화전(진달래)</b>·<b>쑥떡</b></td>
+            <td class="prod"><b>쑥 냉동생지</b><em>식용꽃 휘낭시에 — 집에서 굽는 화전</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">곡우<span class="han">穀雨</span></span><span class="anchor">★</span></td>
+            <td class="when">4월 20일<em>30°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad"><b>우전(雨前)</b> — 곡우 전에 딴 첫 찻잎이 최상품. <b>곡우물</b>(나무 수액)</td>
+            <td class="prod"><b>우전 말차 휘낭시에·스콘</b><em>차 등급이 그대로 상품 등급</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 여름 -->
+  <section class="season season-2">
+    <div class="season-head">
+      <span class="num">02</span>
+      <h2>여름</h2>
+      <span class="arc">입하 45° → 대서 120°</span>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>절기</th><th>양력 · 황경</th><th>세시 연계</th><th>전통 음식 · 재료</th><th>MAKJI 제품</th><th>근거</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="term">입하<span class="han">立夏</span></span></td>
+            <td class="when">5월 6일<em>45°</em></td>
+            <td class="lunar"><b>초파일</b> 음 4/8</td>
+            <td class="trad"><b>쑥떡</b>, <b>느티떡</b>, 죽순</td>
+            <td class="prod"><b>쑥 비건 잉글리시 머핀</b><em>기존 비건 라인 확장</em></td>
+            <td><span class="ev ev-2">보통</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">소만<span class="han">小滿</span></span></td>
+            <td class="when">5월 21일<em>60°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad">봄나물 끝물(씀바귀·냉이), <b>보리가 익기 시작</b></td>
+            <td class="prod"><b>보리 캄파뉴 냉동생지</b><em>보리는 저GI 서사와 연결</em></td>
+            <td><span class="ev ev-2">보통</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">망종<span class="han">芒種</span></span></td>
+            <td class="when">6월 6일<em>75°</em></td>
+            <td class="lunar"><b>단오</b> 음 5/5</td>
+            <td class="trad"><b>보리·밀 수확</b>, 풋보리 그슬려 먹기. 단오 <b>수리취떡</b>·앵두</td>
+            <td class="prod"><b>쑥·보리 잡곡 브레드</b><em>수리취떡의 쑥을 그대로</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">하지<span class="han">夏至</span></span><span class="anchor">★</span></td>
+            <td class="when">6월 21일<em>90°</em></td>
+            <td class="lunar"><b>유두</b> 음 6/15</td>
+            <td class="trad"><b>하지 감자</b> — 이 무렵 캐는 감자가 제맛. 유두엔 <b>유두면</b>·상화병</td>
+            <td class="prod"><b>감자 스콘</b><em>감자 전분은 글루텐프리 배합과 궁합</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">소서<span class="han">小暑</span></span><span class="anchor">★</span></td>
+            <td class="when">7월 7일<em>105°</em></td>
+            <td class="lunar"><b>칠석</b> 음 7/7</td>
+            <td class="trad">밀 수확 직후라 <b>밀가루 음식</b>(국수·수제비). 칠석 <b>밀전병</b> — 이후엔 밀 맛이 떨어진다고 봤다</td>
+            <td class="prod"><b>밀 없는 칠석 — 글루텐프리 전병 생지</b><em>브랜드 메시지를 정면으로 뒤집는 자리</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">대서<span class="han">大暑</span></span></td>
+            <td class="when">7월 23일<em>120°</em></td>
+            <td class="lunar"><b>삼복</b> 초·중·말복</td>
+            <td class="trad">참외·수박·복숭아, <b>복달임</b> 음식</td>
+            <td class="prod"><b>복숭아 냉동 디저트</b><em>더울수록 냉동 제품이 유리</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 가을 -->
+  <section class="season season-3">
+    <div class="season-head">
+      <span class="num">03</span>
+      <h2>가을</h2>
+      <span class="arc">입추 135° → 상강 210°</span>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>절기</th><th>양력 · 황경</th><th>세시 연계</th><th>전통 음식 · 재료</th><th>MAKJI 제품</th><th>근거</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="term">입추<span class="han">立秋</span></span></td>
+            <td class="when">8월 8일<em>135°</em></td>
+            <td class="lunar"><b>백중</b> 음 7/15</td>
+            <td class="trad">김장 채소 파종 시기. <b>고유 세시음식 약함</b></td>
+            <td class="prod"><b>옥수수 브레드</b><em>제철 — 햇옥수수</em></td>
+            <td><span class="ev ev-1">약함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">처서<span class="han">處暑</span></span></td>
+            <td class="when">8월 23일<em>150°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad">더위가 물러나고 벼가 익는다. 고추 말리기. <b>고유 세시음식 없음</b></td>
+            <td class="prod"><b>무화과 스콘</b><em>제철 — 무화과 단기 출하</em></td>
+            <td><span class="ev ev-1">약함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">백로<span class="han">白露</span></span><span class="anchor">★</span></td>
+            <td class="when">9월 8일<em>165°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad"><b>포도순절</b> — 백로 무렵 포도가 제맛이라 불린 이름</td>
+            <td class="prod"><b>포도·머스캣 휘낭시에</b><em>절기 이름 자체가 제품명</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">추분<span class="han">秋分</span></span><span class="anchor">★</span></td>
+            <td class="when">9월 23일<em>180°</em></td>
+            <td class="lunar"><b>추석</b> 음 8/15</td>
+            <td class="trad"><b>송편</b>(쌀), 햇곡·밤·대추</td>
+            <td class="prod"><b>쌀가루 베이스 밤 앙금 스콘</b><em>쌀은 원래 글루텐프리</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">한로<span class="han">寒露</span></span></td>
+            <td class="when">10월 8일<em>195°</em></td>
+            <td class="lunar"><b>중양절</b> 음 9/9</td>
+            <td class="trad"><b>국화전</b>·국화주, <b>밤떡</b></td>
+            <td class="prod"><b>국화 향 휘낭시에</b><em>밤 브레드</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">상강<span class="han">霜降</span></span></td>
+            <td class="when">10월 23일<em>210°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad">첫 서리. <b>감·곶감</b>, 무 수확, 단풍놀이</td>
+            <td class="prod"><b>곶감 스콘</b><em>곶감의 단맛으로 정제당 저감</em></td>
+            <td><span class="ev ev-2">보통</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 겨울 -->
+  <section class="season season-4">
+    <div class="season-head">
+      <span class="num">04</span>
+      <h2>겨울</h2>
+      <span class="arc">입동 225° → 대한 300°</span>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>절기</th><th>양력 · 황경</th><th>세시 연계</th><th>전통 음식 · 재료</th><th>MAKJI 제품</th><th>근거</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="term">입동<span class="han">立冬</span></span><span class="anchor">★</span></td>
+            <td class="when">11월 7일<em>225°</em></td>
+            <td class="lunar"><b>상달 고사</b> 음 10월</td>
+            <td class="trad">김장 시작. 고사에 <b>팥시루떡</b>을 올린다</td>
+            <td class="prod"><b>저당 팥 앙금 브레드</b><em>팥시루떡 컨셉</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">소설<span class="han">小雪</span></span></td>
+            <td class="when">11월 22일<em>240°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad">첫눈. 김장 마무리, <b>시루떡</b></td>
+            <td class="prod"><b>고구마 브레드</b><em>제철 — 저장 고구마 당도 최고</em></td>
+            <td><span class="ev ev-2">보통</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">대설<span class="han">大雪</span></span></td>
+            <td class="when">12월 7일<em>255°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad"><b>메주 쑤기</b> — 콩을 삶아 띄우는 시기</td>
+            <td class="prod"><b>대두 비건 단백 머핀</b><em>발효 서사 연결 가능</em></td>
+            <td><span class="ev ev-2">보통</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">동지<span class="han">冬至</span></span><span class="anchor">★★</span></td>
+            <td class="when">12월 22일<em>270°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad"><b>팥죽</b>과 <b>새알심</b> — 나이 수만큼 넣어 먹는다. 애동지엔 팥떡</td>
+            <td class="prod"><b>저당 팥 앙버터 + 새알심 쌀 스콘</b><em>라인업 전체의 기둥. 근거가 가장 확실</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">소한<span class="han">小寒</span></span></td>
+            <td class="when">1월 6일<em>285°</em></td>
+            <td class="lunar"><span class="none">—</span></td>
+            <td class="trad">한 해 중 가장 추운 무렵. <b>고유 세시음식 없음</b></td>
+            <td class="prod"><b>유자 휘낭시에</b><em>제철 — 유자·감귤</em></td>
+            <td><span class="ev ev-1">약함</span></td>
+          </tr>
+          <tr>
+            <td><span class="term">대한<span class="han">大寒</span></span><span class="anchor">★</span></td>
+            <td class="when">1월 20일<em>300°</em></td>
+            <td class="lunar"><b>설</b> 음 1/1<br><b>정월대보름</b> 음 1/15</td>
+            <td class="trad">떡국. 대보름 <b>오곡밥·약밥</b>, <b>부럼깨기</b> — 호두·땅콩·잣·밤을 깨물어 먹는다</td>
+            <td class="prod"><b>견과 휘낭시에 · 오곡 잡곡 브레드</b><em>부럼 = 견과류. 잡곡은 글루텐프리 배합</em></td>
+            <td><span class="ev ev-3">강함</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="closing">
+    <section>
+      <h3>구현 노트</h3>
+      <ul>
+        <li><b>절기는 하드코딩이 가능합니다.</b> 양력 기준 매년 같은 날(±1일)이고 황경으로 정의되니 24개 날짜를 상수로 두면 됩니다.</li>
+        <li><b>세시는 음력이라 매년 움직입니다.</b> 설·대보름·단오·유두·칠석·추석·중양절이 해당됩니다. 공공데이터포털의 한국천문연구원 음양력 변환 계열 API 지원 범위를 확인해야 합니다.</li>
+        <li><b>근거 약함 4개는 KAMIS로 채웁니다.</b> 우수·입추·처서·소한. 일별 도매·소매가와 지역별 가격을 주고, 공공데이터포털 경유 시 승인 대기가 없습니다.</li>
+        <li><b>친환경농산물 가격이 별도 API로 있습니다.</b> 웰니스 브랜드 포지션과 맞물리는 지점입니다.</li>
+      </ul>
+    </section>
+    <section>
+      <h3>기존 생산 라인 안에서</h3>
+      <ul>
+        <li>제품 제안은 현재 자사몰에 있는 형태만 씁니다 — <b>냉동생지 · 모닝롤 · 브레드 · 잉글리시 머핀 · 휘낭시에 · 스콘</b>.</li>
+        <li>새 카테고리를 만들지 않으니 라인업 24개가 <b>기존 공정의 배합 변경</b> 범위에 들어옵니다. 기업부설연구소가 있어 실행 설득이 쉽습니다.</li>
+        <li><b>냉동생지는 손님이 직접 굽습니다.</b> 화전·전병처럼 &lsquo;만들어 먹는&rsquo; 세시음식과 형식이 같아, 절기 라인업이 자연스럽게 참여형이 됩니다.</li>
+      </ul>
+    </section>
+    <section>
+      <h3>RFP 산출물 연결</h3>
+      <ul>
+        <li><b>② Bakery ETF</b>의 요구사항이 &ldquo;구매이력·<b>계절성</b>·판매량·<b>신제품</b>·선호도 반영&rdquo;입니다. 절기 라인업이 계절성과 신제품 두 축을 그대로 채웁니다.</li>
+        <li><b>4주 안에 제품 개발은 불가능합니다.</b> 레시피·HACCP 공정·포장까지 가야 하므로 이 문서는 구현이 아니라 <b>기획 산출물</b>입니다.</li>
+        <li>실제 구현은 <b>① Bread Market</b>이 담당하고, 절기는 그 화면의 무대·테마로 들어갑니다.</li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="caution">
+    <h3>발표 전 확인할 것</h3>
+    <p><b>절기와 명절은 다릅니다.</b> 정월대보름·추석·단오·칠석·유두·중양절·초파일은 음력 명절이라 24절기가 아닙니다. 위 표에서 &lsquo;세시 연계&rsquo; 열로 분리해 둔 이유이고, 발표 때는 &ldquo;절기&rdquo;가 아니라 <b>&ldquo;절기·세시&rdquo;</b>로 묶어 부르는 편이 안전합니다.</p>
+    <p><b>근거 &lsquo;약함&rsquo;은 전통으로 주장하지 마세요.</b> 우수·입추·처서·소한은 고유 세시음식이 사실상 없어 제철 작물로 채운 자리입니다. 이 네 개를 세시음식처럼 소개하면 지적받습니다.</p>
+    <p><b>세시음식 서술은 문헌 확인이 필요합니다.</b> 동지 팥죽·정월대보름 부럼·입춘 오신반처럼 널리 기록된 것과, 지역 풍속에 가까운 것(춘분 볶은 콩, 경칩 수액)이 섞여 있습니다. 최종본 전에 한국세시풍속사전 등으로 한 번 검증하는 것을 권합니다.</p>
+  </div>
+
+  <footer>
+    <span>24절기 · 황경 15° 간격</span>
+    <span>근거 강함 13 / 보통 7 / 약함 4</span>
+    <span>앵커 8종</span>
+    <span>산출물 ② Bakery ETF 기획 자료</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var TERMS=[
+    ["입춘",315,1,0],["우수",330,1,0],["경칩",345,1,0],["춘분",0,1,0],["청명",15,1,1],["곡우",30,1,1],
+    ["입하",45,2,0],["소만",60,2,0],["망종",75,2,0],["하지",90,2,1],["소서",105,2,1],["대서",120,2,0],
+    ["입추",135,3,0],["처서",150,3,0],["백로",165,3,1],["추분",180,3,1],["한로",195,3,0],["상강",210,3,0],
+    ["입동",225,4,1],["소설",240,4,0],["대설",255,4,0],["동지",270,4,2],["소한",285,4,0],["대한",300,4,1]
+  ];
+  var SEASON={1:"var(--spring)",2:"var(--summer)",3:"var(--autumn)",4:"var(--winter)"};
+  var ARCS=[[307.5,37.5,1],[37.5,127.5,2],[127.5,217.5,3],[217.5,307.5,4]];
+  var CARD=[["춘분",0],["하지",90],["추분",180],["동지",270]];
+
+  var S=340, c=S/2, rArc=158, rTickIn=126, rTickOut=142, rDot=112, rLabel=S/2-6;
+  function pt(r,deg){var a=deg*Math.PI/180;return [c+r*Math.cos(a), c-r*Math.sin(a)];}
+  function f(n){return Math.round(n*100)/100;}
+
+  var svg='<svg viewBox="0 0 '+S+' '+S+'" role="img" aria-label="24절기를 황경 15도 간격으로 배치한 원형 캘린더. 봄 여름 가을 겨울이 각각 90도를 차지하고 춘분 하지 추분 동지가 사방에 놓인다.">';
+
+  ARCS.forEach(function(a){
+    var p0=pt(rArc,a[0]), p1=pt(rArc,a[1]);
+    svg+='<path d="M '+f(p0[0])+' '+f(p0[1])+' A '+rArc+' '+rArc+' 0 0 0 '+f(p1[0])+' '+f(p1[1])+'" fill="none" stroke="'+SEASON[a[2]]+'" stroke-width="3" stroke-linecap="butt" opacity="0.9"/>';
+  });
+
+  svg+='<circle cx="'+c+'" cy="'+c+'" r="'+rDot+'" fill="none" stroke="var(--rule)" stroke-width="1"/>';
+
+  TERMS.forEach(function(t){
+    var col=SEASON[t[2]], major=t[3]>0;
+    var a=pt(rTickIn,t[1]), b=pt(rTickOut,t[1]);
+    svg+='<line x1="'+f(a[0])+'" y1="'+f(a[1])+'" x2="'+f(b[0])+'" y2="'+f(b[1])+'" stroke="'+col+'" stroke-width="'+(major?2:1)+'" opacity="'+(major?1:0.55)+'"/>';
+    var d=pt(rDot,t[1]);
+    if(t[3]===2){
+      svg+='<circle cx="'+f(d[0])+'" cy="'+f(d[1])+'" r="6.5" fill="'+col+'"/>';
+      svg+='<circle cx="'+f(d[0])+'" cy="'+f(d[1])+'" r="10" fill="none" stroke="'+col+'" stroke-width="1"/>';
+    } else if(t[3]===1){
+      svg+='<circle cx="'+f(d[0])+'" cy="'+f(d[1])+'" r="4.5" fill="'+col+'"/>';
+    } else {
+      svg+='<circle cx="'+f(d[0])+'" cy="'+f(d[1])+'" r="2.6" fill="var(--rule)"/>';
+    }
+  });
+
+  CARD.forEach(function(k){
+    var p=pt(rLabel,k[1]), anchor="middle", dy="0.34em", dx=0;
+    if(k[1]===0){anchor="end";dx=-2;}
+    if(k[1]===180){anchor="start";dx=2;}
+    if(k[1]===90){dy="0.9em";}
+    if(k[1]===270){dy="-0.4em";}
+    svg+='<text x="'+f(p[0]+dx)+'" y="'+f(p[1])+'" dy="'+dy+'" text-anchor="'+anchor+'" font-family="IBM Plex Mono, monospace" font-size="10.5" letter-spacing="0.06em" fill="var(--muted)">'+k[0]+' '+k[1]+'&#176;</text>';
+  });
+
+  svg+='<text x="'+c+'" y="'+(c-7)+'" text-anchor="middle" font-family="Gowun Batang, serif" font-weight="700" font-size="26" fill="var(--ink)">24</text>';
+  svg+='<text x="'+c+'" y="'+(c+13)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" letter-spacing="0.16em" fill="var(--faint)">JEOLGI</text>';
+  svg+='</svg>';
+
+  document.getElementById("ring").innerHTML=svg;
+})();
+</script>
