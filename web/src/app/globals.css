@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* 코리아 트래디셔널 & 웰니스
+   한지 바탕 + 먹 · 단청 청록 · 홍 를 포인트로 쓴다.
+   라이트 테마로 고정한다 — makji.kr이 밝은 톤이고 웰니스 정체성과 맞다. */
+
+:root {
+  --background: #faf7f0; /* 한지 */
+  --foreground: #1c1917; /* 먹 */
+  --ink: #1c1917;
+  --dancheong: #1b4d4b; /* 단청 청록 */
+  --hong: #a53f3f; /* 홍 */
+  --gold: #b8935f; /* 금박 */
+  --paper: #fffdf8; /* 카드 바탕 */
+  --line: #e7ddcc; /* 한지 경계선 */
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-ink: var(--ink);
+  --color-dancheong: var(--dancheong);
+  --color-hong: var(--hong);
+  --color-gold: var(--gold);
+  --color-paper: var(--paper);
+  --color-line: var(--line);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-serif-kr);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+}
+
+/* 한지 질감 — 아주 옅은 결 */
+.hanji {
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(184, 147, 95, 0.035) 0px,
+      rgba(184, 147, 95, 0.035) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(184, 147, 95, 0.025) 0px,
+      rgba(184, 147, 95, 0.025) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+}
+
+/* 세로 구분선 — 전통 문서의 괘선 느낌 */
+.rule-gold {
+  border-image: linear-gradient(90deg, transparent, var(--gold), transparent) 1;
+}
