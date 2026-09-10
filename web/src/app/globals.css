@@ -240,21 +240,43 @@ summary::-webkit-details-marker { display: none; }
 .gallery-count { font-size: 11px; color: var(--muted); }
 .demo-note { font-size: 11px; color: #737763; line-height: 1.9; background: #eeeee3; border-left: 2px solid #9a9e84; padding: 12px 16px; margin: 25px 0; }
 .contest-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 28px; list-style: none; padding: 0; }
+
+/* 빵 카테고리별 1~3위.
+   카드 폭을 기존 2열 그리드와 같게 두어(= (100% - 28px) / 2) 크기를 유지한다.
+   그래서 3장은 화면을 넘치고, 넘친 만큼은 이 줄 안에서만 가로로 스크롤한다.
+   페이지 본문이 가로로 흐르면 안 되므로 overflow는 반드시 .rank-row에 둔다. */
+.category-rankings { display: flex; flex-direction: column; gap: 46px; }
+.category-rank-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 22px; }
+.category-rank-head h3 { font-family: var(--font-serif-kr), serif; font-size: 21px; font-weight: 500; letter-spacing: -.03em; }
+.category-rank-head > span { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.rank-row { display: flex; align-items: stretch; gap: 28px; list-style: none; margin: 0; padding: 0 0 16px; overflow-x: auto; overscroll-behavior-x: contain; }
+.rank-row > li { flex: 0 0 calc((100% - 28px) / 2); }
 .recipe-card { border: 1px solid var(--line); background: var(--paper); }
 .recipe-image { position: relative; overflow: hidden; }
 .recipe-image .product-photo { aspect-ratio: 1.5; transition: transform .5s; }
 .recipe-card:hover .product-photo { transform: scale(1.025); }
-.recipe-rank { position: absolute; top: 15px; left: 15px; font-family: var(--font-serif-kr), serif; font-size: 20px; background: var(--paper); width: 42px; height: 42px; display: grid; place-items: center; }
+.recipe-rank { position: absolute; top: 15px; left: 15px; font-family: var(--font-serif-kr), serif; font-size: 17px; background: var(--paper); min-width: 42px; height: 42px; padding: 0 12px; display: grid; place-items: center; }
+.recipe-card.is-first .recipe-rank { background: var(--hong); color: #fffdf4; }
 .reference-label { position: absolute; right: 10px; bottom: 10px; font-size: 9px; padding: 5px 7px; background: #f7f5eeeb; }
 .recipe-content { padding: 24px; }
 .recipe-tags { display: flex; flex-wrap: wrap; gap: 10px; color: #7b826b; font-size: 10px; }
-.recipe-content h3 { font-family: var(--font-serif-kr), serif; font-size: 23px; font-weight: 500; margin-top: 10px; }
+.recipe-content h4 { font-family: var(--font-serif-kr), serif; font-size: 23px; font-weight: 500; margin-top: 10px; }
 .recipe-content > p { color: var(--muted); line-height: 1.8; font-size: 12px; margin-top: 12px; min-height: 44px; }
 .recipe-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 20px; gap: 10px; }
 .recipe-footer > span { font-size: 10px; color: var(--muted); overflow-wrap: anywhere; }
-.vote-button { display: flex; gap: 8px; align-items: center; font-size: 12px; min-height: 44px; padding: 9px 15px; border: 1px solid var(--line); white-space: nowrap; }
-.vote-button > span { color: var(--hong); font-size: 18px; }
-.vote-button.is-voted { color: var(--hong); border-color: var(--hong); background: #f4e7dd; }
+/* 좋아요는 게시물에서 가져온 수치다 — 누를 수 없는 표시이므로 버튼이 아니다.
+   동기화 시점의 스냅샷이라 기준 시각을 함께 적는다. */
+/* 좋아요 수 아래에 기준 시각을 따로 놓는다 — 한 줄에 붙이면 숫자가 묻힌다 */
+.like-count { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12px; white-space: nowrap; }
+.like-count-main { display: flex; gap: 7px; align-items: baseline; }
+.like-count-main > span { color: var(--hong); font-size: 16px; }
+.like-count-main > b { font-weight: 500; font-size: 14px; }
+.like-count > small { color: var(--muted); font-size: 9px; }
+.like-count.is-hidden-count { color: var(--muted); font-size: 10px; }
+.recipe-author { font-size: 11px; color: var(--muted); margin-top: 7px; overflow-wrap: anywhere; }
+.post-link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; font-size: 11px; color: var(--ink); border: 1px solid var(--line); background: var(--paper); padding: 11px 15px; min-height: 40px; transition: color .2s, border-color .2s, background .2s; }
+.post-link > span { font-size: 14px; line-height: 1; }
+.post-link:hover { color: var(--hong); border-color: var(--hong); background: #f4f2e7; }
 .archive-total { display: flex; align-items: center; gap: 18px; }
 .archive-total strong { font-family: var(--font-serif-kr), serif; font-size: 76px; font-weight: 400; line-height: 1.1; }
 .archive-total > span { font-size: 12px; line-height: 2; color: var(--muted); }
@@ -417,9 +439,15 @@ summary::-webkit-details-marker { display: none; }
   .rewards li > span { font-size: 21px; margin-bottom: 9px; }
   .gallery-section { padding-top: 35px; }
   .contest-grid { grid-template-columns: 1fr; gap: 24px; }
+  .category-rankings { gap: 34px; }
+  .rank-row { gap: 24px; }
+  .rank-row > li { flex: 0 0 100%; }
+  .category-rank-head h3 { font-size: 18px; }
   .recipe-content { padding: 20px; }
-  .recipe-content h3 { font-size: 22px; }
+  .recipe-content h4 { font-size: 22px; }
   .recipe-content > p { min-height: 0; }
+  .recipe-footer { flex-wrap: wrap; gap: 12px; }
+  .post-link { flex: 1 1 auto; }
   .archive-total strong { font-size: 49px; }
   .archive-total { gap: 12px; }
   .archive-total > span { font-size: 10px; }
