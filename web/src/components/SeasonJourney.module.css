@@ -2,7 +2,7 @@
   --journey-progress: 0;
   --dial-turn: 0deg;
   position: relative;
-  height: 460svh;
+  height: 220svh;
   scroll-margin-top: 0;
 }
 .stage {
@@ -84,16 +84,23 @@
 .innerRing { stroke: var(--scene-line); stroke-width: .6; }
 /* 호는 회전하지 않고 --journey-progress 만큼 채워진다. pathLength=1 이라 dasharray가 곧 비율이다. */
 .seasonArcTrack { stroke: var(--scene-line); stroke-width: 2; opacity: .45; }
-.seasonArc { stroke: var(--scene-accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: var(--journey-progress) 1; }
+/* --arc-progress 는 절기 버튼을 눌렀을 때만 들어온다. 없으면 스크롤 진행도로 떨어진다. */
+.seasonArc { stroke: var(--scene-accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: var(--arc-progress, var(--journey-progress)) 1; }
 .tick { color: var(--scene-muted); opacity: .52; transition: color .6s, opacity .6s; }
 .activeTick { color: var(--scene-ink); transition: color .6s; }
 /* 호가 지나간 절기 — 그래프와 같은 색으로 켜진다 */
 .sweptTick { color: var(--scene-accent); opacity: 1; transition: color .45s, opacity .45s; }
 .sweptTick line { stroke-width: 1.4; }
 .sweptTick text { font-weight: 600; }
-.tick line, .activeTick line, .sweptTick line { stroke: currentColor; stroke-width: 1; }
-.tick text, .activeTick text, .sweptTick text { fill: currentColor; font-size: 12px; font-family: var(--font-serif-kr), serif; }
-.tick circle, .activeTick circle, .sweptTick circle { fill: var(--scene-accent); }
+.tick line, .activeTick line, .sweptTick line, .selectedTick line { stroke: currentColor; stroke-width: 1; }
+.tick text, .activeTick text, .sweptTick text, .selectedTick text { fill: currentColor; font-size: 12px; font-family: var(--font-serif-kr), serif; }
+.tick circle, .activeTick circle, .sweptTick circle, .selectedTick circle { fill: var(--scene-accent); }
+/* 절기 버튼으로 고른 절기 — 왼쪽 상세·달력 중앙 글자와 같은 절기를 가리킨다.
+   공용 규칙 뒤에 와야 stroke-width·font-weight 재정의가 이긴다 (특이도가 같다). */
+.selectedTick { color: var(--scene-accent); opacity: 1; transition: color .3s; }
+.selectedTick line { stroke-width: 2.2; }
+.selectedTick text { font-weight: 700; }
+.selectedTick .selectedMark { stroke: var(--scene-bg); stroke-width: 2.5; }
 .calendarCenter { position: absolute; inset: 25%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .centerLabel { font-size: 10px; letter-spacing: .22em; color: var(--scene-muted); }
 .seasonCharacter { font-family: var(--font-serif-kr), serif; font-size: clamp(95px, 10vw, 145px); line-height: 1.5; font-weight: 400; animation: seasonEnter .9s both; }
@@ -138,7 +145,7 @@
   .scrollHint { display: none; }
 }
 @media (max-width: 760px) {
-  .journey { height: 420svh; }
+  .journey { height: 200svh; }
   .stage { min-height: 620px; }
   .stageInner { width: calc(100% - 40px); }
   .topline { min-height: 50px; font-size: 9px; gap: 10px; }
@@ -148,15 +155,15 @@
   .copy { max-width: none; width: 100%; display: contents; }
   .kicker { order: 0; align-self: start; font-size: 8px; gap: 10px; }
   .chapterTitle { order: 1; align-self: start; font-size: 31px; line-height: 1.5; margin: 6px 0 0; }
-  .chapterTitle > span { display: inline; }
-  .chapterTitle > span + span { margin-left: 8px; }
+  .chapterTitle > span { display: block; }
+  .chapterTitle > span + span { margin-left: 0; }
   .description { order: 2; align-self: start; font-size: 11px; margin: 6px 0 0; line-height: 1.8; max-width: none; }
   .calendar { order: 3; width: min(228px, 52vw); margin: 0 auto; flex-shrink: 0; }
   .calendarFootnote, .centerLabel, .centerSeal { display: none; }
   .seasonCharacter { font-size: 65px; line-height: 1.35; }
   .centerTerm { font-size: 9px; letter-spacing: .04em; }
   .centerTerm i { padding: 0 4px; }
-  .tick text, .activeTick text { font-size: 18px; }
+  .tick text, .activeTick text, .sweptTick text, .selectedTick text { font-size: 18px; }
   .ingredientList { order: 4; align-self: start; margin: 2px 0 6px; gap: 12px; font-size: 11px; }
   .ingredientList > strong { font-size: 19px; }
   .ingredientList > span { font-size: 9px; }
@@ -188,6 +195,6 @@
   .calendarHalo { transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .stage, .seasonArc, .tick, .activeTick, .termButtons button { transition: none; }
+  .stage, .seasonArc, .tick, .activeTick, .selectedTick, .termButtons button { transition: none; }
   .chapterTitle, .description, .seasonCharacter, .scrollLine::after { animation: none; }
 }

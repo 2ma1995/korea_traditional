@@ -96,8 +96,8 @@ export function buildCampaign(
     reasons.push(`${term.ko}는 ${term.food}`);
   }
   reasons.push(
-    plan.targetLine === 'domestic'
-      ? '코스피가 올라 국산 쌀가루 라인을 할인합니다 (쌀 자급률 96.0%)'
+    plan.targetGlutenFree
+      ? '코스피가 올라 밀가루를 쓰지 않은 글루텐프리 라인을 할인합니다'
       : '코스피가 내려 부담을 덜어드리는 가격으로 준비했습니다',
   );
 

@@ -77,14 +77,26 @@ function rand(seed: number, salt: number) {
 /* 외부 API                                                            */
 /* ------------------------------------------------------------------ */
 
-async function fetchYahoo(symbol: string): Promise<Quote | null> {
+/**
+ * 캐시 정책.
+ *
+ * 페이지 렌더는 1분 캐시로 외부 API 호출을 아끼고, 초단위 폴링(/api/kospi)은
+ * 캐시를 건너뛰고 매번 새로 받아온다. 캐시를 태우면 폴링해도 같은 값만 돌아온다.
+ */
+function cacheOption(fresh: boolean) {
+  return fresh
+    ? ({ cache: 'no-store' } as const)
+    : ({ next: { revalidate: REVALIDATE_SECONDS } } as const);
+}
+
+async function fetchYahoo(symbol: string, fresh = false): Promise<Quote | null> {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
       symbol,
     )}?interval=1d&range=5d`;
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
-      next: { revalidate: REVALIDATE_SECONDS },
+      ...cacheOption(fresh),
     });
     if (!res.ok) return null;
 
@@ -116,13 +128,13 @@ async function fetchYahoo(symbol: string): Promise<Quote | null> {
  *    실서비스 전환 시에는 한국거래소 공식 데이터로 교체해야 한다.
  *    실패하면 Yahoo ^KS11로 폴백한다.
  */
-async function fetchNaverKospi(): Promise<(Quote & { marketOpen: boolean }) | null> {
+async function fetchNaverKospi(fresh = false): Promise<(Quote & { marketOpen: boolean }) | null> {
   try {
     const res = await fetch(
       'https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI',
       {
         headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://finance.naver.com/' },
-        next: { revalidate: REVALIDATE_SECONDS },
+        ...cacheOption(fresh),
       },
     );
     if (!res.ok) return null;
@@ -170,6 +182,33 @@ async function fetchSeoulTemp(): Promise<number | null> {
 /* ------------------------------------------------------------------ */
 /* 공개 API                                                            */
 /* ------------------------------------------------------------------ */
+
+/** 초단위 폴링으로 내려주는 코스피 한 틱 */
+export interface KospiTick extends Quote {
+  /** 네이버 marketStatus 기준 개장 여부. Yahoo 폴백이면 null */
+  marketOpen: boolean | null;
+  /** 이 틱을 받아온 시각 (epoch ms) */
+  fetchedAt: number;
+}
+
+/**
+ * 코스피만 캐시 없이 다시 받아온다 — /api/kospi 전용.
+ *
+ * 화면 전체를 다시 그리지 않고 시세 숫자만 갈아끼우기 위한 경로다.
+ * 두 소스가 모두 실패하면 null을 돌려준다. 이때 클라이언트는
+ * 마지막으로 성공한 값을 그대로 유지한다 (샘플 값으로 튀지 않는다).
+ */
+export async function fetchKospiTick(): Promise<KospiTick | null> {
+  const naver = await fetchNaverKospi(true);
+  const quote = naver ?? (await fetchYahoo('^KS11', true));
+  if (!quote) return null;
+
+  return {
+    ...quote,
+    marketOpen: naver?.marketOpen ?? null,
+    fetchedAt: Date.now(),
+  };
+}
 
 export async function getMarketSnapshot(date = new Date()): Promise<MarketSnapshot> {
   const dateStr = toDateString(date);

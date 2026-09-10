@@ -111,6 +111,9 @@ export async function fetchProducePrices(now = new Date()): Promise<Map<string, 
   }
 
   for (const ing of SEASONAL_INGREDIENTS) {
+    // itemName이 없으면 시세 연동 대상이 아니다 (조사 품목이 없거나 국산이 아닌 재료)
+    if (!ing.itemName) continue;
+
     const candidates = items
       .filter((r) => r.item_nm === ing.itemName && r.se_nm === '소매')
       .filter((r) => {

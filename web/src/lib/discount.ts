@@ -1,5 +1,5 @@
 import { COST_GUARDRAIL, DISCOUNT_TIERS } from '@/data/indicators';
-import { PRODUCTS, type Product, type ProductLine } from '@/data/products';
+import { PRODUCTS, type Product } from '@/data/products';
 import type { MarketSnapshot } from './market';
 
 export interface DiscountedItem {
@@ -11,8 +11,8 @@ export interface DiscountedItem {
 
 export interface DailyPlan {
   date: string;
-  /** 할인 대상 라인 */
-  targetLine: ProductLine;
+  /** 할인 대상이 글루텐프리 라인인가 */
+  targetGlutenFree: boolean;
   /** 적용 할인율 (가드레일 반영 후) */
   rate: number;
   /** 가드레일이 발동했는가 */
@@ -21,7 +21,7 @@ export interface DailyPlan {
   reason: string;
   /** 판매 가능한 할인 대상 */
   items: DiscountedItem[];
-  /** 할인 대상이지만 품절인 제품 */
+  /** 할인 대상이지만 품절인 제품. 정가 높은 순 */
   soldOut: Product[];
 }
 
@@ -38,8 +38,8 @@ function tierFor(changePct: number) {
 /**
  * 코스피 방향으로 할인 대상 라인을 정하고, 등락 폭으로 할인율을 정한다.
  *
- * 상승 → 국산 라인 (쌀 자급률 96.0%)
- * 하락 → 수입 라인 (밀 자급률 1.5%)
+ * 상승 → 글루텐프리 라인 (밀가루를 쓰지 않은 6종)
+ * 하락 → 그 외 라인 (글루텐프리 표기가 없는 4종)
  *
  * 코스피는 원가 지표가 아니라 응원 지표다. 양방향 모두 할인이므로
  * 소비자가 손해 보는 경우가 구조적으로 없다.
@@ -49,13 +49,13 @@ export function buildDailyPlan(
   products: Product[] = PRODUCTS,
 ): DailyPlan {
   const up = market.kospi.changePct >= 0;
-  const targetLine: ProductLine = up ? 'domestic' : 'imported';
+  const targetGlutenFree = up;
 
   const tier = tierFor(market.kospi.changePct);
   const guardrailApplied = market.costIndexPct > COST_GUARDRAIL.thresholdPct;
   const rate = guardrailApplied ? tier.rate * COST_GUARDRAIL.multiplier : tier.rate;
 
-  const targeted = products.filter((p) => p.line === targetLine);
+  const targeted = products.filter((p) => p.glutenFree === targetGlutenFree);
 
   const items = targeted
     .filter((p) => p.inStock)
@@ -67,14 +67,14 @@ export function buildDailyPlan(
 
   return {
     date: market.date,
-    targetLine,
+    targetGlutenFree,
     rate,
     guardrailApplied,
-    headline: up ? '국장 좋은 날, 국산 쌀로 만든 빵' : '힘든 날, 부담 없는 가격으로',
+    headline: up ? '국장 좋은 날, 밀가루 없이 만든 빵' : '힘든 날, 부담 없는 가격으로',
     reason: up
-      ? `코스피가 ${market.kospi.changePct.toFixed(2)}% 올랐습니다. 국산 쌀가루로 만든 글루텐프리 라인을 할인합니다.`
+      ? `코스피가 ${market.kospi.changePct.toFixed(2)}% 올랐습니다. 밀가루를 쓰지 않은 글루텐프리 라인을 할인합니다.`
       : `코스피가 ${Math.abs(market.kospi.changePct).toFixed(2)}% 내렸습니다. 부담을 덜어드리는 가격으로 준비했습니다.`,
     items,
-    soldOut: targeted.filter((p) => !p.inStock),
+    soldOut: targeted.filter((p) => !p.inStock).sort((a, b) => b.price - a.price),
   };
 }

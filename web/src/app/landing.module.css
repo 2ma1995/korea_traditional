@@ -43,9 +43,12 @@
 .indexChange small { font-family: var(--font-geist-sans), sans-serif; font-size: 10px; color: var(--muted); margin-left: 12px; }
 .up { color: var(--hong); }
 .down { color: #45618b; }
-.marketStatus { margin-top: 28px; }
-.marketStatus :global(.text-neutral-400) { color: #747b6b; }
-.marketExtras { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); margin-top: 27px; padding-top: 23px; gap: 18px; }
+.tickUp, .tickDown { animation: kospiTick .55s ease-out; }
+.tickUp { --tick-color: var(--hong); }
+.tickDown { --tick-color: #45618b; }
+@keyframes kospiTick { from { color: var(--tick-color); } to { color: var(--ink); } }
+@media (prefers-reduced-motion: reduce) { .tickUp, .tickDown { animation: none; } }
+.marketExtras { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); margin-top: 40px; padding-top: 23px; gap: 18px; }
 .marketExtras > div { display: flex; flex-direction: column; gap: 8px; }
 .marketExtras span { color: var(--muted); font-size: 10px; }
 .marketExtras strong { font-size: 20px; font-weight: 500; }
@@ -59,12 +62,25 @@
 .benefitRate > strong { font-family: var(--font-serif-kr), serif; font-size: 70px; font-weight: 400; color: var(--hong); line-height: 1.4; }
 .benefitRate > strong > span { font-size: 35px; margin-left: 3px; }
 .benefitRate > p { font-size: 11px; color: #69765c; line-height: 1.8; }
-.featuredBread { display: flex; align-items: center; gap: 16px; border-top: 1px solid #bec9ae; padding-top: 18px; margin-top: 12px; }
-.featuredBread :global(.product-photo) { width: 72px; height: 72px; flex-shrink: 0; }
-.featuredBread > div > span { font-size: 9px; color: #69765c; }
-.featuredBread > div > strong { display: block; font-weight: 500; font-size: 14px; margin-top: 5px; }
-.featuredBread p { font-size: 14px; margin-top: 6px; }
-.featuredBread del { color: #69765c; font-size: 10px; margin-left: 8px; }
+.featuredList { border-top: 1px solid #bec9ae; padding-top: 14px; margin-top: 12px; }
+.featuredLabel { display: flex; justify-content: space-between; align-items: baseline; font-size: 9px; color: #69765c; }
+/* 한 줄에 두 제품. 대상 라인이 6종까지 나와도 카드가 세로로 늘어지지 않는다. */
+.featuredList ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }
+.featuredBread { display: flex; align-items: center; gap: 12px; padding: 11px 0; min-width: 0; }
+/* 2열 그리드에서 인접 형제는 같은 줄의 옆칸이다. 줄 구분선은 3번째 칸부터 얹는다 */
+.featuredBread:nth-child(n + 3) { border-top: 1px solid #cbd4bb; }
+.featuredBread :global(.product-photo) { width: 48px; height: 48px; flex-shrink: 0; }
+.featuredBread > div { min-width: 0; }
+.featuredBread > div > strong { display: block; font-weight: 500; font-size: 13px; letter-spacing: -.02em; }
+.featuredBread p { font-size: 13px; margin-top: 4px; white-space: nowrap; }
+.featuredBread del { color: #69765c; font-size: 10px; margin-left: 6px; }
+/* 품절 — 오늘 대상 라인이되 살 수 없는 제품. 판매중 항목보다 한 단계 낮게 보이도록
+   사진은 흑백으로 죽이고 행 높이도 줄인다. 할인가는 쓰지 않는다 (살 수 없는 가격이라). */
+.soldOutBread { padding: 8px 0; gap: 10px; }
+.soldOutBread :global(.product-photo) { width: 34px; height: 34px; filter: grayscale(1); opacity: .6; }
+.soldOutBread > div > strong { font-size: 12px; font-weight: 400; color: #7f8875; }
+.soldOutBread p { font-size: 11px; margin-top: 2px; color: #8b937f; }
+.soldOutTag { border: 1px solid #c3cdb3; color: #7f8875; font-size: 9px; padding: 1px 4px; margin-left: 5px; white-space: nowrap; }
 .benefitLink { display: flex; align-items: center; justify-content: space-between; padding-top: 20px; margin-top: 20px; border-top: 1px solid #bec9ae; font-size: 12px; }
 .benefitLink > span { font-size: 20px; }
 .benefitLink:hover { color: var(--hong); }
@@ -107,6 +123,9 @@
   .quoteHeader > span:first-child { flex-wrap: wrap; gap: 8px; }
 }
 @media (max-width: 760px) {
+  .featuredList ul { grid-template-columns: 1fr; }
+  .featuredBread:nth-child(n + 2) { border-top: 1px solid #cbd4bb; }
+
   .opening { grid-template-columns: 1fr; padding-top: 34px; gap: 12px; min-height: auto; }
   .openingCopy { padding: 0; }
   .openingCopy > span { font-size: 8px; }
@@ -139,7 +158,6 @@
   .quoteHeader > span:first-child { font-size: 13px; }
   .indexValue { font-size: 48px; margin-top: 20px; }
   .indexChange { font-size: 16px; }
-  .marketStatus { margin-top: 21px; }
   .marketExtras { gap: 12px; margin-top: 22px; }
   .marketExtras strong { font-size: 18px; }
   .marketExtras small { font-size: 8px; }
