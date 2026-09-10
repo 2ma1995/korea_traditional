@@ -1,0 +1,174 @@
+/* 문이 열리고 → 하얀 화면 → 문장 → 페이드아웃 → 「우리의 계절을 읽다」 */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--paper);
+  overflow: hidden;
+  animation: overlayOut 0.7s cubic-bezier(0.4, 0, 0.2, 1) 3.75s forwards;
+}
+
+/* ── 문 ── */
+.doors {
+  position: absolute;
+  inset: 0;
+  perspective: 1500px;
+  transform-style: preserve-3d;
+}
+
+.panel {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 50%;
+  overflow: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
+  box-shadow: 0 0 60px rgba(38, 61, 52, 0.28);
+}
+
+/* 각 패널 안에서 문 이미지의 자기 쪽 절반만 보이게 한다 */
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 200%;
+  background: url('/images/door.png') center / cover no-repeat;
+}
+
+.left {
+  left: 0;
+  transform-origin: left center;
+  animation: swingLeft 1.55s cubic-bezier(0.62, 0.02, 0.3, 1) 0.4s forwards;
+}
+.left::before { left: 0; }
+
+.right {
+  right: 0;
+  transform-origin: right center;
+  animation: swingRight 1.55s cubic-bezier(0.62, 0.02, 0.3, 1) 0.4s forwards;
+}
+.right::before { right: 0; }
+
+/* 문틈에 드는 빛 */
+.seam {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 100%;
+  margin-left: -1px;
+  background: linear-gradient(180deg, transparent, #fffdf6 22%, #fffdf6 78%, transparent);
+  opacity: 0;
+  animation: seamGlow 1.1s ease-out 0.42s forwards;
+}
+
+/* ── 문장 ── */
+.line {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 28px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.line p {
+  margin: 0;
+  font-family: var(--font-serif-kr), serif;
+  font-size: clamp(27px, 4.2vw, 60px);
+  line-height: 1.62;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  word-break: keep-all;
+  opacity: 0;
+  animation: lineIn 1.15s cubic-bezier(0.2, 0.7, 0.2, 1) 1.35s forwards,
+             lineOut 0.85s cubic-bezier(0.4, 0, 1, 1) 3.1s forwards;
+}
+
+.line em {
+  font-style: normal;
+  color: var(--hong);
+}
+
+.mark {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(64px, 12vh, 132px);
+  transform: translateX(-50%);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  opacity: 0;
+  animation: lineIn 1s ease-out 1.9s forwards, lineOut 0.7s ease-in 3.1s forwards;
+}
+
+/* ── 건너뛰기 ── */
+.skip {
+  position: absolute;
+  right: clamp(20px, 4vw, 46px);
+  bottom: clamp(20px, 4vh, 42px);
+  z-index: 2;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  padding: 9px 15px;
+  cursor: pointer;
+  opacity: 0;
+  animation: skipIn 0.6s ease-out 1.2s forwards;
+  transition: color 0.2s, border-color 0.2s;
+}
+.skip:hover { color: var(--ink); border-color: var(--ink); }
+
+/* ── 키프레임 ── */
+@keyframes swingLeft {
+  to { transform: rotateY(-102deg); }
+}
+@keyframes swingRight {
+  to { transform: rotateY(102deg); }
+}
+@keyframes seamGlow {
+  0% { opacity: 0; }
+  35% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes lineIn {
+  from { opacity: 0; transform: translateY(16px); filter: blur(9px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes lineOut {
+  to { opacity: 0; filter: blur(7px); }
+}
+@keyframes skipIn {
+  to { opacity: 1; }
+}
+@keyframes overlayOut {
+  to { opacity: 0; visibility: hidden; }
+}
+
+/* 건너뛰기를 누르면 즉시 걷힌다 */
+.dismiss {
+  animation: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s ease-out, visibility 0.35s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .left,
+  .right,
+  .seam,
+  .line p,
+  .mark,
+  .skip {
+    animation: none !important;
+  }
+  .overlay { opacity: 0; visibility: hidden; }
+}

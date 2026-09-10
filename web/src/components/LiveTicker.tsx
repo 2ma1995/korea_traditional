@@ -13,10 +13,27 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 
 const REFRESH_MS = 60_000;
 
+/**
+ * 1초마다 갱신되는 외부 시계.
+ *
+ * getSnapshot은 값이 실제로 바뀌지 않는 한 같은 값을 돌려줘야 한다.
+ * Date.now()를 그대로 반환하면 호출마다 값이 달라져 React가
+ * "The result of getSnapshot should be cached" 경고와 함께 렌더 루프에 빠진다.
+ * 그래서 틱이 돌 때만 캐시를 갱신한다.
+ */
+let clockNow = Date.now();
+
 function subscribeToClock(onTick: () => void) {
-  const id = setInterval(onTick, 1000);
+  clockNow = Date.now();
+  const id = setInterval(() => {
+    clockNow = Date.now();
+    onTick();
+  }, 1000);
   return () => clearInterval(id);
 }
+
+const getClockSnapshot = () => clockNow;
+const getServerClockSnapshot = () => null;
 
 /**
  * 한국 증시 개장 여부 (폴백용).
@@ -63,7 +80,11 @@ export default function LiveTicker({
   const [refreshing, setRefreshing] = useState(false);
 
   // 서버 스냅샷을 null로 두어 hydration 불일치를 피한다
-  const nowMs = useSyncExternalStore(subscribeToClock, () => Date.now(), () => null);
+  const nowMs = useSyncExternalStore(
+    subscribeToClock,
+    getClockSnapshot,
+    getServerClockSnapshot,
+  );
 
   useEffect(() => {
     const id = setInterval(() => {

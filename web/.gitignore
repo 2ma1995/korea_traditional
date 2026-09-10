@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 브랜드 에셋 — 저장소가 Public이라 커밋하지 않는다.
+# MAKJI 상품 사진은 기업 사전 협의·승인이 필요한 마케팅 자산이고,
+# git 히스토리에 한 번 들어가면 되돌릴 수 없다. 로컬에만 두고 쓴다.
+# 배포 시에는 기업 승인을 받은 뒤 별도 경로로 올린다.
+public/images/

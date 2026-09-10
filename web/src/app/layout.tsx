@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Serif_KR } from "next/font/google";
 import "./globals.css";
+import Link from "next/link";
+import SiteHeader from "@/components/SiteHeader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,8 +25,8 @@ const notoSerifKR = Noto_Serif_KR({
 });
 
 export const metadata: Metadata = {
-  title: "오늘의 빵시장 · MAKJI",
-  description: "오늘의 시장으로 빵을 산다 — 코리아 트래디셔널 & 웰니스",
+  title: "막지 절기상점 · MAKJI",
+  description: "한국의 계절을 한 입에 담다. 막지와 함께 만드는 스물네 절기의 맛.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -33,7 +35,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} ${notoSerifKR.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <SiteHeader />
+        {children}
+        <footer className="site-footer">
+          <div className="footer-top"><Link href="/" className="wordmark">막지<small>MAKJI</small></Link><p>계절이 건네는 맛, 막지가 담습니다.</p><a href="https://makji.kr" target="_blank" rel="noopener noreferrer">막지 공식몰 ↗</a></div>
+          <div className="footer-bottom"><span>© {new Date().getFullYear()} MAKJI. All rights reserved.</span><span>한국의 계절을 한 입에 담다.</span></div>
+        </footer>
+      </body>
     </html>
   );
 }

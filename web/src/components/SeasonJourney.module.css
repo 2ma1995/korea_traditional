@@ -1,0 +1,193 @@
+.journey {
+  --journey-progress: 0;
+  --dial-turn: 0deg;
+  position: relative;
+  height: 460svh;
+  scroll-margin-top: 0;
+}
+.stage {
+  --scene-bg: #e8ecdd;
+  --scene-ink: #344a37;
+  --scene-muted: #5c7055;
+  --scene-line: #b9c5ad;
+  --scene-accent: #995039;
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  min-height: 620px;
+  overflow: hidden;
+  background: var(--scene-bg);
+  color: var(--scene-ink);
+  transition: background-color .8s ease, color .7s ease;
+}
+.stage[data-season='1'] {
+  --scene-bg: #29483b;
+  --scene-ink: #f0f0d9;
+  --scene-muted: #bdcbb1;
+  --scene-line: #6e8771;
+  --scene-accent: #e5c88f;
+}
+.stage[data-season='2'] {
+  --scene-bg: #ad6046;
+  --scene-ink: #fff3dd;
+  --scene-muted: #f0d9bb;
+  --scene-line: #d59a7b;
+  --scene-accent: #ffdfa7;
+}
+.stage[data-season='3'] {
+  --scene-bg: #303f48;
+  --scene-ink: #eef0e7;
+  --scene-muted: #bfcdd0;
+  --scene-line: #7b9098;
+  --scene-accent: #e4bd93;
+}
+.grain { position: absolute; inset: 0; pointer-events: none; opacity: .18; background: repeating-linear-gradient(90deg, transparent 0 5px, #8c8e7826 5px 6px); }
+.stageInner { width: min(1360px, calc(100% - 112px)); height: 100%; margin: auto; position: relative; display: flex; flex-direction: column; }
+.topline, .bottomline { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.topline { min-height: 82px; border-bottom: 1px solid var(--scene-line); font-size: 11px; letter-spacing: .04em; }
+.topline > span { font-family: var(--font-serif-kr), serif; }
+.topline a { font-size: 10px; display: flex; align-items: center; gap: 16px; padding-block: 14px; color: var(--scene-muted); }
+.topline a:hover, .archiveLink:hover { color: var(--scene-ink); }
+.toplineDivider { margin: 0 15px; opacity: .4; }
+.scene { flex: 1; min-height: 0; display: grid; grid-template-columns: .9fr 1.1fr; align-items: center; gap: 35px; padding-block: 25px; }
+.copy { max-width: 490px; }
+.kicker { display: flex; align-items: center; gap: 14px; font-size: 10px; letter-spacing: .2em; color: var(--scene-muted); }
+.kicker > span { width: 26px; height: 1px; background: var(--scene-line); }
+.chapterTitle { font-size: clamp(34px, 4.2vw, 61px); font-weight: 400; line-height: 1.48; margin-top: 20px; animation: chapterEnter .65s both; }
+.chapterTitle > span { display: block; }
+.chapterTitle em { color: var(--scene-accent); }
+.description { font-size: 13px; line-height: 1.9; margin-top: 18px; color: var(--scene-muted); max-width: 350px; word-break: keep-all; animation: chapterEnter .65s both; }
+.ingredientList { display: flex; gap: 18px; align-items: baseline; margin-top: 24px; font-size: 12px; flex-wrap: wrap; }
+.ingredientList > span { color: var(--scene-muted); font-size: 10px; margin-right: 5px; }
+.ingredientList > strong { font-weight: 500; font-size: 26px; font-family: var(--font-serif-kr), serif; color: var(--scene-accent); letter-spacing: .01em; }
+.termExplorer { margin-top: 28px; }
+.termExplorer > p { color: var(--scene-muted); font-size: 10px; margin-bottom: 12px; }
+.termButtons { display: grid; grid-template-columns: repeat(6, 1fr); border: 1px solid var(--scene-line); }
+.termButtons button { position: relative; min-height: 44px; font-size: 12px; border-right: 1px solid var(--scene-line); transition: background .2s; }
+.termButtons button:last-child { border: 0; }
+.termButtons button:hover { background: color-mix(in srgb, var(--scene-ink) 10%, transparent); }
+.termButtons button[aria-pressed='true'] { background: var(--scene-ink); color: var(--scene-bg); }
+.todayDot { position: absolute; width: 4px; height: 4px; background: var(--scene-accent); border-radius: 50%; right: 6px; top: 7px; }
+.termDetail { padding: 18px 0 0; min-height: 124px; }
+.termDetail > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.termDetail strong { font-size: 14px; font-weight: 500; }
+.termDetail strong > span { font-family: var(--font-serif-kr), serif; color: var(--scene-muted); font-size: 11px; margin-left: 5px; }
+.termDetail > div > span { font-size: 10px; color: var(--scene-muted); }
+.termDetail > p { font-size: 12px; line-height: 1.9; margin-top: 10px; color: var(--scene-muted); word-break: keep-all; }
+.pairing { display: block; font-size: 9px; color: var(--scene-muted); line-height: 1.9; margin-top: 9px; }
+.pairing b { font-weight: 400; font-size: 11px; color: var(--scene-ink); margin-left: 10px; }
+.calendar { position: relative; width: 100%; max-width: 640px; aspect-ratio: 1; justify-self: end; }
+.calendarHalo { position: absolute; inset: 14%; border-radius: 50%; border: 1px solid var(--scene-line); transform: rotate(var(--dial-turn)); background: conic-gradient(from 90deg, transparent 0deg, color-mix(in srgb, var(--scene-ink) 5%, transparent) 90deg, transparent 180deg); }
+.calendarHalo::before { content: ''; position: absolute; inset: 15%; border: 1px solid var(--scene-line); border-radius: 50%; opacity: .4; }
+.calendarFace { position: relative; width: 100%; height: 100%; overflow: visible; }
+.outerRing { stroke: var(--scene-line); stroke-width: .6; }
+.innerRing { stroke: var(--scene-line); stroke-width: .6; }
+/* 호는 회전하지 않고 --journey-progress 만큼 채워진다. pathLength=1 이라 dasharray가 곧 비율이다. */
+.seasonArcTrack { stroke: var(--scene-line); stroke-width: 2; opacity: .45; }
+.seasonArc { stroke: var(--scene-accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: var(--journey-progress) 1; }
+.tick { color: var(--scene-muted); opacity: .52; transition: color .6s, opacity .6s; }
+.activeTick { color: var(--scene-ink); transition: color .6s; }
+/* 호가 지나간 절기 — 그래프와 같은 색으로 켜진다 */
+.sweptTick { color: var(--scene-accent); opacity: 1; transition: color .45s, opacity .45s; }
+.sweptTick line { stroke-width: 1.4; }
+.sweptTick text { font-weight: 600; }
+.tick line, .activeTick line, .sweptTick line { stroke: currentColor; stroke-width: 1; }
+.tick text, .activeTick text, .sweptTick text { fill: currentColor; font-size: 12px; font-family: var(--font-serif-kr), serif; }
+.tick circle, .activeTick circle, .sweptTick circle { fill: var(--scene-accent); }
+.calendarCenter { position: absolute; inset: 25%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.centerLabel { font-size: 10px; letter-spacing: .22em; color: var(--scene-muted); }
+.seasonCharacter { font-family: var(--font-serif-kr), serif; font-size: clamp(95px, 10vw, 145px); line-height: 1.5; font-weight: 400; animation: seasonEnter .9s both; }
+.centerTerm { font-family: var(--font-serif-kr), serif; font-size: 15px; letter-spacing: .13em; }
+.centerTerm i { font-style: normal; padding: 0 9px; color: var(--scene-muted); }
+.centerSeal { border: 1px solid var(--scene-accent); outline: 1px solid var(--scene-accent); outline-offset: -4px; color: var(--scene-accent); font-family: var(--font-serif-kr), serif; font-size: 11px; line-height: 1.4; padding: 5px 7px; transform: rotate(-7deg); position: absolute; right: -3%; bottom: 10%; }
+.calendarFootnote { position: absolute; bottom: -9px; left: 0; right: 0; text-align: center; font-size: 10px; letter-spacing: .12em; color: var(--scene-muted); }
+.bottomline { min-height: 84px; border-top: 1px solid var(--scene-line); }
+.chapterNav { display: flex; align-items: center; gap: 8px; }
+.chapterNav button { min-width: 60px; min-height: 44px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--scene-muted); position: relative; }
+.chapterNav button > span { font-size: 9px; opacity: .6; }
+.chapterNav button[aria-pressed='true'] { color: var(--scene-ink); }
+.chapterNav button[aria-pressed='true']::after { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--scene-accent); position: absolute; bottom: 2px; left: 27px; }
+.scrollHint { display: flex; align-items: center; gap: 12px; font-size: 10px; color: var(--scene-muted); }
+.scrollLine { width: 1px; height: 26px; background: var(--scene-line); overflow: hidden; }
+.scrollLine::after { content: ''; display: block; width: 1px; height: 12px; background: var(--scene-ink); animation: scrollNudge 2s infinite; }
+.archiveLink { display: flex; align-items: center; gap: 25px; font-size: 11px; color: var(--scene-muted); padding-block: 12px; }
+.progressTrack { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--scene-line); }
+.progressTrack > span { display: block; width: 100%; height: 100%; background: var(--scene-accent); transform: scaleX(var(--journey-progress)); transform-origin: left; }
+@keyframes chapterEnter { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes seasonEnter { from { opacity: 0; transform: translateY(16px) scale(.92); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes scrollNudge { from { transform: translateY(-12px); } to { transform: translateY(27px); } }
+@media (min-width: 761px) and (max-height: 850px) {
+  .topline { min-height: 60px; }
+  .bottomline { min-height: 65px; }
+  .scene { padding-block: 18px; }
+  .chapterTitle { font-size: 44px; margin-top: 15px; }
+  .description { margin-top: 12px; font-size: 12px; }
+  .ingredientList { margin-top: 18px; }
+  .ingredientList > strong { font-size: 22px; }
+  .termExplorer { margin-top: 20px; }
+  .calendar { max-width: 510px; }
+}
+@media (max-width: 1000px) {
+  .stageInner { width: calc(100% - 64px); }
+  .scene { gap: 25px; }
+  .chapterTitle { font-size: 40px; }
+  .ingredientList { gap: 12px; }
+  .centerLabel { font-size: 8px; }
+  .centerTerm { font-size: 12px; }
+  .centerSeal { right: -8%; bottom: 0; font-size: 9px; }
+  .scrollHint { display: none; }
+}
+@media (max-width: 760px) {
+  .journey { height: 420svh; }
+  .stage { min-height: 620px; }
+  .stageInner { width: calc(100% - 40px); }
+  .topline { min-height: 50px; font-size: 9px; gap: 10px; }
+  .topline a { font-size: 9px; gap: 5px; }
+  .toplineDivider { margin: 0 5px; }
+  .scene { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding-block: 4px; }
+  .copy { max-width: none; width: 100%; display: contents; }
+  .kicker { order: 0; align-self: start; font-size: 8px; gap: 10px; }
+  .chapterTitle { order: 1; align-self: start; font-size: 31px; line-height: 1.5; margin: 6px 0 0; }
+  .chapterTitle > span { display: inline; }
+  .chapterTitle > span + span { margin-left: 8px; }
+  .description { order: 2; align-self: start; font-size: 11px; margin: 6px 0 0; line-height: 1.8; max-width: none; }
+  .calendar { order: 3; width: min(228px, 52vw); margin: 0 auto; flex-shrink: 0; }
+  .calendarFootnote, .centerLabel, .centerSeal { display: none; }
+  .seasonCharacter { font-size: 65px; line-height: 1.35; }
+  .centerTerm { font-size: 9px; letter-spacing: .04em; }
+  .centerTerm i { padding: 0 4px; }
+  .tick text, .activeTick text { font-size: 18px; }
+  .ingredientList { order: 4; align-self: start; margin: 2px 0 6px; gap: 12px; font-size: 11px; }
+  .ingredientList > strong { font-size: 19px; }
+  .ingredientList > span { font-size: 9px; }
+  .termExplorer { order: 5; width: 100%; margin-top: 0; }
+  .termExplorer > p { font-size: 9px; margin-bottom: 7px; }
+  .termButtons button { font-size: 11px; }
+  .termDetail { padding-top: 9px; min-height: 88px; }
+  .termDetail strong { font-size: 12px; }
+  .termDetail > p { font-size: 11px; line-height: 1.7; margin-top: 7px; }
+  .pairing { margin-top: 6px; font-size: 9px; }
+  .pairing b { font-size: 10px; margin-left: 6px; }
+  .bottomline { min-height: 62px; gap: 8px; }
+  .chapterNav { gap: 3px; }
+  .chapterNav button { min-width: 45px; gap: 5px; font-size: 12px; }
+  .chapterNav button > span { font-size: 8px; }
+  .chapterNav button[aria-pressed='true']::after { left: 22px; bottom: 3px; }
+  .archiveLink { font-size: 10px; gap: 9px; }
+}
+/* 620px 미만에서는 무대 내용이 잘리므로 핀 연출을 끄고 계절 버튼으로 이동한다.
+   측정 결과 600px에서 내용이 정확히 들어차고 580px부터 넘친다 (2026-09-10).
+   JS 임계값(SeasonJourney.tsx STAGE_MIN_HEIGHT)과 반드시 같이 움직여야 한다. */
+@media (max-height: 619px), (prefers-reduced-motion: reduce) {
+  .journey { height: auto; }
+  .stage { position: relative; height: auto; min-height: 0; overflow: visible; }
+  .scene { padding-block: 35px; }
+  .stageInner { min-height: 0; }
+  .progressTrack > span { transform: scaleX(var(--chapter-progress)); }
+  .scrollHint { display: none; }
+  .calendarHalo { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage, .seasonArc, .tick, .activeTick, .termButtons button { transition: none; }
+  .chapterTitle, .description, .seasonCharacter, .scrollLine::after { animation: none; }
+}
