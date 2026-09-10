@@ -91,7 +91,7 @@
 .choiceGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .choiceCard { display: block; height: 100%; padding: 28px 36px; border: 1px solid #bec7b0; transition: transform .35s, box-shadow .35s; }
 .choiceCard:hover { transform: translateY(-7px); box-shadow: 0 14px 24px #263d340c; }
-.makeChoice { background: #e6eadc; }
+.readChoice { background: #e6eadc; }
 .contestChoice { background: #efe5d7; border-color: #d7c5b0; }
 .choiceTop { display: flex; justify-content: space-between; align-items: center; font-size: 9px; letter-spacing: .13em; }
 .choiceTop > span:last-child { font-size: 25px; }

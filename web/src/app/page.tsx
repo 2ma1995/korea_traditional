@@ -73,7 +73,7 @@ export default async function Home() {
                     {plan.items.length === 0 && <p className={styles.soldOut}>오늘 할인 대상 빵은 모두 품절되었습니다. 조합 만들기는 계속 즐길 수 있어요.</p>}
                   </div>
                 ) : <p className={styles.soldOut}>오늘 할인 대상 빵은 모두 품절되었습니다. 조합 만들기는 계속 즐길 수 있어요.</p>}
-                <Link href="/event" className={styles.benefitLink}>혜택 확인하고 빵 만들기 <span aria-hidden="true">↗</span></Link>
+                <Link href="/contest" className={styles.benefitLink}>모두의 절기상 구경하기 <span aria-hidden="true">↗</span></Link>
               </div>
             </div>
             <details className="market-details"><summary>코스피와 빵 혜택은 어떻게 연결되나요? <span aria-hidden="true">＋</span></summary><div className="market-detail-body"><p>{plan.reason}</p><p>코스피의 방향과 등락 폭을 기준으로 할인 대상과 할인율을 정합니다. 재료를 선택해도 할인율은 달라지지 않습니다.</p><p className="fine-print">{plan.guardrailApplied && '원가 상승으로 할인폭이 조정되었습니다. '}이벤트 할인은 시연용 계산입니다. 실제 구매 가격과 적용 혜택은 공식몰에서 확인해주세요.</p></div></details>
@@ -84,7 +84,7 @@ export default async function Home() {
       <section className={`${styles.participation} page-width`} aria-labelledby="participation-title">
         <ScrollReveal><div className={styles.participationHeading}><span className="eyebrow">이제, 당신의 계절을 차릴 차례</span><h2 id="participation-title">어떤 맛으로<br />참여하고 싶으세요?</h2></div></ScrollReveal>
         <div className={styles.choiceGrid}>
-          <ScrollReveal><Link href="/event" className={`${styles.choiceCard} ${styles.makeChoice}`}><div className={styles.choiceTop}><span>01 / MAKE YOUR OWN</span><span aria-hidden="true">↗</span></div><div className={styles.choiceArt} aria-hidden="true"><span>만들다</span><i>나의<br />취향</i></div><h3>나만의 절기 빵 만들기</h3><p>마음에 드는 빵과 제철 재료를 골라<br />나만의 조합을 완성해보세요.</p><span className={styles.choiceButton}>빵 만들러 가기 <span aria-hidden="true">→</span></span></Link></ScrollReveal>
+          <ScrollReveal><Link href="/archive" className={`${styles.choiceCard} ${styles.readChoice}`}><div className={styles.choiceTop}><span>01 / READ THE SEASONS</span><span aria-hidden="true">↗</span></div><div className={styles.choiceArt} aria-hidden="true"><span>읽다</span><i>스물네<br />마디</i></div><h3>스물네 절기 이야기</h3><p>절기마다 어떤 재료와 맛이 있었는지<br />절기 기록장을 펼쳐보세요.</p><span className={styles.choiceButton}>절기 기록장 펼치기 <span aria-hidden="true">→</span></span></Link></ScrollReveal>
           <ScrollReveal><Link href="/contest" className={`${styles.choiceCard} ${styles.contestChoice}`}><div className={styles.choiceTop}><span>02 / SHARE THE TASTE</span><span aria-hidden="true">↗</span></div><div className={styles.choiceArt} aria-hidden="true"><span>나누다</span><i>함께<br />한 상</i></div><h3>절기 레시피 콘테스트</h3><p>다른 사람들의 조합을 구경하고<br />마음에 드는 절기상에 투표해보세요.</p><span className={styles.choiceButton}>콘테스트 보러 가기 <span aria-hidden="true">→</span></span></Link></ScrollReveal>
         </div>
         <p className={styles.ending}>계절은 흐르고, 우리의 맛은 쌓입니다. <span>막지</span></p>

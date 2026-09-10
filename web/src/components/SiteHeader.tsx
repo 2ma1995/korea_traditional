@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 
 const links = [
   { href: '/', label: '절기상점' },
-  { href: '/event', label: '나만의 절기상' },
   { href: '/contest', label: '모두의 절기상' },
   { href: '/archive', label: '스물네 절기' },
 ];

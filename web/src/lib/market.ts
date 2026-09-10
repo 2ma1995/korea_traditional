@@ -8,7 +8,6 @@ import { computeCostIndex } from './costIndex';
  *   코스피              네이버 금융 폴링 API (무지연) → 실패 시 Yahoo ^KS11 폴백
  *   환율·원자재         Yahoo Finance (비공식 엔드포인트, 키 없음)
  *   서울 기온           Open-Meteo (키 없음, 비상업 무료)
- *   국산 농산물 소매가   공공데이터포털 aT 경매정보 (produceApi.ts, 인증키 필요)
  *
  * 주의: Yahoo Finance는 비공식 엔드포인트다. 데모·발표에는 문제없지만
  *       실서비스 전환 시 공공데이터포털 공식 API로 교체해야 한다.
