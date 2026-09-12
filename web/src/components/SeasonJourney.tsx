@@ -40,19 +40,12 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
   /* 눈금이 호를 따라 켜져야 하므로 진행도를 렌더에서 쓴다.
      rAF 안에서 갱신하되 0.005 단위로 끊어 불필요한 리렌더를 줄인다. */
   const [progress, setProgress] = useState(0);
-  const [selection, setSelection] = useState<Record<number, number>>({});
   const season = seasons[chapter];
+  /* 화면에 열려 있는 절기는 오직 스크롤 위치로 정한다. 버튼은 그 위치를 옮기는 손잡이다.
+     선택을 따로 들고 있으면 스크롤과 어긋나서, 눌러둔 절기가 한 칸만 굴려도 사라진다. */
   const sweptIndex = Math.min(23, Math.floor(progress * 24));
   const indexInSeason = Math.max(0, Math.min(5, sweptIndex - chapter * 6));
-  /* 버튼으로 직접 고른 절기. 없으면 스크롤이 열어준 절기를 쓴다. */
-  const pickedTerm = season.terms.find(term => term.longitude === selection[sweptIndex]);
-  const selectedTerm = pickedTerm ?? season.terms[indexInSeason];
-  /* 호가 멈출 위치. 눈금 하나가 1/24이고 호는 12시에서 시계방향으로 채워지므로
-     전체 순번 / 24 가 그 절기의 각도와 정확히 맞는다 (입춘=0 → 빈 호). */
-  const selectedIndex = chapter * 6 + season.terms.indexOf(selectedTerm);
-  /* 버튼을 눌렀을 때만 호를 그 절기로 옮긴다. 누르지 않았으면 rAF가 매 프레임 쓰는
-     --journey-progress 를 그대로 써서 스크롤 중 호가 끊김 없이 이어진다. */
-  const arcProgress = pickedTerm ? selectedIndex / 24 : progress;
+  const selectedTerm = season.terms[indexInSeason];
 
   useEffect(() => {
     const element = root.current;
@@ -110,6 +103,24 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
     window.scrollTo({ top: window.scrollY + element.getBoundingClientRect().top + distance * progress });
   };
 
+  /* 절기 버튼 — 그 절기 칸으로 스크롤을 옮긴다. 이래야 이어서 굴렸을 때
+     눌러둔 절기 다음으로 넘어간다. 칸 안쪽 0.3 지점을 겨냥해 스크롤이 픽셀 단위로
+     반올림되어도 앞 절기로 밀리지 않게 한다. */
+  const goToTerm = (globalIndex: number) => {
+    const element = root.current;
+    const viewport = stage.current;
+    if (!element || !viewport) return;
+    const filled = (globalIndex + 0.3) / 24;
+    if (isCompact(element)) {
+      element.style.setProperty('--journey-progress', String(round4(filled)));
+      setProgress(filled);
+      setChapter(Math.floor(globalIndex / 6));
+      return;
+    }
+    const distance = element.offsetHeight - viewport.offsetHeight;
+    window.scrollTo({ top: window.scrollY + element.getBoundingClientRect().top + distance * filled });
+  };
+
   const allTerms = seasons.flatMap(item => item.terms);
 
   return (
@@ -133,14 +144,14 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
               </div>
 
               <div className={styles.termExplorer}>
-                <p>스크롤하면 절기가 차례로 열립니다. 눌러서 먼저 볼 수도 있어요.</p>
+                <p>스크롤하면 절기가 차례로 열립니다. 눌러서 바로 갈 수도 있어요.</p>
                 <div className={styles.termButtons} aria-label={`${season.name}의 여섯 절기`}>
-                  {season.terms.map(term => <button
+                  {season.terms.map((term, index) => <button
                     type="button"
                     key={term.longitude}
                     aria-pressed={term.longitude === selectedTerm.longitude}
                     aria-controls="journey-term-detail"
-                    onClick={() => setSelection(previous => ({ ...previous, [sweptIndex]: term.longitude }))}
+                    onClick={() => goToTerm(chapter * 6 + index)}
                   >{term.ko}{term.longitude === currentLongitude && <span className={styles.todayDot} aria-label="오늘의 절기" />}</button>)}
                 </div>
                 <div id="journey-term-detail" className={styles.termDetail}>
@@ -165,15 +176,14 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
                   className={styles.seasonArc}
                   pathLength={1}
                   transform="rotate(-90 300 300)"
-                  style={pickedTerm ? ({ '--arc-progress': String(round4(arcProgress)) } as CSSProperties) : undefined}
                 />
                 {allTerms.map((term, index) => {
                   const angle = (index * 15 - 90) * Math.PI / 180;
                   /* 호가 이 눈금을 지났으면 켠다. 채워지는 그래프와 절기 이름이 같이 움직인다. */
-                  const swept = (index + 1) / allTerms.length <= arcProgress + 0.001;
+                  const swept = (index + 1) / allTerms.length <= progress + 0.001;
                   const active = swept || Math.floor(index / 6) === chapter;
-                  /* 절기 버튼으로 고른 절기. 왼쪽 상세와 달력이 같은 절기를 가리켜야 하므로
-                     스크롤 상태(swept/active)보다 선택을 우선해 표시한다. */
+                  /* 지금 열려 있는 절기. 왼쪽 상세와 달력이 같은 절기를 가리켜야 하므로
+                     스크롤 상태(swept/active)보다 우선해 표시한다. */
                   const selected = term.longitude === selectedTerm.longitude;
                   /* Math.cos/sin의 마지막 자리가 Node와 브라우저에서 달라 hydration이 깨진다. 반올림해서 문자열을 일치시킨다. */
                   const px = (radius: number) => round2(300 + Math.cos(angle) * radius);

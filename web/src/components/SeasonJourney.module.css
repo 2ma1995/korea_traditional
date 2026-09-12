@@ -90,8 +90,8 @@
 .innerRing { stroke: var(--scene-line); stroke-width: .6; }
 /* 호는 회전하지 않고 --journey-progress 만큼 채워진다. pathLength=1 이라 dasharray가 곧 비율이다. */
 .seasonArcTrack { stroke: var(--scene-line); stroke-width: 2; opacity: .45; }
-/* --arc-progress 는 절기 버튼을 눌렀을 때만 들어온다. 없으면 스크롤 진행도로 떨어진다. */
-.seasonArc { stroke: var(--scene-accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: var(--arc-progress, var(--journey-progress)) 1; }
+/* 호는 스크롤 진행도만 따른다. 절기 버튼도 스크롤 위치를 옮기는 방식이라 따로 둘 값이 없다. */
+.seasonArc { stroke: var(--scene-accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: var(--journey-progress) 1; }
 .tick { color: var(--scene-muted); opacity: .52; transition: color .6s, opacity .6s; }
 .activeTick { color: var(--scene-ink); transition: color .6s; }
 /* 호가 지나간 절기 — 그래프와 같은 색으로 켜진다 */
