@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import Intro from '@/components/Intro';
 import KospiQuote from '@/components/KospiQuote';
-import ProductPhoto from '@/components/ProductPhoto';
+import DiscountList, { type DiscountRow } from '@/components/DiscountList';
 import ScrollReveal from '@/components/ScrollReveal';
+import WeatherTile from '@/components/WeatherTile';
+import FxSparkline from '@/components/FxSparkline';
+import TermBar from '@/components/TermBar';
 import SeasonJourney, { type JourneySeason } from '@/components/SeasonJourney';
 import { buildDailyPlan } from '@/lib/discount';
 import { getMarketSnapshot } from '@/lib/market';
-import { currentTerm, groupBySeason, termsInTraditionalOrder } from '@/lib/solarTerm';
+import { currentTerm, nextTerm, groupBySeason, termsInTraditionalOrder } from '@/lib/solarTerm';
 import styles from './landing.module.css';
 import { SEASON_STORIES } from '@/data/seasonStories';
 
@@ -17,11 +20,28 @@ export default async function Home() {
   const market = await getMarketSnapshot(today);
   const plan = buildDailyPlan(market);
   const term = currentTerm(today);
+  const upcoming = nextTerm(today);
   const seasons: JourneySeason[] = groupBySeason(termsInTraditionalOrder(today)).map(({ items }, index) => ({
     ...SEASON_STORIES[index],
     terms: items.map(item => item.term),
   }));
   const up = market.kospi.changePct >= 0;
+  // 판매중을 앞에, 품절을 뒤에 둔다. 품절도 남겨야 "여섯 종 중 넷이 품절"이 읽힌다.
+  const discountRows: DiscountRow[] = [
+    ...plan.items.map(item => ({
+      productNo: item.product.productNo,
+      name: item.product.name,
+      price: item.product.price,
+      finalPrice: item.finalPrice,
+      soldOut: false,
+    })),
+    ...plan.soldOut.map(product => ({
+      productNo: product.productNo,
+      name: product.name,
+      price: product.price,
+      soldOut: true,
+    })),
+  ];
   // 품절 제품도 회색으로 함께 보여준다 — 오늘 대상 라인의 크기가 드러나야
   // 판매중이 2종뿐인 날에도 혜택이 빈약해 보이지 않는다.
   const targetCount = plan.items.length + plan.soldOut.length;
@@ -35,48 +55,41 @@ export default async function Home() {
       <section id="today-market" className={styles.marketSection} aria-labelledby="market-title">
         <div className="page-width">
           <ScrollReveal>
-            <div className={styles.marketHeading}><span className="eyebrow">계절을 읽고, 오늘의 시장을 읽다</span><h2 id="market-title" tabIndex={-1}>계절이 고른 재료.<br /><em>오늘이 정한 혜택.</em></h2><p>절기는 빵에 어울리는 재료를,<br />코스피는 오늘의 빵 혜택을 알려줍니다.</p></div>
+            <div className={styles.marketHeading}><h2 id="market-title" tabIndex={-1}>계절이 고른 재료.<br /><em>오늘이 정한 혜택.</em></h2></div>
           </ScrollReveal>
           <ScrollReveal>
             <div className={styles.kospiContainer}>
               <div className={styles.kospiQuote}>
-                <KospiQuote initial={{ value: market.kospi.value, changePct: market.kospi.changePct, live: market.kospi.live }} />
-                <div className={styles.marketExtras}><div><span>원 / 달러</span><strong>{won(market.fxUsdKrw.value)}</strong><small>{market.fxUsdKrw.live ? '시장 데이터' : '샘플 데이터'}</small></div><div><span>서울 기온</span><strong>{market.tempC}°C</strong><small>{market.tempLive ? '관측 데이터' : '샘플 데이터'}</small></div><div><span>오늘의 절기</span><strong>{term.ko}</strong><small>{market.date}</small></div></div>
+                <TermBar label="오늘의 절기" name={term.ko} hanja={term.hanja} note={term.food} nextName={upcoming.term.ko} daysLeft={upcoming.daysLeft} date={market.date} />
+                <KospiQuote initial={{ value: market.kospi.value, changePct: market.kospi.changePct, live: market.kospi.live, marketOpen: market.kospiMarketOpen }} />
+                <div className={styles.marketExtras}>
+                  <WeatherTile tempC={market.tempC} weatherCode={market.weatherCode} isDay={market.isDay} live={market.tempLive} />
+                  <div className={styles.fxTile}>
+                    <div className={styles.fxHead}>
+                      <span>원 / 달러</span>
+                      <small>{market.fxUsdKrw.live ? '시장 데이터' : '샘플 데이터'}</small>
+                    </div>
+                    <div className={styles.fxReading}>
+                      <strong>{won(market.fxUsdKrw.value)}</strong>
+                      <span className={market.fxUsdKrw.changePct >= 0 ? styles.up : styles.down}>
+                        {market.fxUsdKrw.changePct >= 0 ? '▲' : '▼'} {Math.abs(market.fxUsdKrw.changePct).toFixed(2)}%
+                        <small>전일 대비</small>
+                      </span>
+                    </div>
+                    <FxSparkline series={market.fxSeries} label="원 달러 환율" />
+                  </div>
+                </div>
               </div>
               <div className={styles.todayBenefit}>
                 <div className={styles.benefitTop}><span className="eyebrow">TODAY’S BREAD BENEFIT</span><span className={styles.benefitSeal}>오늘<br />혜택</span></div>
                 <h3>{up ? '오르는 날에도,' : '잠시 쉬어가는 날에도,'}<br />기분 좋은 한 입.</h3>
                 <div className={styles.benefitRate}><strong>{Math.round(plan.rate * 100)}<span>%</span></strong><p>오늘의 빵<br />할인 혜택</p></div>
                 {targetCount > 0 ? (
-                  <div className={styles.featuredList}>
-                    <p className={styles.featuredLabel}><span>오늘의 할인 대상</span><span>{targetCount}종 중 {plan.items.length}종 판매중</span></p>
-                    <ul>
-                      {plan.items.map(item => (
-                        <li key={item.product.productNo} className={styles.featuredBread}>
-                          <ProductPhoto productNo={item.product.productNo} name={item.product.name} />
-                          <div>
-                            <strong>{item.product.name}</strong>
-                            <p>{won(item.finalPrice)}원 <del>{won(item.product.price)}원</del></p>
-                          </div>
-                        </li>
-                      ))}
-                      {plan.soldOut.map(product => (
-                        <li key={product.productNo} className={`${styles.featuredBread} ${styles.soldOutBread}`}>
-                          <ProductPhoto productNo={product.productNo} name={product.name} />
-                          <div>
-                            <strong>{product.name}</strong>
-                            <p>{won(product.price)}원 <span className={styles.soldOutTag}>품절</span></p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                    {plan.items.length === 0 && <p className={styles.soldOut}>오늘 할인 대상 빵은 모두 품절되었습니다. 조합 만들기는 계속 즐길 수 있어요.</p>}
-                  </div>
-                ) : <p className={styles.soldOut}>오늘 할인 대상 빵은 모두 품절되었습니다. 조합 만들기는 계속 즐길 수 있어요.</p>}
-                <Link href="/contest" className={styles.benefitLink}>모두의 절기상 구경하기 <span aria-hidden="true">↗</span></Link>
+                  <DiscountList rows={discountRows} targetCount={targetCount} onSale={plan.items.length} />
+                ) : <p className={styles.soldOut}>오늘 할인 대상 빵이 모두 품절되었습니다.</p>}
+                <a href="https://makji.kr/product/list.html?cate_no=24" target="_blank" rel="noopener noreferrer" className={styles.benefitLink}>할인 제품 둘러보기 <span aria-hidden="true">↗</span></a>
               </div>
             </div>
-            <details className="market-details"><summary>코스피와 빵 혜택은 어떻게 연결되나요? <span aria-hidden="true">＋</span></summary><div className="market-detail-body"><p>{plan.reason}</p><p>코스피의 방향과 등락 폭을 기준으로 할인 대상과 할인율을 정합니다. 재료를 선택해도 할인율은 달라지지 않습니다.</p><p className="fine-print">{plan.guardrailApplied && '원가 상승으로 할인폭이 조정되었습니다. '}이벤트 할인은 시연용 계산입니다. 실제 구매 가격과 적용 혜택은 공식몰에서 확인해주세요.</p></div></details>
           </ScrollReveal>
         </div>
       </section>
@@ -84,8 +97,8 @@ export default async function Home() {
       <section className={`${styles.participation} page-width`} aria-labelledby="participation-title">
         <ScrollReveal><div className={styles.participationHeading}><span className="eyebrow">이제, 당신의 계절을 차릴 차례</span><h2 id="participation-title">어떤 맛으로<br />참여하고 싶으세요?</h2></div></ScrollReveal>
         <div className={styles.choiceGrid}>
-          <ScrollReveal><Link href="/archive" className={`${styles.choiceCard} ${styles.readChoice}`}><div className={styles.choiceTop}><span>01 / READ THE SEASONS</span><span aria-hidden="true">↗</span></div><div className={styles.choiceArt} aria-hidden="true"><span>읽다</span><i>스물네<br />마디</i></div><h3>스물네 절기 이야기</h3><p>절기마다 어떤 재료와 맛이 있었는지<br />절기 기록장을 펼쳐보세요.</p><span className={styles.choiceButton}>절기 기록장 펼치기 <span aria-hidden="true">→</span></span></Link></ScrollReveal>
-          <ScrollReveal><Link href="/contest" className={`${styles.choiceCard} ${styles.contestChoice}`}><div className={styles.choiceTop}><span>02 / SHARE THE TASTE</span><span aria-hidden="true">↗</span></div><div className={styles.choiceArt} aria-hidden="true"><span>나누다</span><i>함께<br />한 상</i></div><h3>절기 레시피 콘테스트</h3><p>다른 사람들의 조합을 구경하고<br />마음에 드는 절기상에 투표해보세요.</p><span className={styles.choiceButton}>콘테스트 보러 가기 <span aria-hidden="true">→</span></span></Link></ScrollReveal>
+          <ScrollReveal><Link href="/contest" className={`${styles.choiceCard} ${styles.contestChoice}`}><div className={styles.choiceTop}><span>01 / SHARE THE TASTE</span><span aria-hidden="true">↗</span></div><div className={styles.choiceArt} aria-hidden="true"><span>나누다</span><i>함께<br />한 상</i></div><h3>절기 조리법 대회</h3><p>다른 사람들의 조합을 구경하고<br />마음에 드는 절기상에 투표해보세요.</p><span className={styles.choiceButton}>대회 보러 가기 <span aria-hidden="true">→</span></span></Link></ScrollReveal>
+          <ScrollReveal><Link href="/archive" className={`${styles.choiceCard} ${styles.readChoice}`}><div className={styles.choiceTop}><span>02 / READ THE SEASONS</span><span aria-hidden="true">↗</span></div><div className={styles.choiceArt} aria-hidden="true"><span>읽다</span><i>스물네<br />마디</i></div><h3>스물네 절기 이야기</h3><p>절기마다 어떤 재료와 맛이 있었는지<br />절기 기록장을 펼쳐보세요.</p><span className={styles.choiceButton}>절기 기록장 펼치기 <span aria-hidden="true">→</span></span></Link></ScrollReveal>
         </div>
         <p className={styles.ending}>계절은 흐르고, 우리의 맛은 쌓입니다. <span>막지</span></p>
       </section>
