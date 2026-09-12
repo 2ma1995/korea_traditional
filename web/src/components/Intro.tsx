@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import WeatherScene from '@/components/WeatherScene';
 import { SEASON_STORIES } from '@/data/seasonStories';
+import { INTRO_REPLAY, REDUCED_MOTION } from '@/lib/introReplay';
 import styles from './Intro.module.css';
 
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
 const OPENING_MS = 3750;
 const SEASON_MS = 2200;
 const FADE_MS = 650;
@@ -25,7 +25,11 @@ function getSkipPreference() {
 
 /** The opening is temporary; the scrollable calendar remains above the market. */
 export default function Intro() {
-  const shouldSkip = useSyncExternalStore(subscribeToPreference, getSkipPreference, () => true);
+  const skipPreference = useSyncExternalStore(subscribeToPreference, getSkipPreference, () => true);
+  const [replays, setReplays] = useState(0);
+  /* 로고를 누르면 딥링크 해시가 남아 있든 이미 한 번 봤든 무조건 재생한다.
+     동작 줄이기 설정은 requestIntroReplay가 먼저 걸러내므로 여기선 따지지 않는다. */
+  const shouldSkip = replays === 0 && skipPreference;
   const [done, setDone] = useState(false);
   const [phase, setPhase] = useState(-1);
   const [exiting, setExiting] = useState(false);
@@ -47,6 +51,21 @@ export default function Intro() {
     setDone(true);
     document.getElementById('market-title')?.focus({ preventScroll: true });
   }, [moveToMarket]);
+
+  /* 헤더 로고가 보내는 재생 신호. 랜딩에 머문 채로 눌렀을 때만 온다 —
+     다른 페이지에서는 '/'로 이동하면서 새로 마운트되어 알아서 재생된다. */
+  useEffect(() => {
+    const replay = () => {
+      timers.current.forEach(window.clearTimeout);
+      timers.current = [];
+      setPhase(-1);
+      setExiting(false);
+      setDone(false);
+      setReplays(count => count + 1);
+    };
+    window.addEventListener(INTRO_REPLAY, replay);
+    return () => window.removeEventListener(INTRO_REPLAY, replay);
+  }, []);
 
   useEffect(() => {
     const overlay = dialog.current;

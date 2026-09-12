@@ -23,24 +23,13 @@
 .openingScene { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .65s ease, visibility .65s; }
 .openingScene[data-active='true'] { opacity: 1; visibility: visible; }
 
-/* ── 문 ──
- *
- * 이미지 교체 안내
- *   --intro-door 한 줄만 바꾸면 된다. 파일은 web/public/images/ 에 둔다.
- *   (public/images/ 는 .gitignore 대상 — 브랜드·외부 에셋을 공개 저장소에 올리지 않는다)
- *
- * 렌더 사양
- *   · 닫힌 문 정면. 두 짝이 모두 보이고 문틈이 가로 정중앙에 오도록.
- *   · 권장 2400x1600px 이상 PNG. 화면 전체를 cover 로 덮어서 저해상도면 뭉갠다.
- *   · 좌우 대칭 구도. 화면 비율에 따라 상하좌우가 잘리므로 문을 가운데 크게.
- *   · 문 바깥 여백은 어두운 벽/그림자로. 잘려도 어색하지 않다.
- *
- * 출처 후보 (라이선스 확인 필수)
- *   국가유산청 국가유산 디지털 서비스 — 공공누리 1유형, 출처 표시 시 상업적 이용 가능
- *   https://digital.khs.go.kr/record/heriTage.do
+/* ── 한옥 대문 ──
+ * 자체 생성한 이미지: public/intro/hanok-gate.webp
+ * 중앙 문틈을 기준으로 같은 이미지의 좌우 절반을 각 패널에 표시한다.
+ * cover 크롭에서도 중앙 문고리가 남도록 정면 대칭 구도를 사용한다.
  */
 .doors {
-  --intro-door: url('/images/door.png');
+  --intro-door: url('/intro/hanok-gate.webp');
   /* 이미지를 못 불러와도 문 실루엣은 남도록 */
   --intro-door-fallback: linear-gradient(180deg, #4a3a2c, #2f251c);
   position: absolute;
