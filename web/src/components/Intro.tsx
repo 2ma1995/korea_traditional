@@ -6,36 +6,25 @@ import { SEASON_STORIES } from '@/data/seasonStories';
 import { INTRO_REPLAY } from '@/lib/introReplay';
 import styles from './Intro.module.css';
 
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
 const OPENING_MS = 3750;
 const SEASON_MS = 2200;
 const FADE_MS = 650;
-/* 동작 줄이기 — 연출을 걷어내면 기다릴 이유도 없다. 장면만 차례로 넘기고 짧게 끝낸다. */
-const STATIC_OPENING_MS = 1600;
-const STATIC_SEASON_MS = 1100;
 
-function subscribeToPreference(onChange: () => void) {
-  const query = window.matchMedia(REDUCED_MOTION);
-  query.addEventListener('change', onChange);
-  return () => query.removeEventListener('change', onChange);
+function subscribeToHash(onChange: () => void) {
+  window.addEventListener('hashchange', onChange);
+  return () => window.removeEventListener('hashchange', onChange);
 }
 
-/* 새로고침할 때마다 처음부터 재생한다.
-   건너뛰는 경우는 #앵커로 들어온 딥링크 하나뿐이다.
-   동작 줄이기 설정에서는 건너뛰지 않는다 — 움직임만 빼고 장면은 그대로 보여준다.
+/* 새로고침할 때마다 처음부터 재생한다. 건너뛰는 경우는 #앵커로 들어온 딥링크 하나뿐이다.
+   동작 줄이기 설정은 보지 않는다 — 저전력 모드에서도 첫 화면은 그대로 보여준다.
    (세션당 1회로 제한하려면 sessionStorage 플래그를 여기서 확인하면 된다) */
 function getSkipPreference() {
   return Boolean(window.location.hash);
 }
 
-function getReducedMotion() {
-  return window.matchMedia(REDUCED_MOTION).matches;
-}
-
 /** The opening is temporary; the scrollable calendar remains above the market. */
 export default function Intro() {
-  const skipPreference = useSyncExternalStore(subscribeToPreference, getSkipPreference, () => true);
-  const reducedMotion = useSyncExternalStore(subscribeToPreference, getReducedMotion, () => false);
+  const skipPreference = useSyncExternalStore(subscribeToHash, getSkipPreference, () => true);
   const [replays, setReplays] = useState(0);
   /* 로고를 누르면 딥링크 해시가 남아 있든 이미 한 번 봤든 무조건 재생한다.
      동작 줄이기 설정은 requestIntroReplay가 먼저 걸러내므로 여기선 따지지 않는다. */
@@ -95,17 +84,14 @@ export default function Intro() {
     const schedule = (callback: () => void, delay: number) => {
       timers.current.push(window.setTimeout(callback, delay));
     };
-    // 동작 줄이기에서는 장면이 즉시 바뀌므로 머무는 시간만 짧게 가져간다.
-    const openingMs = reducedMotion ? STATIC_OPENING_MS : OPENING_MS;
-    const seasonMs = reducedMotion ? STATIC_SEASON_MS : SEASON_MS;
-    SEASON_STORIES.forEach((_, index) => schedule(() => setPhase(index), openingMs + index * seasonMs));
-    const endingAt = openingMs + SEASON_STORIES.length * seasonMs;
+    SEASON_STORIES.forEach((_, index) => schedule(() => setPhase(index), OPENING_MS + index * SEASON_MS));
+    const endingAt = OPENING_MS + SEASON_STORIES.length * SEASON_MS;
     schedule(() => {
       // Reposition while the winter scene still covers the page, then reveal KOSPI.
       moveToMarket();
       setExiting(true);
     }, endingAt);
-    schedule(finish, endingAt + (reducedMotion ? 0 : FADE_MS));
+    schedule(finish, endingAt + FADE_MS);
 
     return () => {
       timers.current.forEach(window.clearTimeout);
@@ -113,7 +99,7 @@ export default function Intro() {
       restoreScroll.current();
       if (overlay.open) overlay.close();
     };
-  }, [shouldSkip, done, reducedMotion, moveToMarket, finish]);
+  }, [shouldSkip, done, moveToMarket, finish]);
 
   if (shouldSkip || done) return null;
 

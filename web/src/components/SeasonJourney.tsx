@@ -23,9 +23,9 @@ interface Props {
   currentLongitude: number;
 }
 
-/** Enlarged term details need more vertical room in the stacked mobile layout.
- * Keep these breakpoints in sync with the unpinned layout in SeasonJourney.module.css. */
-const SHORT_SCREEN = '(max-height: 619px), (max-width: 760px) and (max-height: 739px)';
+/** 고정 스크롤을 쓰지 않는 낮은 화면인지. 기준은 CSS(--compact)에만 두고 여기서 읽는다. */
+const isCompact = (element: HTMLElement) =>
+  getComputedStyle(element).getPropertyValue('--compact').trim() === '1';
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
@@ -59,7 +59,6 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
     const viewport = stage.current;
     if (!element || !viewport) return;
 
-    const shortScreen = window.matchMedia(SHORT_SCREEN);
     let frame = 0;
 
     const update = () => {
@@ -67,7 +66,7 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
       /* 낮은 화면에서는 긴 고정 섹션 대신 계절 버튼으로 직접 넘긴다. 스크롤은 건드리지 않는다.
          동작 줄이기 설정은 여기서 따지지 않는다 — 진행을 만드는 건 사용자의 스크롤이고,
          줄여야 할 움직임(전환 연출)은 CSS 쪽에서 끈다. */
-      if (shortScreen.matches) return;
+      if (isCompact(element)) return;
       const bounds = element.getBoundingClientRect();
       const distance = element.offsetHeight - viewport.offsetHeight;
       const next = clamp(-bounds.top / Math.max(1, distance));
@@ -83,7 +82,6 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
     resizeObserver.observe(viewport);
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
-    shortScreen.addEventListener('change', schedule);
     schedule();
 
     return () => {
@@ -91,7 +89,6 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
       resizeObserver.disconnect();
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
-      shortScreen.removeEventListener('change', schedule);
     };
   }, [seasons.length]);
 
@@ -99,7 +96,7 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
     const element = root.current;
     const viewport = stage.current;
     if (!element || !viewport) return;
-    if (window.matchMedia(SHORT_SCREEN).matches) {
+    if (isCompact(element)) {
       const filled = (index + 1) / seasons.length;
       element.style.setProperty('--journey-progress', String(filled));
       setProgress(filled);

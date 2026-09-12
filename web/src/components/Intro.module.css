@@ -170,17 +170,4 @@
 @keyframes skipIn {
   to { opacity: 1; }
 }
-/* 동작 줄이기 — 연출만 걷어내고 장면은 그대로 보여준다.
-   globals.css가 animation을 전역으로 끄는데, 이 화면의 요소들은 opacity: 0에서
-   애니메이션으로 나타난다. 그래서 애니메이션이 만들던 최종 상태를 여기서 직접 준다.
-   빠뜨리면 화면이 통째로 비어 보인다. */
-@media (prefers-reduced-motion: reduce) {
-  .overlay { opacity: 1; visibility: visible; }
-  /* 여닫는 동작이 연출의 전부라, 정지 화면에서는 열린 자리에서 시작한다 */
-  .left { transform: rotateY(-102deg); }
-  .right { transform: rotateY(102deg); }
-  .seam { opacity: 0; }
-  .line p { opacity: 1; transform: none; filter: none; }
-  .mark { opacity: 1; }
-  .skip { opacity: 1; }
-}
+/* 동작 줄이기용 예외는 두지 않는다. 이 화면은 어느 설정에서든 그대로 재생한다. */

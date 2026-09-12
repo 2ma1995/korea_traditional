@@ -495,9 +495,14 @@ summary::-webkit-details-marker { display: none; }
   .builder-actions { grid-template-columns: 1fr; }
   .archive-season-nav a { gap: 5px; }
 }
+/* 동작 줄이기 — 전역으로 싹 끄지 않는다.
+   이 설정은 아이폰 저전력·안드로이드 절전에서도 켜지는데, 그러면 첫 화면 연출을
+   통째로 못 보게 된다. 팀 결정으로 오프닝은 저전력에서도 보여주기로 했다.
+   대신 줄여야 할 것(무한 반복 배경, 호버 이동, 스크롤 연출)은 각 컴포넌트의
+   prefers-reduced-motion 블록에서 개별로 끈다 — landing/SeasonJourney/
+   ContestGallery/globals(.scroll-reveal)에 이미 들어 있다. */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 
 /* Added only after hydration for off-screen sections; server content stays visible. */

@@ -103,7 +103,5 @@
   .seal { margin-top: 15px; font-size: 9px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .particle, .ripples { display: none; }
-  .scene, .copy { transition: none; }
-}
+/* 이 장면들은 오프닝 안에서만 쓴다. 동작 줄이기에서도 그대로 재생한다 —
+   globals.css의 설명 참고. 건너뛰기 버튼으로 언제든 빠져나올 수 있다. */

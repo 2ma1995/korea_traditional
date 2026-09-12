@@ -1,4 +1,7 @@
 .journey {
+  /* 고정 스크롤을 쓰는지 여부. 아래 미디어 쿼리에서 1로 바뀌고, TSX가 이 값을 읽는다.
+     조건을 한 곳에만 두기 위한 장치다 — 같은 문자열을 양쪽에 두면 반드시 어긋난다. */
+  --compact: 0;
   --journey-progress: 0;
   --dial-turn: 0deg;
   position: relative;
@@ -187,12 +190,15 @@
   .chapterNav button[aria-pressed='true']::after { left: 22px; bottom: 3px; }
   .archiveLink { font-size: 10px; gap: 9px; }
 }
-/* 큰 절기 설명이 하단 메뉴와 겹치지 않도록 낮은 모바일 화면은 일반 스크롤을 쓴다.
-   SeasonJourney.tsx의 SHORT_SCREEN과 같은 조건을 유지한다.
-   동작 줄이기는 여기에 넣지 않는다 — 고정 스크롤을 없애면 계절이 아예 안 넘어간다.
-   전환 연출만 아래 블록에서 끈다. */
-@media (max-height: 619px), (max-width: 760px) and (max-height: 739px) {
-  .journey { height: auto; }
+/* 큰 절기 설명이 하단 계절 메뉴와 겹치지 않도록 낮은 화면은 일반 스크롤을 쓴다.
+   폰 기준을 739px에서 670px로 낮췄다. 요즘 폰은 주소창·툴바를 뺀 높이가 690~780px라
+   739px 기준에 거의 다 걸렸고, 그래서 폰에서는 계절이 한 번도 안 넘어갔다.
+   670px은 실측으로 잡은 값이다 — 386px 폭에서 절기를 하나씩 눌러 설명 상자와
+   계절 메뉴 간격을 재보면 686px에서 +5px, 656px에서 -10px이 나온다.
+   동작 줄이기는 여기에 넣지 않는다. 고정 스크롤을 없애면 계절이 아예 안 넘어간다 —
+   줄일 전환 연출만 아래 블록에서 끈다. */
+@media (max-height: 619px), (max-width: 760px) and (max-height: 670px) {
+  .journey { height: auto; --compact: 1; }
   .stage { position: relative; height: auto; min-height: 0; overflow: visible; }
   .scene { padding-block: 35px; }
   .stageInner { min-height: 0; }
