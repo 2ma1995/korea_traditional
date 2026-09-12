@@ -7,17 +7,13 @@
  */
 export const INTRO_REPLAY = 'makji:intro-replay';
 
-export const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
-
 /**
  * 랜딩에 머문 채로 오프닝을 처음부터 다시 튼다.
  *
  * 해시가 남아 있으면 지운다 — Intro의 딥링크 판정이 해시를 보기 때문이다.
- * 동작 줄이기 설정이면 재생하지 않고 false를 돌려준다. 접근성 설정이 로고보다 앞선다.
+ * 동작 줄이기 설정이어도 막지 않는다. 그때는 Intro가 움직임 없는 정적 화면으로 보여준다.
  */
-export function requestIntroReplay(): boolean {
-  if (window.matchMedia(REDUCED_MOTION).matches) return false;
+export function requestIntroReplay(): void {
   if (window.location.hash) window.history.replaceState(null, '', window.location.pathname);
   window.dispatchEvent(new Event(INTRO_REPLAY));
-  return true;
 }

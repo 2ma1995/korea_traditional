@@ -188,8 +188,10 @@
   .archiveLink { font-size: 10px; gap: 9px; }
 }
 /* 큰 절기 설명이 하단 메뉴와 겹치지 않도록 낮은 모바일 화면은 일반 스크롤을 쓴다.
-   SeasonJourney.tsx의 SHORT_SCREEN과 같은 조건을 유지한다. */
-@media (max-height: 619px), (max-width: 760px) and (max-height: 739px), (prefers-reduced-motion: reduce) {
+   SeasonJourney.tsx의 SHORT_SCREEN과 같은 조건을 유지한다.
+   동작 줄이기는 여기에 넣지 않는다 — 고정 스크롤을 없애면 계절이 아예 안 넘어간다.
+   전환 연출만 아래 블록에서 끈다. */
+@media (max-height: 619px), (max-width: 760px) and (max-height: 739px) {
   .journey { height: auto; }
   .stage { position: relative; height: auto; min-height: 0; overflow: visible; }
   .scene { padding-block: 35px; }

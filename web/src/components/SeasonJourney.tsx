@@ -59,15 +59,15 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
     const viewport = stage.current;
     if (!element || !viewport) return;
 
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const shortScreen = window.matchMedia(SHORT_SCREEN);
     let frame = 0;
 
     const update = () => {
       frame = 0;
-      // A compact or reduced-motion screen uses direct season controls instead
-      // of a tall pinned section. Nothing intercepts native wheel/touch scrolling.
-      if (reducedMotion.matches || shortScreen.matches) return;
+      /* 낮은 화면에서는 긴 고정 섹션 대신 계절 버튼으로 직접 넘긴다. 스크롤은 건드리지 않는다.
+         동작 줄이기 설정은 여기서 따지지 않는다 — 진행을 만드는 건 사용자의 스크롤이고,
+         줄여야 할 움직임(전환 연출)은 CSS 쪽에서 끈다. */
+      if (shortScreen.matches) return;
       const bounds = element.getBoundingClientRect();
       const distance = element.offsetHeight - viewport.offsetHeight;
       const next = clamp(-bounds.top / Math.max(1, distance));
@@ -83,7 +83,6 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
     resizeObserver.observe(viewport);
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
-    reducedMotion.addEventListener('change', schedule);
     shortScreen.addEventListener('change', schedule);
     schedule();
 
@@ -92,7 +91,6 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
       resizeObserver.disconnect();
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
-      reducedMotion.removeEventListener('change', schedule);
       shortScreen.removeEventListener('change', schedule);
     };
   }, [seasons.length]);
@@ -101,7 +99,7 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
     const element = root.current;
     const viewport = stage.current;
     if (!element || !viewport) return;
-    if (window.matchMedia(`(prefers-reduced-motion: reduce), ${SHORT_SCREEN}`).matches) {
+    if (window.matchMedia(SHORT_SCREEN).matches) {
       const filled = (index + 1) / seasons.length;
       element.style.setProperty('--journey-progress', String(filled));
       setProgress(filled);
@@ -111,7 +109,8 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
     const distance = element.offsetHeight - viewport.offsetHeight;
     // Land inside the chapter, avoiding a floating-point boundary at its start.
     const progress = (index + 0.12) / seasons.length;
-    window.scrollTo({ top: window.scrollY + element.getBoundingClientRect().top + distance * progress, behavior: 'smooth' });
+    // behavior는 넘기지 않는다 — globals.css가 동작 줄이기에서 smooth를 끄는 것까지 따라간다.
+    window.scrollTo({ top: window.scrollY + element.getBoundingClientRect().top + distance * progress });
   };
 
   const allTerms = seasons.flatMap(item => item.terms);

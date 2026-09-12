@@ -48,8 +48,7 @@ export default function SiteHeader() {
   const replayIntro = (event: MouseEvent<HTMLAnchorElement>) => {
     if (pathname !== '/') return;
     event.preventDefault();
-    // 동작 줄이기 설정이면 재생을 거른다. 그때는 홈답게 맨 위로만 올려준다.
-    if (!requestIntroReplay()) window.scrollTo({ top: 0 });
+    requestIntroReplay();
   };
 
   const goToJourney = (event: MouseEvent<HTMLAnchorElement>) => {
