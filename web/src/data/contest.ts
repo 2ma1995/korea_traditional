@@ -1,4 +1,4 @@
-// 절기 레시피 콘테스트
+// 절기 조리법 대회
 //
 // ⚠️ 아래 출품작은 전부 발표 시연용 예시 데이터다.
 //    MAKJI 자사몰 B2C가 2026-08-28에 열려 실제 참여자가 아직 없다.
@@ -82,7 +82,7 @@ export interface Contest {
   entries: ContestEntry[];
 }
 
-/** 진행 중인 콘테스트 (예시 데이터) */
+/** 진행 중인 대회 (예시 데이터) */
 export const CURRENT_ENTRIES: ContestEntry[] = [
   {
     id: 'e1',
@@ -162,6 +162,8 @@ export interface ArchiveItem {
   author: string;
   emoji: string;
   votes: number;
+  /** 우승작이 쓴 막지 제품. 카드에 베이스 상품 사진으로 쓴다 (완성작 사진이 아니다) */
+  productNo: number;
 }
 
 export const ARCHIVE: ArchiveItem[] = [
@@ -169,6 +171,7 @@ export const ARCHIVE: ArchiveItem[] = [
     term: '처서',
     hashtag: '#처서_복숭아레시피',
     title: '백도 크림 머핀',
+    productNo: 30, // 비건 잉글리시 머핀
     author: 'summer_baker',
     emoji: '🍑',
     votes: 3102,
@@ -177,6 +180,7 @@ export const ARCHIVE: ArchiveItem[] = [
     term: '입추',
     hashtag: '#입추_감자레시피',
     title: '감자 로즈마리 스콘',
+    productNo: 25, // 글루텐프리 스콘
     author: 'potato_holic',
     emoji: '🥔',
     votes: 2458,
@@ -185,6 +189,7 @@ export const ARCHIVE: ArchiveItem[] = [
     term: '대서',
     hashtag: '#대서_수박레시피',
     title: '수박 그라니타 브레드',
+    productNo: 31, // 테트리스 브레드
     author: 'coolbread',
     emoji: '🍉',
     votes: 2011,

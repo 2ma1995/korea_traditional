@@ -1,6 +1,7 @@
 import ProductPhoto from '@/components/ProductPhoto';
 import type { ContestEntry } from '@/data/contest';
 import { RANK_SLOTS, rankByCategory } from '@/lib/contestRanking';
+import styles from './ContestGallery.module.css';
 
 /**
  * 취향이 담긴 한 상 — 빵 카테고리별 1~3위.
@@ -34,14 +35,14 @@ export default function ContestGallery({ entries }: { entries: ContestEntry[] })
   const categories = rankByCategory(entries);
 
   if (categories.length === 0) {
-    return <p className="demo-note">관리자가 확인한 출품이 아직 없습니다.</p>;
+    return <p className={`demo-note ${styles.empty}`}>관리자가 확인한 출품이 아직 없습니다.</p>;
   }
 
   return (
     <div className="category-rankings">
       {categories.map(category => (
         <section key={category.productNo} className="category-rank" aria-label={`${category.name} 좋아요 순위`}>
-          <div className="category-rank-head">
+          <div className={`category-rank-head ${styles.categoryHeader}`}>
             <h3>{category.name}</h3>
             <span>
               {category.total}개 출품 · 게시물 좋아요순
@@ -49,30 +50,30 @@ export default function ContestGallery({ entries }: { entries: ContestEntry[] })
             </span>
           </div>
 
-          <ol className="rank-row">
+          <ol className={`rank-row ${styles.row}`}>
             {category.ranked.map((entry, slot) => {
               const post = entry.instagram;
               return (
-                <li key={entry.id} className={`recipe-card ${slot === 0 ? 'is-first' : ''}`}>
-                  <div className="recipe-image">
+                <li key={entry.id} className={`recipe-card ${styles.card} ${slot === 0 ? 'is-first' : ''}`}>
+                  <div className={`recipe-image ${styles.image}`}>
                     <ProductPhoto productNo={entry.productNo} name={`${category.name} 참고 상품 사진`} />
-                    <span className="recipe-rank">{ordinals[slot]}</span>
+                    <span className={`recipe-rank ${styles.rank}`}>{ordinals[slot]}</span>
                     <span className="reference-label">베이스 상품 이미지</span>
                   </div>
-                  <div className="recipe-content">
-                    <div className="recipe-tags">
+                  <div className={`recipe-content ${styles.content}`}>
+                    <div className={`recipe-tags ${styles.tags}`}>
                       {entry.toppings.map(topping => <span key={topping}>#{topping}</span>)}
                       <span>#{category.name}</span>
                     </div>
                     <h4>{entry.title}</h4>
-                    <p className="recipe-author">@{post.username}</p>
+                    <p className={`recipe-author ${styles.author}`}>@{post.username}</p>
                     <p>{entry.note}</p>
-                    <div className="recipe-footer">
+                    <div className={`recipe-footer ${styles.footer}`}>
                       <a
                         href={post.permalink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="post-link"
+                        className={`post-link ${styles.postLink}`}
                         aria-label={`${entry.title} — @${post.username}의 인스타그램 게시글 확인하기`}
                       >
                         게시글 확인하기 <span aria-hidden="true">↗</span>
@@ -80,7 +81,7 @@ export default function ContestGallery({ entries }: { entries: ContestEntry[] })
                       {post.likeCount === null ? (
                         <span className="like-count is-hidden-count">좋아요 비공개</span>
                       ) : (
-                        <span className="like-count">
+                        <span className={`like-count ${styles.likes}`}>
                           <span className="like-count-main">
                             <span aria-hidden="true">♥</span>
                             <b>{post.likeCount.toLocaleString('ko-KR')}</b>
