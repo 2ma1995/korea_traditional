@@ -1,4 +1,4 @@
-import { COST_GUARDRAIL, DISCOUNT_TIERS } from '@/data/indicators';
+import { DISCOUNT_TIERS, MAX_DISCOUNT_RATE } from '@/data/indicators';
 import { PRODUCTS, type Product } from '@/data/products';
 import type { MarketSnapshot } from './market';
 
@@ -15,8 +15,6 @@ export interface DailyPlan {
   targetGlutenFree: boolean;
   /** 적용 할인율 (가드레일 반영 후) */
   rate: number;
-  /** 가드레일이 발동했는가 */
-  guardrailApplied: boolean;
   headline: string;
   reason: string;
   /** 판매 가능한 할인 대상 */
@@ -52,8 +50,8 @@ export function buildDailyPlan(
   const targetGlutenFree = up;
 
   const tier = tierFor(market.kospi.changePct);
-  const guardrailApplied = market.costIndexPct > COST_GUARDRAIL.thresholdPct;
-  const rate = guardrailApplied ? tier.rate * COST_GUARDRAIL.multiplier : tier.rate;
+  // 기업 확인 상한(38%)을 넘지 않게 한 번 더 막는다. 티어는 협의로 바뀌는 데이터다.
+  const rate = Math.min(tier.rate, MAX_DISCOUNT_RATE);
 
   const targeted = products.filter((p) => p.glutenFree === targetGlutenFree);
 
@@ -69,7 +67,6 @@ export function buildDailyPlan(
     date: market.date,
     targetGlutenFree,
     rate,
-    guardrailApplied,
     headline: up ? '국장 좋은 날, 밀가루 없이 만든 빵' : '힘든 날, 부담 없는 가격으로',
     reason: up
       ? `코스피가 ${market.kospi.changePct.toFixed(2)}% 올랐습니다. 밀가루를 쓰지 않은 글루텐프리 라인을 할인합니다.`
