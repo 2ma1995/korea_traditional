@@ -70,16 +70,19 @@
 .todayDot { position: absolute; width: 4px; height: 4px; background: var(--scene-accent); border-radius: 50%; right: 6px; top: 7px; }
 .termDetail { padding: 18px 0 0; min-height: 124px; }
 .termDetail > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.termDetail strong { font-size: 14px; font-weight: 500; }
-.termDetail strong > span { font-family: var(--font-serif-kr), serif; color: var(--scene-muted); font-size: 11px; margin-left: 5px; }
-.termDetail > div > span { font-size: 10px; color: var(--scene-muted); }
-.termDetail > p { font-size: 12px; line-height: 1.9; margin-top: 10px; color: var(--scene-muted); word-break: keep-all; }
+.termDetail strong { font-size: 24px; font-weight: 500; line-height: 1.45; }
+.termDetail strong > span { font-family: var(--font-serif-kr), serif; color: var(--scene-muted); font-size: 18px; margin-left: 8px; }
+.termDetail > div > span { font-size: 16px; color: var(--scene-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.termDetail > p { font-size: 16px; line-height: 1.8; margin-top: 12px; color: var(--scene-ink); word-break: keep-all; }
 .pairing { display: block; font-size: 9px; color: var(--scene-muted); line-height: 1.9; margin-top: 9px; }
 .pairing b { font-weight: 400; font-size: 11px; color: var(--scene-ink); margin-left: 10px; }
 .calendar { position: relative; width: 100%; max-width: 640px; aspect-ratio: 1; justify-self: end; }
 .calendarHalo { position: absolute; inset: 14%; border-radius: 50%; border: 1px solid var(--scene-line); transform: rotate(var(--dial-turn)); background: conic-gradient(from 90deg, transparent 0deg, color-mix(in srgb, var(--scene-ink) 5%, transparent) 90deg, transparent 180deg); }
 .calendarHalo::before { content: ''; position: absolute; inset: 15%; border: 1px solid var(--scene-line); border-radius: 50%; opacity: .4; }
 .calendarFace { position: relative; width: 100%; height: 100%; overflow: visible; }
+.calendarArt { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ingredientPainting { opacity: 0; transform: translateY(7px); transition: opacity .8s ease, transform 1s ease; }
+.ingredientPainting[data-active='true'] { opacity: .92; transform: translateY(0); }
 .outerRing { stroke: var(--scene-line); stroke-width: .6; }
 .innerRing { stroke: var(--scene-line); stroke-width: .6; }
 /* 호는 회전하지 않고 --journey-progress 만큼 채워진다. pathLength=1 이라 dasharray가 곧 비율이다. */
@@ -171,8 +174,10 @@
   .termExplorer > p { font-size: 9px; margin-bottom: 7px; }
   .termButtons button { font-size: 11px; }
   .termDetail { padding-top: 9px; min-height: 88px; }
-  .termDetail strong { font-size: 12px; }
-  .termDetail > p { font-size: 11px; line-height: 1.7; margin-top: 7px; }
+  .termDetail strong { font-size: 20px; }
+  .termDetail strong > span { font-size: 16px; }
+  .termDetail > div > span { font-size: 14px; }
+  .termDetail > p { font-size: 15px; line-height: 1.7; margin-top: 8px; }
   .pairing { margin-top: 6px; font-size: 9px; }
   .pairing b { font-size: 10px; margin-left: 6px; }
   .bottomline { min-height: 62px; gap: 8px; }
@@ -182,10 +187,9 @@
   .chapterNav button[aria-pressed='true']::after { left: 22px; bottom: 3px; }
   .archiveLink { font-size: 10px; gap: 9px; }
 }
-/* 620px 미만에서는 무대 내용이 잘리므로 핀 연출을 끄고 계절 버튼으로 이동한다.
-   측정 결과 600px에서 내용이 정확히 들어차고 580px부터 넘친다 (2026-09-10).
-   JS 임계값(SeasonJourney.tsx STAGE_MIN_HEIGHT)과 반드시 같이 움직여야 한다. */
-@media (max-height: 619px), (prefers-reduced-motion: reduce) {
+/* 큰 절기 설명이 하단 메뉴와 겹치지 않도록 낮은 모바일 화면은 일반 스크롤을 쓴다.
+   SeasonJourney.tsx의 SHORT_SCREEN과 같은 조건을 유지한다. */
+@media (max-height: 619px), (max-width: 760px) and (max-height: 739px), (prefers-reduced-motion: reduce) {
   .journey { height: auto; }
   .stage { position: relative; height: auto; min-height: 0; overflow: visible; }
   .scene { padding-block: 35px; }
@@ -195,6 +199,7 @@
   .calendarHalo { transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .ingredientPainting { transition: none; transform: none; }
   .stage, .seasonArc, .tick, .activeTick, .selectedTick, .termButtons button { transition: none; }
   .chapterTitle, .description, .seasonCharacter, .scrollLine::after { animation: none; }
 }

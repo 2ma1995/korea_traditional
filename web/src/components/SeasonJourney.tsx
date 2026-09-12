@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { SolarTerm } from '@/data/solarTerms';
+import SeasonIngredientArt from '@/components/SeasonIngredientArt';
 import styles from './SeasonJourney.module.css';
 
 export interface JourneySeason {
@@ -22,10 +23,9 @@ interface Props {
   currentLongitude: number;
 }
 
-/** 무대 내용이 들어가는 최소 뷰포트 높이. 이보다 낮으면 핀 연출을 끄고 계절 버튼으로 이동한다.
- *  SeasonJourney.module.css의 @media (max-height: 619px) 와 반드시 같은 값이어야 한다. */
-const STAGE_MIN_HEIGHT = 620;
-const SHORT_SCREEN = `(max-height: ${STAGE_MIN_HEIGHT - 1}px)`;
+/** Enlarged term details need more vertical room in the stacked mobile layout.
+ * Keep these breakpoints in sync with the unpinned layout in SeasonJourney.module.css. */
+const SHORT_SCREEN = '(max-height: 619px), (max-width: 760px) and (max-height: 739px)';
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
@@ -191,6 +191,7 @@ export default function SeasonJourney({ seasons, currentLongitude }: Props) {
                   </g>;
                 })}
               </svg>
+              <SeasonIngredientArt season={chapter} />
               <div className={styles.calendarCenter}>
                 <span className={styles.centerLabel}>계절의 문을 열다</span>
                 <span key={season.hanja} className={styles.seasonCharacter}>{season.hanja}</span>

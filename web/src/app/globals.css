@@ -165,11 +165,6 @@ summary::-webkit-details-marker { display: none; }
 .page-heading { display: flex; justify-content: space-between; align-items: center; gap: 30px; padding-bottom: 44px; }
 .page-heading h1 { font-size: clamp(34px, 4.3vw, 56px); line-height: 1.5; margin-top: 18px; word-break: keep-all; }
 .page-heading p { font-size: 14px; color: var(--muted); margin-top: 16px; line-height: 1.9; }
-.heading-seal { border: 1px solid #b7bda7; outline: 1px solid #b7bda7; outline-offset: -6px; text-align: center; padding: 20px 28px; background: #e9ecdf; flex-shrink: 0; }
-.heading-seal > * { display: block; }
-.heading-seal > span { font-size: 10px; letter-spacing: .12em; }
-.heading-seal > strong { font-family: var(--font-serif-kr), serif; font-size: 35px; font-weight: 500; margin: 7px 0; }
-.heading-seal > small { font-size: 10px; color: var(--muted); }
 .steps-strip { display: grid; grid-template-columns: repeat(3, 1fr); list-style: none; padding: 23px 0; border-block: 1px solid var(--line); margin: 0 0 40px; gap: 16px; }
 .steps-strip li { display: flex; gap: 14px; align-items: center; font-size: 12px; }
 .steps-strip span { color: var(--hong); font-family: var(--font-serif-kr), serif; font-size: 19px; }
@@ -304,9 +299,25 @@ summary::-webkit-details-marker { display: none; }
 .archive-term-name > b { margin-left: auto; font-size: 18px; font-weight: 400; transition: transform .2s; }
 .archive-term[open] .archive-term-name > b { transform: rotate(45deg); }
 .archive-term summary > p { font-size: 12px; color: var(--muted); line-height: 1.8; margin-top: 15px; }
+/* 절기 설명이 1~2줄로 갈려 카드 높이가 어긋난다. 2줄 자리를 항상 잡아 카드 크기를 맞춘다.
+   em으로 두어 반응형에서 font-size가 바뀌어도 줄 수 기준이 유지된다.
+   .archive-grid는 align-items: start를 유지해야 한다 — stretch면 카드 하나를 펼쳤을 때
+   같은 줄의 다른 카드까지 늘어난다. */
+.archive-term summary > p:first-of-type { min-height: calc(1.8em * 2); }
 .archive-term-detail { padding: 0 22px 22px; font-size: 12px; line-height: 1.9; }
 .archive-term-detail > p { padding-top: 12px; }
-.archive-term-detail > p:first-child { border-top: 1px solid var(--line); }
+.archive-term-detail > *:first-child { border-top: 1px solid var(--line); }
+/* 제철 재료 — 그 무렵 나오는 재료. 만들 수 있는 제품명이 아니다 */
+.term-ingredients { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.term-ingredients > span { font-size: 9px; color: var(--muted); letter-spacing: .06em; margin-right: 3px; }
+.term-ingredients > b { font-weight: 400; font-size: 11px; color: #5c6b4f; background: #eceedf; border: 1px solid #dcdfcb; padding: 3px 8px; }
+.archive-term.current .term-ingredients > b { background: #f4f7ea; border-color: #c5cfb0; }
+/* 우승작 — 사진을 제일 위에 둔다 */
+.archive-winner { padding-top: 14px; }
+.archive-winner-photo { position: relative; overflow: hidden; margin-bottom: 13px; }
+.archive-winner-photo .product-photo { aspect-ratio: 1.5; }
+.archive-winner > strong { display: block; font-family: var(--font-serif-kr), serif; font-size: 17px; font-weight: 500; margin-top: 2px; }
+.archive-winner-likes { display: block; color: var(--hong); font-size: 11px; margin-top: 6px; }
 .archive-author { color: var(--hong); }
 .season-1 .season-character { color: #567d6c; }
 .season-2 .season-character { color: #9e6848; }
@@ -404,8 +415,6 @@ summary::-webkit-details-marker { display: none; }
   .page-heading h1 { font-size: 36px; margin-top: 13px; }
   .page-heading p { font-size: 12px; margin-top: 12px; }
   .page-heading .eyebrow { font-size: 9px; }
-  .heading-seal { display: flex; align-items: center; gap: 16px; padding: 12px 20px; width: 100%; justify-content: space-between; }
-  .heading-seal > strong { font-size: 24px; margin: 0; }
   .steps-strip { gap: 10px; padding-block: 18px; margin-bottom: 25px; }
   .steps-strip li { flex-direction: column; align-items: start; gap: 6px; font-size: 10px; line-height: 1.7; }
   .steps-strip span { font-size: 16px; }
@@ -458,6 +467,10 @@ summary::-webkit-details-marker { display: none; }
   .archive-season-heading > .fine-print { display: none; }
   .season-character { font-size: 36px; width: 40px; }
   .archive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  /* 2열 구간은 카드가 좁아 설명이 3줄, 재료 칩이 2줄까지 늘어난다.
+     그만큼 자리를 미리 잡아 두 칸의 높이를 맞춘다. */
+  .archive-term summary > p:first-of-type { min-height: calc(1.8em * 3); }
+  .term-ingredients { min-height: 52px; align-content: start; }
   .archive-term summary { padding: 16px; }
   .archive-term-top { font-size: 9px; }
   .archive-term-name { gap: 7px; }
@@ -466,6 +479,9 @@ summary::-webkit-details-marker { display: none; }
   .archive-term-name > b { font-size: 14px; }
   .archive-term summary > p { font-size: 11px; }
   .archive-term-detail { padding: 0 16px 16px; font-size: 11px; }
+  .term-ingredients { gap: 5px; margin-top: 10px; }
+  .term-ingredients > b { font-size: 10px; padding: 2px 6px; }
+  .archive-winner > strong { font-size: 15px; }
 }
 @media (max-width: 380px) {
   .page-width, .header-inner { width: calc(100% - 32px); }
