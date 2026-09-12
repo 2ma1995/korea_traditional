@@ -1,13 +1,15 @@
-import { computeCostIndex } from './costIndex';
-
 /**
  * 시장 데이터 수집.
  *
  * 인증키가 필요 없는 소스만 쓴다 — 외부 데이터 예산 팀당 $50 제약을 지킨다.
  *
  *   코스피              네이버 금융 폴링 API (무지연) → 실패 시 Yahoo ^KS11 폴백
- *   환율·원자재         Yahoo Finance (비공식 엔드포인트, 키 없음)
- *   서울 기온           Open-Meteo (키 없음, 비상업 무료)
+ *   원/달러 환율        Yahoo Finance (비공식 엔드포인트, 키 없음) — 화면 표시용
+ *   서울 날씨           Open-Meteo (키 없음, 비상업 무료) — 화면 표시용
+ *
+ * 할인율을 정하는 것은 코스피 하나다. 환율·날씨는 "오늘의 시장" 화면을 채우는
+ * 부가 정보이고 계산에 관여하지 않는다. 원자재(코코아·밀·설탕·옥수수) 수집과
+ * 원가 지수는 폐기했다 — 원가를 가격 근거로 쓰지 않기로 확정했다.
  *
  * 주의: Yahoo Finance는 비공식 엔드포인트다. 데모·발표에는 문제없지만
  *       실서비스 전환 시 공공데이터포털 공식 API로 교체해야 한다.
@@ -15,7 +17,9 @@ import { computeCostIndex } from './costIndex';
  * 모든 호출은 실패해도 샘플로 폴백한다. 발표 중 네트워크가 끊겨도 화면은 뜬다.
  */
 
-const REVALIDATE_SECONDS = 60; // 1분 — 장중에 화면이 실제로 움직이는 게 보여야 한다
+const REVALIDATE_SECONDS = 60; // 1분 — 페이지 스냅샷
+/** 폴링 응답을 공유하는 시간. 화면 갱신 주기와 같게 둔다 */
+const TICK_TTL_MS = 1000;
 
 export interface Quote {
   value: number;
@@ -34,16 +38,12 @@ export interface MarketSnapshot {
   /** 서울 현재 기온 (°C) */
   tempC: number;
   tempLive: boolean;
-  commodities: {
-    cocoa: Quote;
-    wheat: Quote;
-    sugar: Quote;
-    corn: Quote;
-  };
-  /** 원료 바스켓 가중 원가 상승률 (%) — 가드레일용. 화면에는 노출하지 않는다. */
-  costIndexPct: number;
-  /** 원가 지수가 커버하는 원료 비중 (0~1) */
-  costCoverage: number;
+  /** WMO 날씨 코드 (Open-Meteo). 아이콘 선택에 쓴다. 실패 시 null */
+  weatherCode: number | null;
+  /** 낮인가. 해/달 아이콘을 가른다 */
+  isDay: boolean;
+  /** 원/달러 최근 한 달 종가. 스파크라인용. 실패 시 빈 배열 */
+  fxSeries: number[];
   /** 이 스냅샷을 만든 시각 (epoch ms) */
   fetchedAt: number;
   /** 한국 증시 개장 여부. 네이버 marketStatus 기준, 실패 시 null */
@@ -79,23 +79,31 @@ function rand(seed: number, salt: number) {
 /**
  * 캐시 정책.
  *
- * 페이지 렌더는 1분 캐시로 외부 API 호출을 아끼고, 초단위 폴링(/api/kospi)은
- * 캐시를 건너뛰고 매번 새로 받아온다. 캐시를 태우면 폴링해도 같은 값만 돌아온다.
+ * 페이지 렌더는 1분 캐시로 외부 API 호출을 아낀다.
+ *
+ * 초단위 폴링(/api/kospi)은 여기서 캐시를 끄고, 대신 fetchKospiTick이
+ * 직접 1초를 물고 있는다. Next의 fetch 캐시는 라우트 핸들러에서 동작하지
+ * 않는 것을 실측했다 (fetchKospiTick 주석 참고).
  */
-function cacheOption(fresh: boolean) {
-  return fresh
+function cacheOption(tick: boolean) {
+  return tick
     ? ({ cache: 'no-store' } as const)
     : ({ next: { revalidate: REVALIDATE_SECONDS } } as const);
 }
 
-async function fetchYahoo(symbol: string, fresh = false): Promise<Quote | null> {
+interface YahooQuote extends Quote {
+  /** 기간 내 종가. 빈 값(휴장)은 걸러낸다 */
+  series: number[];
+}
+
+async function fetchYahoo(symbol: string, tick = false, range = '5d'): Promise<YahooQuote | null> {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
       symbol,
-    )}?interval=1d&range=5d`;
+    )}?interval=1d&range=${range}`;
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
-      ...cacheOption(fresh),
+      ...cacheOption(tick),
     });
     if (!res.ok) return null;
 
@@ -105,12 +113,18 @@ async function fetchYahoo(symbol: string, fresh = false): Promise<Quote | null> 
     const changePct = meta?.regularMarketChangePercent;
     if (typeof value !== 'number' || typeof changePct !== 'number') return null;
 
+    const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+    const series = Array.isArray(closes)
+      ? closes.filter((n: unknown): n is number => typeof n === 'number' && Number.isFinite(n))
+      : [];
+
     const t = meta?.regularMarketTime;
     return {
       value: Number(value.toFixed(2)),
       changePct: Number(changePct.toFixed(2)),
       live: true,
       updatedAt: typeof t === 'number' ? t * 1000 : null,
+      series,
     };
   } catch {
     return null;
@@ -127,13 +141,13 @@ async function fetchYahoo(symbol: string, fresh = false): Promise<Quote | null> 
  *    실서비스 전환 시에는 한국거래소 공식 데이터로 교체해야 한다.
  *    실패하면 Yahoo ^KS11로 폴백한다.
  */
-async function fetchNaverKospi(fresh = false): Promise<(Quote & { marketOpen: boolean }) | null> {
+async function fetchNaverKospi(tick = false): Promise<(Quote & { marketOpen: boolean }) | null> {
   try {
     const res = await fetch(
       'https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI',
       {
         headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://finance.naver.com/' },
-        ...cacheOption(fresh),
+        ...cacheOption(tick),
       },
     );
     if (!res.ok) return null;
@@ -144,7 +158,11 @@ async function fetchNaverKospi(fresh = false): Promise<(Quote & { marketOpen: bo
     const ratio = Number(d?.fluctuationsRatioRaw);
     if (!Number.isFinite(value) || !Number.isFinite(ratio)) return null;
 
-    // fluctuationsRatio는 부호가 없다. 방향은 compareToPreviousPrice로 판단한다.
+    // ⚠️ fluctuationsRatioRaw는 부호를 가지고 온다 — 하락일에 "-2.01"로 온다.
+    //    (2026-09-11 실측. 예전 주석은 "부호가 없다"고 잘못 적혀 있었고,
+    //     그 가정으로 음수에 -1을 곱해 하락일이 상승으로 뒤집혔다.)
+    //    부호는 compareToPreviousPrice를 믿고, 크기는 절댓값만 쓴다.
+    //    이러면 원본이 부호를 주든 안 주든 결과가 같다.
     // 코드 1=상한 2=상승 3=보합 4=하한 5=하락
     const code = String(d?.compareToPreviousPrice?.code ?? '');
     const sign = code === '4' || code === '5' ? -1 : code === '3' ? 0 : 1;
@@ -153,7 +171,7 @@ async function fetchNaverKospi(fresh = false): Promise<(Quote & { marketOpen: bo
 
     return {
       value: Number(value.toFixed(2)),
-      changePct: Number((ratio * sign).toFixed(2)),
+      changePct: Number((Math.abs(ratio) * sign).toFixed(2)),
       live: true,
       updatedAt: Number.isFinite(traded) ? traded : null,
       marketOpen: d?.marketStatus === 'OPEN',
@@ -163,16 +181,32 @@ async function fetchNaverKospi(fresh = false): Promise<(Quote & { marketOpen: bo
   }
 }
 
-async function fetchSeoulTemp(): Promise<number | null> {
+interface SeoulWeather {
+  tempC: number;
+  /** WMO 코드 — 0 맑음, 3 흐림, 61 비, 71 눈 … */
+  weatherCode: number | null;
+  isDay: boolean;
+}
+
+async function fetchSeoulWeather(): Promise<SeoulWeather | null> {
   try {
     const res = await fetch(
-      'https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&current=temperature_2m&timezone=Asia%2FSeoul',
+      'https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780' +
+        '&current=temperature_2m,weather_code,is_day&timezone=Asia%2FSeoul',
       { next: { revalidate: REVALIDATE_SECONDS } },
     );
     if (!res.ok) return null;
     const json = await res.json();
     const t = json?.current?.temperature_2m;
-    return typeof t === 'number' ? Math.round(t) : null;
+    if (typeof t !== 'number') return null;
+
+    const code = json?.current?.weather_code;
+    return {
+      tempC: Math.round(t),
+      weatherCode: typeof code === 'number' ? code : null,
+      // is_day는 1/0으로 온다. 값이 없으면 낮으로 본다
+      isDay: json?.current?.is_day !== 0,
+    };
   } catch {
     return null;
   }
@@ -190,38 +224,66 @@ export interface KospiTick extends Quote {
   fetchedAt: number;
 }
 
-/**
- * 코스피만 캐시 없이 다시 받아온다 — /api/kospi 전용.
- *
- * 화면 전체를 다시 그리지 않고 시세 숫자만 갈아끼우기 위한 경로다.
- * 두 소스가 모두 실패하면 null을 돌려준다. 이때 클라이언트는
- * 마지막으로 성공한 값을 그대로 유지한다 (샘플 값으로 튀지 않는다).
- */
-export async function fetchKospiTick(): Promise<KospiTick | null> {
-  const naver = await fetchNaverKospi(true);
-  const quote = naver ?? (await fetchYahoo('^KS11', true));
-  if (!quote) return null;
+/* ------------------------------------------------------------------ */
+/* 초단위 폴링 — 1초 공유 캐시                                          */
+/* ------------------------------------------------------------------ */
 
-  return {
-    ...quote,
-    marketOpen: naver?.marketOpen ?? null,
-    fetchedAt: Date.now(),
-  };
+/**
+ * 왜 직접 캐시를 만들었나.
+ *
+ * 화면은 1초마다 /api/kospi를 부른다. 이 함수가 그때마다 네이버를 부르면
+ * 호출량이 "보고 있는 탭 수 × 초당 1회"가 된다 — 탭 하나가 시간당 3,600회,
+ * 접속자가 30명이면 10.8만회다. 비공식 엔드포인트에 그 정도를 보내면
+ * 스크래핑으로 보여 차단당한다.
+ *
+ * Next의 fetch 캐시(next.revalidate)로 묶으려 했으나 라우트 핸들러에서
+ * 동작하지 않았다. 프로덕션 빌드에서 요청 22회를 보냈는데 네이버 호출이
+ * 21회 나갔고, dynamic='force-dynamic'을 떼도, fetchCache='default-cache'를
+ * 붙여도 같았다. 그래서 프레임워크에 맡기지 않고 여기서 1초를 물고 있는다.
+ *
+ * 두 가지를 같이 막는다.
+ *   cached   — 1초 안에 다시 물으면 같은 값을 준다
+ *   inFlight — 캐시가 빈 순간에 요청이 몰려도 호출은 하나만 나간다.
+ *              이게 없으면 30명이 동시에 들어온 첫 순간에 30번 호출된다.
+ *
+ * 한계 — 서버 인스턴스마다 따로 물고 있으므로, 인스턴스가 N개면 초당 N회다.
+ * 그래도 "탭 수만큼"과는 차원이 다르다.
+ */
+let cachedTick: { at: number; tick: KospiTick | null } | null = null;
+let inFlightTick: Promise<KospiTick | null> | null = null;
+
+export async function fetchKospiTick(): Promise<KospiTick | null> {
+  if (cachedTick && Date.now() - cachedTick.at < TICK_TTL_MS) return cachedTick.tick;
+  if (inFlightTick) return inFlightTick;
+
+  inFlightTick = (async () => {
+    try {
+      const naver = await fetchNaverKospi(true);
+      const quote = naver ?? (await fetchYahoo('^KS11', true));
+      const tick: KospiTick | null = quote
+        ? { ...quote, marketOpen: naver?.marketOpen ?? null, fetchedAt: Date.now() }
+        : null;
+      // 실패(null)도 1초 물고 있는다 — 외부가 죽었을 때 재시도 폭주를 막는다
+      cachedTick = { at: Date.now(), tick };
+      return tick;
+    } finally {
+      inFlightTick = null;
+    }
+  })();
+
+  return inFlightTick;
 }
 
 export async function getMarketSnapshot(date = new Date()): Promise<MarketSnapshot> {
   const dateStr = toDateString(date);
   const seed = seedFrom(dateStr);
 
-  const [naverKospi, yahooKospi, fx, cocoa, wheat, sugar, corn, temp] = await Promise.all([
+  const [naverKospi, yahooKospi, fx, weather] = await Promise.all([
     fetchNaverKospi(),
     fetchYahoo('^KS11'),
-    fetchYahoo('KRW=X'),
-    fetchYahoo('CC=F'),
-    fetchYahoo('ZW=F'),
-    fetchYahoo('SB=F'),
-    fetchYahoo('ZC=F'),
-    fetchSeoulTemp(),
+    // 환율은 한 달치를 받는다 — 스파크라인에 5일은 너무 짧다
+    fetchYahoo('KRW=X', false, '1mo'),
+    fetchSeoulWeather(),
   ]);
 
   /** 실패 시 샘플로 채운다 */
@@ -235,31 +297,15 @@ export async function getMarketSnapshot(date = new Date()): Promise<MarketSnapsh
   // 네이버가 무지연이라 1순위, 실패하면 Yahoo로 폴백한다
   const kospi = naverKospi ?? yahooKospi;
 
-  const snapshot = {
-    kospi: kospi ?? fallback(1, 2800, 120),
-    fxUsdKrw: fx ?? fallback(2, 1380, 30),
-    commodities: {
-      cocoa: cocoa ?? fallback(3, 5900, 400),
-      wheat: wheat ?? fallback(4, 745, 40),
-      sugar: sugar ?? fallback(5, 18, 2),
-      corn: corn ?? fallback(6, 530, 30),
-    },
-  };
-
-  const cost = computeCostIndex({
-    fx: snapshot.fxUsdKrw.changePct,
-    cocoa: snapshot.commodities.cocoa.changePct,
-    corn: snapshot.commodities.corn.changePct,
-    wheat: snapshot.commodities.wheat.changePct,
-  });
-
   return {
     date: dateStr,
-    ...snapshot,
-    tempC: temp ?? Math.round(18 + rand(seed, 7) * 16),
-    tempLive: temp !== null,
-    costIndexPct: cost.changePct,
-    costCoverage: cost.coverage,
+    kospi: kospi ?? fallback(1, 2800, 120),
+    fxUsdKrw: fx ?? fallback(2, 1380, 30),
+    tempC: weather?.tempC ?? Math.round(18 + rand(seed, 7) * 16),
+    tempLive: weather !== null,
+    weatherCode: weather?.weatherCode ?? null,
+    isDay: weather?.isDay ?? true,
+    fxSeries: fx?.series ?? [],
     fetchedAt: Date.now(),
     kospiMarketOpen: naverKospi?.marketOpen ?? null,
   };
