@@ -84,6 +84,42 @@ export interface Contest {
 
 /** 진행 중인 대회 (예시 데이터) */
 export const CURRENT_ENTRIES: ContestEntry[] = [
+  /* 검수 대기 — 멘션 웹훅으로 막 들어온 상태. 관리자가 확인하기 전까지
+     손님 화면(취향이 담긴 한 상)에는 나가지 않는다. */
+  {
+    id: 'p1',
+    title: '무화과 리코타 머핀',
+    productNo: 27, // 비건 잉글리시 머핀
+    toppings: ['무화과'],
+    emoji: '🫓',
+    instagram: {
+      mediaId: '17912345678901240',
+      permalink: 'https://www.instagram.com/p/p1-demo/',
+      username: 'figfig_table',
+      likeCount: 88,
+      likeCountAt: '2026-09-13T09:00:00+09:00',
+    },
+    note: '머핀을 반으로 갈라 리코타와 무화과를 올렸어요',
+    status: 'pending',
+    sourceTag: CONTEST_MENTION,
+  },
+  {
+    id: 'p2',
+    title: '대추 조림 모닝롤',
+    productNo: 19, // 제로 무설탕 모닝롤
+    toppings: ['대추'],
+    emoji: '🫘',
+    instagram: {
+      mediaId: '17912345678901241',
+      permalink: 'https://www.instagram.com/p/p2-demo/',
+      username: 'jujube_diary',
+      likeCount: null,
+      likeCountAt: '2026-09-13T09:00:00+09:00',
+    },
+    note: '좋아요 수를 숨긴 계정 — 순위에서는 맨 뒤로 간다',
+    status: 'pending',
+    sourceTag: CONTEST_MENTION,
+  },
   {
     id: 'e1',
     title: '포도 생지 타르트',

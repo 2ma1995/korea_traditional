@@ -1,0 +1,81 @@
+/* 관리자 콘솔 — 손님 화면과 달리 '한눈에 훑고 빠르게 처리'가 목적이라
+   장식을 걷어내고 표에 가깝게 둔다. */
+
+.warn {
+  background: #f6e8e2;
+  border-left: 2px solid var(--hong);
+  color: #7d3c2c;
+  font-size: 12px;
+  line-height: 1.9;
+  padding: 13px 17px;
+  margin-bottom: 30px;
+}
+.warn b { font-weight: 600; }
+
+.section { margin-bottom: 52px; }
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); padding-bottom: 13px; margin-bottom: 20px; }
+.head h2 { font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
+.head .count { font-size: 12px; color: var(--muted); }
+
+/* ── 할인안 승인 ── */
+.plan { border: 1px solid var(--line); background: var(--paper); padding: 22px 24px; }
+.planTop { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.planTop strong { font-size: 17px; font-weight: 600; letter-spacing: -.015em; }
+.rate { font-size: 26px; font-weight: 600; color: var(--hong); letter-spacing: -.02em; }
+.reason { font-size: 12px; color: var(--muted); line-height: 1.9; margin-top: 8px; }
+.planItems { list-style: none; margin: 18px 0 0; padding: 16px 0 0; border-top: 1px solid var(--line); display: grid; gap: 9px; }
+.planItems li { display: flex; align-items: baseline; gap: 10px; font-size: 13px; }
+.planItems li > span:first-child { flex: 1; }
+.planItems del { color: var(--muted); font-size: 12px; }
+.planItems b { font-weight: 600; }
+.planActions { display: flex; align-items: center; gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.state { font-size: 12px; letter-spacing: .02em; padding: 6px 11px; border: 1px solid var(--line); color: var(--muted); }
+.state[data-on='published'] { border-color: var(--dancheong); color: var(--dancheong); background: #e9ecdf; }
+.note { font-size: 11px; color: var(--muted); line-height: 1.9; }
+
+/* ── 검수 목록 ── */
+.tabs { display: flex; gap: 8px; }
+.tabs button {
+  font: inherit; font-size: 12px; background: none; border: 1px solid var(--line);
+  padding: 7px 14px; color: var(--muted); transition: background .2s, color .2s, border-color .2s;
+}
+.tabs button[aria-pressed='true'] { border-color: var(--dancheong); background: var(--dancheong); color: #fdfbf6; }
+
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.entry { display: flex; align-items: center; gap: 18px; border: 1px solid var(--line); background: var(--paper); padding: 15px 18px; }
+.entry[data-status='rejected'] { opacity: .55; }
+.thumb { width: 54px; height: 54px; flex-shrink: 0; display: grid; place-items: center; font-size: 25px; background: #eeeee3; border: 1px solid var(--line); }
+.body { flex: 1; min-width: 0; }
+.title { font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
+.meta { font-size: 11.5px; color: var(--muted); margin-top: 6px; line-height: 1.8; }
+.meta b { color: var(--ink); font-weight: 500; }
+.likes { font-size: 13px; color: var(--gold); font-weight: 500; }
+.postLink { font-size: 11.5px; color: var(--hong); text-decoration: underline; text-underline-offset: 3px; }
+
+.judge { display: flex; gap: 8px; flex-shrink: 0; }
+.judge button {
+  font: inherit; width: 42px; height: 42px; font-size: 17px; background: var(--paper);
+  border: 1px solid var(--line); color: var(--muted); transition: background .2s, color .2s, border-color .2s;
+}
+.judge button[data-kind='ok'][aria-pressed='true'] { background: var(--dancheong); border-color: var(--dancheong); color: #fdfbf6; }
+.judge button[data-kind='no'][aria-pressed='true'] { background: var(--hong); border-color: var(--hong); color: #fdfbf6; }
+.empty { font-size: 13px; color: var(--muted); border: 1px dashed var(--line); padding: 26px; text-align: center; }
+
+/* ── 수동 등록 ── */
+.form { display: grid; grid-template-columns: 1fr 220px 200px auto; gap: 10px; align-items: end; }
+.field { display: grid; gap: 7px; }
+.field > span { font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+.field input, .field select {
+  font: inherit; font-size: 13px; padding: 11px 12px; background: var(--paper);
+  border: 1px solid var(--line); color: var(--ink); min-width: 0;
+}
+.field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--dancheong); outline-offset: 1px; }
+.submit { font: inherit; font-size: 13px; font-weight: 500; padding: 12px 22px; background: var(--dancheong); color: #fdfbf6; border: 1px solid var(--dancheong); }
+.submit:disabled { background: #cfd2c3; border-color: #cfd2c3; color: #7e8274; }
+.formNote { font-size: 11px; color: var(--muted); line-height: 1.9; margin-top: 12px; }
+
+@media (max-width: 900px) {
+  .form { grid-template-columns: 1fr; }
+  .entry { flex-wrap: wrap; }
+  .judge { width: 100%; justify-content: flex-end; }
+}
