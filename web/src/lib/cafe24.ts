@@ -157,9 +157,13 @@ export async function exchangeCode(code: string): Promise<void> {
 
 /**
  * 쓸 수 있는 액세스 토큰을 돌려준다.
- * 만료가 5분 안으로 남았으면 갱신 토큰으로 새로 받는다.
+ *
+ * 만료가 5분 안으로 남았으면 미리 갱신한다. 다만 만료 시각만 믿지는 않는다 —
+ * 카페24는 앱 타임존(Asia/Seoul) 기준으로 시각을 주고, 문자열에 오프셋이 없으면
+ * 서버(UTC)에서 9시간 어긋나게 읽힌다. 그래서 adminApi가 401을 받으면
+ * force로 다시 부른다.
  */
-export async function accessToken(): Promise<string> {
+export async function accessToken(force = false): Promise<string> {
   const { mallId } = requireCafe24Config();
   const db = requireSupabase();
   const { data, error } = await db
@@ -174,7 +178,7 @@ export async function accessToken(): Promise<string> {
   }
 
   const expiresAt = new Date(data.expires_at).getTime();
-  if (Number.isFinite(expiresAt) && expiresAt - Date.now() > REFRESH_MARGIN_MS) {
+  if (!force && Number.isFinite(expiresAt) && expiresAt - Date.now() > REFRESH_MARGIN_MS) {
     return data.access_token;
   }
 
@@ -186,24 +190,39 @@ export async function accessToken(): Promise<string> {
   return refreshed.access_token;
 }
 
-/** Admin API 호출. 경로는 '/api/v2/admin/...' 형태로 넘긴다. */
+/**
+ * Admin API 호출. 경로는 '/api/v2/admin/...' 형태로 넘긴다.
+ *
+ * 401(invalid_token)이면 갱신하고 딱 한 번 다시 시도한다.
+ * 만료 시각 계산이 어긋나도 스스로 복구되게 하려는 것이고, 무한 재시도는 하지 않는다
+ * — 토큰 요청은 2시간에 15회 제한이 있어 반복하면 계정이 막힌다.
+ */
 export async function adminApi<T>(
   path: string,
   init: { method?: string; body?: unknown } = {},
 ): Promise<T> {
   const { mallId } = requireCafe24Config();
-  const token = await accessToken();
-  const response = await fetch(`${apiBase(mallId)}${path}`, {
-    method: init.method ?? 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'X-Cafe24-Api-Version': API_VERSION,
-    },
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
-    cache: 'no-store',
-  });
-  const text = await response.text();
+
+  const send = async (token: string) => {
+    const response = await fetch(`${apiBase(mallId)}${path}`, {
+      method: init.method ?? 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-Cafe24-Api-Version': API_VERSION,
+      },
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      cache: 'no-store',
+    });
+    return { response, text: await response.text() };
+  };
+
+  let { response, text } = await send(await accessToken());
+
+  if (response.status === 401) {
+    ({ response, text } = await send(await accessToken(true)));
+  }
+
   if (!response.ok) {
     throw new Error(`카페24 API 실패 ${init.method ?? 'GET'} ${path} (${response.status}): ${text.slice(0, 300)}`);
   }
