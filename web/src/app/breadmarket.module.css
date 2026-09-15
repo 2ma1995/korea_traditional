@@ -1,0 +1,62 @@
+/* 빵장 — 증권 화면의 정렬과 밀도를 빌리되, 배경은 막지의 종이색을 유지한다. */
+
+.hero { display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; padding-bottom: 40px; }
+.hero h1 { font-size: clamp(34px, 4.6vw, 58px); line-height: 1.45; margin-top: 18px; word-break: keep-all; }
+.hero h1 em { font-style: normal; color: var(--hong); }
+.hero p { font-size: 14px; color: var(--muted); margin-top: 18px; line-height: 1.95; max-width: 430px; word-break: keep-all; }
+
+/* 개장 시계 — 열렸는지 닫혔는지가 한눈에 보여야 한다 */
+.clock {
+  flex-shrink: 0; border: 1px solid var(--line); background: var(--paper);
+  padding: 20px 24px; text-align: right; min-width: 210px;
+}
+.clock[data-open='true'] { border-color: var(--dancheong); background: #e9ecdf; }
+.clockLabel { font-size: 10px; letter-spacing: .16em; color: var(--muted); }
+.clock[data-open='true'] .clockLabel { color: var(--dancheong); font-weight: 600; }
+.clock strong { display: block; font-size: 25px; font-weight: 600; letter-spacing: -.02em; margin-top: 9px; font-variant-numeric: tabular-nums; }
+.clock small { display: block; font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.7; }
+
+/* 오늘의 기준 — 코스피 / 변동폭 / 열린 폭 */
+.gauge { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.gaugeItem { background: var(--paper); padding: 20px 22px; }
+.gaugeItem[data-quote='true'] { padding-top: 17px; }
+.gaugeItem > span { display: block; font-size: 11px; letter-spacing: .08em; color: var(--muted); }
+.gaugeItem > strong { display: block; font-size: 32px; font-weight: 600; letter-spacing: -.03em; margin-top: 12px; font-variant-numeric: tabular-nums; }
+.gaugeItem > small { display: block; font-size: 11px; color: var(--muted); margin-top: 9px; line-height: 1.7; }
+.abs { color: var(--ink); }
+.depth { color: var(--hong); }
+
+.boards { display: grid; gap: 16px; margin-top: 30px; }
+
+/* 규칙 설명 — "왜 오늘 이 가격인가"에 답하는 자리 */
+.rule { margin-top: 56px; border-top: 1px solid var(--line); padding-top: 34px; }
+.rule h2 { font-size: 21px; font-weight: 600; letter-spacing: -.02em; }
+.rule ol { margin: 22px 0 0; padding-left: 0; list-style: none; display: grid; gap: 13px; counter-reset: step; }
+.rule li {
+  font-size: 14px; line-height: 1.9; color: var(--body, #4a5548);
+  padding-left: 30px; position: relative; word-break: keep-all;
+}
+.rule li::before {
+  counter-increment: step; content: counter(step);
+  position: absolute; left: 0; top: 4px;
+  width: 19px; height: 19px; display: grid; place-items: center;
+  border: 1px solid var(--line); font-size: 10px; color: var(--muted);
+}
+.rule li strong { font-variant-numeric: tabular-nums; margin-right: 6px; }
+.rule li b { color: var(--hong); font-weight: 600; }
+.ruleNote { font-size: 12px; color: var(--muted); line-height: 1.95; margin-top: 22px; word-break: keep-all; }
+.ruleNote b { color: var(--ink); font-weight: 500; }
+
+.shop {
+  margin-top: 56px; border: 1px solid var(--line); background: var(--paper);
+  padding: 30px 32px; display: flex; align-items: center; justify-content: space-between; gap: 30px;
+}
+.shop h2 { font-size: 20px; font-weight: 600; letter-spacing: -.02em; margin-top: 10px; }
+.shop p { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+@media (max-width: 900px) {
+  .hero { flex-direction: column; gap: 26px; }
+  .clock { text-align: left; width: 100%; }
+  .gauge { grid-template-columns: 1fr; }
+  .shop { flex-direction: column; align-items: flex-start; }
+}

@@ -1,0 +1,30 @@
+/* 시세 표시 — 빵장의 기준값이라 숫자가 먼저 읽혀야 한다.
+   이전 landing.module.css에서 필요한 규칙만 옮겨왔다. */
+
+.quoteHeader { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.quoteHeader > span:first-child { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.quoteHeader b { font-size: 9px; font-weight: 500; letter-spacing: .1em; color: var(--muted); }
+
+/* 장중이면 초록에 점이 뛰고, 마감이면 회색으로 가라앉는다 */
+.marketBadge { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; padding: 5px 8px; border: 1px solid #cbd2bf; white-space: nowrap; }
+.marketBadge[data-tone='open'] { color: #446440; background: #edf2e5; }
+.marketBadge[data-tone='closed'] { color: #6b7166; background: #eeeee8; border-color: #d5d6cc; }
+.marketBadge[data-tone='sample'] { color: #866739; background: #f4edde; border-color: #e0d1b8; }
+.pulse { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulse 1.8s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+.indexValue {
+  display: block; font-family: var(--font-geist-mono), monospace;
+  font-size: 32px; font-weight: 400; letter-spacing: -.045em;
+  margin-top: 12px; line-height: 1.25; font-variant-numeric: tabular-nums;
+}
+.indexChange { font-family: var(--font-geist-mono), monospace; font-size: 14px; margin-top: 6px; }
+.indexChange small { font-family: var(--font-geist-sans), sans-serif; font-size: 10px; color: var(--muted); margin-left: 10px; }
+
+.up { color: var(--hong); }
+.down { color: #45618b; }
+.tickUp, .tickDown { animation: kospiTick .55s ease-out; }
+.tickUp { --tick-color: var(--hong); }
+.tickDown { --tick-color: #45618b; }
+@keyframes kospiTick { from { color: var(--tick-color); } to { color: var(--ink); } }
+@media (prefers-reduced-motion: reduce) { .tickUp, .tickDown { animation: none; } }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import styles from '@/app/landing.module.css';
+import styles from './KospiQuote.module.css';
 
 /**
  * 오늘의 코스피 — 1초 주기 실시간 시세.

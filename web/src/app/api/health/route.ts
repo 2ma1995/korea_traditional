@@ -29,12 +29,12 @@ export async function GET(request: Request) {
   if (db) {
     // 표가 만들어졌는지 + 이미 인증된 토큰이 있는지
     const tokens = await db.from('cafe24_tokens').select('mall_id, expires_at');
-    const entries = await db.from('contest_entries').select('id', { count: 'exact', head: true });
+    const settings = await db.from('discount_tiers').select('min_abs_change', { count: 'exact', head: true });
     result.supabase = {
       configured: true,
       tables: {
         cafe24_tokens: tokens.error ? `오류: ${tokens.error.message}` : 'OK',
-        contest_entries: entries.error ? `오류: ${entries.error.message}` : 'OK',
+        discount_tiers: settings.error ? `오류: ${settings.error.message}` : 'OK',
       },
       cafe24Token: tokens.data?.length
         ? { mallId: tokens.data[0].mall_id, expiresAt: tokens.data[0].expires_at }

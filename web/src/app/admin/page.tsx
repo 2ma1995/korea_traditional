@@ -6,7 +6,6 @@ import { isAdmin } from '@/lib/adminAuth';
 import TierSettings from '@/components/TierSettings';
 import { loadProductLinks, loadTiers } from '@/lib/settings';
 import { MAX_DISCOUNT_RATE } from '@/data/indicators';
-import { CURRENT_ENTRIES } from '@/data/contest';
 import { buildDailyPlan } from '@/lib/discount';
 import { getMarketSnapshot } from '@/lib/market';
 
@@ -38,6 +37,8 @@ export default async function AdminPage() {
     loadProductLinks(),
   ]);
   const daily = buildDailyPlan(market, undefined, tiers);
+  /* 즉시구매 칸의 폭 = 가장 얕은 구간. 자사몰에 반영하는 기본값이다. */
+  const instantDepth = Math.min(...tiers.map(tier => tier.rate));
   const plan: PlanSummary = {
     date: daily.date,
     headline: daily.headline,
@@ -57,10 +58,10 @@ export default async function AdminPage() {
       <div>
         <span className="eyebrow">ADMIN · 내부용</span>
         <h1>검수와 <em>승인.</em></h1>
-        <p>멘션으로 들어온 출품을 확인하고, 오늘의 할인안을 게시합니다.</p>
+        <p>오늘의 호가 범위를 확인하고 자사몰에 반영합니다.</p>
       </div>
     </header>
-    <AdminConsole entries={CURRENT_ENTRIES} plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} />
+    <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} instantDepth={instantDepth} />
     <TierSettings initial={tiers} maxRate={MAX_DISCOUNT_RATE} />
     <Cafe24Panel links={links} />
   </main>;

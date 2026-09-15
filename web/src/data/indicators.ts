@@ -70,13 +70,25 @@ export interface DiscountTier {
   label: string;
 }
 
+/**
+ * 빵장 호가 구간 — KOSPI 일간 절대등락률이 오늘 열릴 최저호가를 정한다.
+ *
+ * rate는 '할인율'이 아니라 **열리는 최저호가의 깊이**다. 각 rate가 그대로
+ * 호가 단계(Tick)가 되고, 오늘 열린 깊이 이하의 칸만 화면에 나온다.
+ * 맨 얕은 칸(5%)은 항상 즉시구매 — 수량 제한이 없다.
+ *
+ * 구간 경계는 KOSPI 3년 실측 분포로 잡았다 (2023-09~2026-09, 727 거래일).
+ *   0.3% 미만 21.7% · 0.3~0.8% 24.3% · 0.8~1.5% 25.3% · 1.5% 이상 28.6%
+ * 네 구간이 거의 균등해 "1년에 며칠만 열리는 가격"이 생기지 않는다.
+ * 이전 구간(1/1.5/3/4.5%)은 절반 가까운 날이 최하단에 몰리고 최상단이 연 15일뿐이었다.
+ */
 export const DISCOUNT_TIERS: DiscountTier[] = [
-  { minAbsChange: 4.5, rate: 0.38, label: '급변동' },
-  { minAbsChange: 3, rate: 0.3, label: '큰 변동' },
-  { minAbsChange: 1.5, rate: 0.2, label: '보통 변동' },
-  { minAbsChange: 1, rate: 0.1, label: '작은 변동' },
+  { minAbsChange: 1.5, rate: 0.2, label: '매우 큰 움직임' },
+  { minAbsChange: 0.8, rate: 0.15, label: '큰 움직임' },
+  { minAbsChange: 0.3, rate: 0.1, label: '중간 움직임' },
+  { minAbsChange: 0, rate: 0.05, label: '작은 움직임' },
 ];
-// ±1% 미만은 tierFor()의 폴백이 마지막 티어(10%)를 준다 — 할인 없는 날은 만들지 않는다.
+// 하한 0인 구간이 있어 어떤 값이든 걸린다 — 호가가 하나도 없는 날은 만들지 않는다.
 
 /**
  * 절대 할인 상한 — 기업 확인값 (2026-09).

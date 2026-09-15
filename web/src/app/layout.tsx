@@ -25,8 +25,8 @@ const notoSerifKR = Noto_Serif_KR({
 });
 
 export const metadata: Metadata = {
-  title: "막지 절기상점 · MAKJI",
-  description: "한국의 계절을 한 입에 담다. 막지와 함께 만드는 스물네 절기의 맛.",
+  title: "막지 빵장 · MAKJI Bread Market",
+  description: "장이 끝나면 빵장이 열립니다. 시장이 크게 움직인 날, 빵을 살 수 있는 가격도 크게 움직입니다.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

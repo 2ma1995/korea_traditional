@@ -1,0 +1,169 @@
+import { MAX_DISCOUNT_RATE, type DiscountTier } from '@/data/indicators';
+import { PRODUCTS, type Product } from '@/data/products';
+import type { MarketSnapshot } from './market';
+
+/**
+ * 빵장 — 호가 계산.
+ *
+ * 규칙은 두 줄이다.
+ *   1. KOSPI가 **얼마나 움직였는지**(방향 아님)가 오늘 열릴 최저호가를 정한다
+ *   2. 재고가 가격별로 실제 풀 수 있는 수량을 정한다
+ *
+ * 방향을 쓰지 않는 이유: 오르면 이 라인 할인, 내려도 저 라인 할인은 억지였고,
+ * 연속 상승장에서 같은 상품군만 반복 할인됐다. 크기만 보면 규칙이 하나로 줄어든다.
+ *
+ * 맨 위 호가는 항상 '즉시구매'다 — 수량 제한이 없다. 이 칸이 없으면 호가창은
+ * 구매 문턱을 낮추는 장치가 아니라 오히려 올리는 장치가 된다.
+ */
+
+/** 빵장 개장 시각 (KST). 주식장 마감 뒤, 온라인 구매가 몰리는 시간대에 맞춘다. */
+export const OPEN_HOUR = 20;
+export const CLOSE_HOUR = 24;
+
+export interface Tick {
+  /** 정가 대비 할인 폭 (0.05 = 5%) */
+  depth: number;
+  price: number;
+  /** 수량 제한 없이 지금 살 수 있는 칸 */
+  instant: boolean;
+  /** 한정 수량. instant면 null */
+  quantity: number | null;
+  label: string;
+}
+
+export interface ProductBook {
+  product: Product;
+  ticks: Tick[];
+  /** 오늘 이 상품에 열린 최저가 */
+  floorPrice: number;
+}
+
+export interface MarketHours {
+  /** 지금 빵장이 열려 있는가 */
+  open: boolean;
+  /** 왜 닫혔는가 */
+  reason: 'open' | 'before' | 'after' | 'holiday';
+  /** KST 기준 현재 시각 표시용 */
+  nowLabel: string;
+}
+
+/** 10원 단위 절사 — 카페24에 반영하는 금액과 화면 금액을 맞춘다. */
+const floorTo10 = (won: number) => Math.floor(won / 10) * 10;
+
+/** KST 기준 시/분/요일. 서버가 UTC라 직접 환산한다. */
+function seoulParts(at: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+    weekday: 'short',
+    hour12: false,
+  }).formatToParts(at);
+  const get = (type: string) => parts.find(part => part.type === type)?.value ?? '';
+  return {
+    hour: Number(get('hour')),
+    minute: Number(get('minute')),
+    weekday: get('weekday'),
+  };
+}
+
+/**
+ * 개장 판정.
+ *
+ * 주말은 KOSPI가 열리지 않으므로 빵장도 쉰다. 매일 열면 평일 습관이 약해지고,
+ * "주식시장이 쉬는 날은 빵장도 쉽니다"가 규칙으로 더 선명하다.
+ * 공휴일 판정은 아직 없다 — 달력 데이터가 필요하다.
+ */
+export function marketHours(at: Date = new Date()): MarketHours {
+  const { hour, minute, weekday } = seoulParts(at);
+  const nowLabel = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+  if (weekday === 'Sat' || weekday === 'Sun') {
+    return { open: false, reason: 'holiday', nowLabel };
+  }
+  if (hour < OPEN_HOUR) return { open: false, reason: 'before', nowLabel };
+  return { open: true, reason: 'open', nowLabel };
+}
+
+/**
+ * 오늘 열리는 최대 할인 폭.
+ *
+ * 구간은 관리자가 화면에서 바꾼다(discount_tiers). 비어 있으면 코드 기본값을 쓴다.
+ * 상한 38%는 기업 확인값이라 어떤 설정에서도 넘지 못하게 한 번 더 막는다.
+ */
+export function depthFor(absChangePct: number, tiers: DiscountTier[]): DiscountTier {
+  const sorted = [...tiers].sort((a, b) => b.minAbsChange - a.minAbsChange);
+  const hit = sorted.find(tier => absChangePct >= tier.minAbsChange) ?? sorted[sorted.length - 1];
+  return { ...hit, rate: Math.min(hit.rate, MAX_DISCOUNT_RATE) };
+}
+
+/**
+ * 한정 수량 기본값.
+ *
+ * 관리자가 가격별 수량을 직접 넣는 화면은 다음 단계다. 그때까지는
+ * "재고가 많은 상품일수록 깊은 호가까지 물량이 있다"는 규칙만 코드로 흉내낸다.
+ * 깊은 호가로 갈수록 줄어드는 형태만 유지하면 화면의 뜻은 전달된다.
+ */
+function defaultQuantity(index: number, inStock: boolean): number {
+  if (!inStock) return 0;
+  return [0, 12, 4, 1][index] ?? 1;
+}
+
+/** 한 상품의 호가표. 오늘 열린 폭보다 깊은 칸은 만들지 않는다. */
+export function buildBook(product: Product, tiers: DiscountTier[], maxDepth: number): ProductBook {
+  /* 구간의 할인 폭들이 그대로 호가 단계가 된다. 오늘 열린 폭 이하만 남긴다.
+     등락이 작은 날은 칸이 하나뿐일 수도 있다 — 그때도 즉시구매는 있다. */
+  const depths = [...new Set(tiers.map(tier => Math.min(tier.rate, MAX_DISCOUNT_RATE)))]
+    .filter(depth => depth <= maxDepth + 1e-9)
+    .sort((a, b) => a - b);
+
+  const ticks: Tick[] = depths.map((depth, index) => ({
+    depth,
+    price: floorTo10(product.price * (1 - depth)),
+    instant: index === 0,
+    quantity: index === 0 ? null : defaultQuantity(index, product.inStock),
+    label: index === 0 ? '지금 바로 구매' : `한정 ${defaultQuantity(index, product.inStock)}개`,
+  }));
+
+  return {
+    product,
+    ticks,
+    floorPrice: ticks.length ? ticks[ticks.length - 1].price : product.price,
+  };
+}
+
+export interface BreadMarket {
+  date: string;
+  /** KOSPI 일간 절대등락률 (%) */
+  absChangePct: number;
+  /** 부호까지 있는 원래 등락률 — 화면에 같이 보여준다 */
+  changePct: number;
+  kospi: number;
+  /** 오늘 적용된 구간 */
+  tier: DiscountTier;
+  hours: MarketHours;
+  books: ProductBook[];
+}
+
+export function buildBreadMarket(
+  market: MarketSnapshot,
+  tiers: DiscountTier[],
+  at: Date = new Date(),
+  products: Product[] = PRODUCTS,
+): BreadMarket {
+  const absChangePct = Math.abs(market.kospi.changePct);
+  const tier = depthFor(absChangePct, tiers);
+
+  return {
+    date: market.date,
+    absChangePct,
+    changePct: market.kospi.changePct,
+    kospi: market.kospi.value,
+    tier,
+    hours: marketHours(at),
+    /* 재고 있는 상품을 먼저, 그 안에서는 정가 높은 순 — 할인 폭이 큰 것이 위로 온다 */
+    books: [...products]
+      .sort((a, b) => Number(b.inStock) - Number(a.inStock) || b.price - a.price)
+      .map(product => buildBook(product, tiers, tier.rate)),
+  };
+}
