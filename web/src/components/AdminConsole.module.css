@@ -93,3 +93,28 @@
   background: var(--paper); color: var(--ink); border: 1px solid var(--dancheong);
 }
 .outline:disabled { border-color: var(--line); color: var(--muted); }
+
+/* ── 할인안 행 (선택 + 할인율 조정) ── */
+.planRow { gap: 12px; }
+.planRow[data-off='true'] { opacity: .45; }
+.planRow input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--dancheong); flex-shrink: 0; }
+.rowName { flex: 1; }
+.rowName small { color: var(--muted); font-size: 11px; }
+.unlinked { color: var(--hong) !important; }
+.rateBox { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--muted); }
+.rateBox input {
+  font: inherit; font-size: 13px; width: 52px; text-align: right; padding: 6px 8px;
+  background: var(--paper); border: 1px solid var(--line); color: var(--ink);
+}
+.adjusted { font-size: 11px; color: var(--hong); }
+
+/* ── 구간 설정 ── */
+.tierRow { flex-wrap: wrap; gap: 8px; }
+.tierLabel {
+  font: inherit; font-size: 12px; width: 92px; padding: 6px 8px;
+  background: var(--paper); border: 1px solid var(--line); color: var(--ink);
+}
+.rowRemove {
+  font: inherit; margin-left: auto; width: 30px; height: 30px; font-size: 13px;
+  background: none; border: 1px solid var(--line); color: var(--muted);
+}

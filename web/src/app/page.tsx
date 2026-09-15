@@ -9,6 +9,7 @@ import TermBar from '@/components/TermBar';
 import SeasonJourney, { type JourneySeason } from '@/components/SeasonJourney';
 import { buildDailyPlan } from '@/lib/discount';
 import { getMarketSnapshot } from '@/lib/market';
+import { loadTiers } from '@/lib/settings';
 import { currentTerm, nextTerm, groupBySeason, termsInTraditionalOrder } from '@/lib/solarTerm';
 import styles from './landing.module.css';
 import { SEASON_STORIES } from '@/data/seasonStories';
@@ -18,7 +19,9 @@ const won = (value: number) => value.toLocaleString('ko-KR');
 export default async function Home() {
   const today = new Date();
   const market = await getMarketSnapshot(today);
-  const plan = buildDailyPlan(market);
+  /* 관리자가 바꾼 구간을 손님 화면도 그대로 따라야 한다.
+     둘이 다르면 "우리 사이트 30%인데 자사몰은 20%"가 된다. */
+  const plan = buildDailyPlan(market, undefined, await loadTiers());
   const term = currentTerm(today);
   const upcoming = nextTerm(today);
   const seasons: JourneySeason[] = groupBySeason(termsInTraditionalOrder(today)).map(({ items }, index) => ({

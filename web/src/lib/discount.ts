@@ -1,4 +1,4 @@
-import { DISCOUNT_TIERS, MAX_DISCOUNT_RATE } from '@/data/indicators';
+import { DISCOUNT_TIERS, MAX_DISCOUNT_RATE, type DiscountTier } from '@/data/indicators';
 import { PRODUCTS, type Product } from '@/data/products';
 import type { MarketSnapshot } from './market';
 
@@ -28,9 +28,9 @@ function floorTo10(won: number) {
   return Math.floor(won / 10) * 10;
 }
 
-function tierFor(changePct: number) {
+function tierFor(changePct: number, tiers: DiscountTier[]) {
   const abs = Math.abs(changePct);
-  return DISCOUNT_TIERS.find((t) => abs >= t.minAbsChange) ?? DISCOUNT_TIERS[DISCOUNT_TIERS.length - 1];
+  return tiers.find((t) => abs >= t.minAbsChange) ?? tiers[tiers.length - 1];
 }
 
 /**
@@ -45,11 +45,14 @@ function tierFor(changePct: number) {
 export function buildDailyPlan(
   market: MarketSnapshot,
   products: Product[] = PRODUCTS,
+  /* 관리자가 화면에서 바꾼 구간. 없으면 코드 기본값 — 설정이 비었다고
+     할인이 사라지면 안 된다. 읽어오는 곳은 lib/settings.ts */
+  tiers: DiscountTier[] = DISCOUNT_TIERS,
 ): DailyPlan {
   const up = market.kospi.changePct >= 0;
   const targetGlutenFree = up;
 
-  const tier = tierFor(market.kospi.changePct);
+  const tier = tierFor(market.kospi.changePct, tiers);
   // 기업 확인 상한(38%)을 넘지 않게 한 번 더 막는다. 티어는 협의로 바뀌는 데이터다.
   const rate = Math.min(tier.rate, MAX_DISCOUNT_RATE);
 

@@ -25,6 +25,20 @@ export interface PlanSummary {
 interface Props {
   entries: ContestEntry[];
   plan: PlanSummary;
+  /** 우리 제품번호 → 자사몰 상품번호. 연결되지 않은 제품은 반영할 수 없다 */
+  links: Record<number, number>;
+  maxRate: number;
+}
+
+/** 오늘 반영할 한 줄. 코스피가 채운 값을 관리자가 조정한다 */
+interface PlanRow {
+  productNo: number;
+  name: string;
+  price: number;
+  /** 코스피가 제안한 할인율. 조정해도 이 값은 남겨 기록에 쓴다 */
+  suggested: number;
+  rate: number;
+  selected: boolean;
 }
 
 type Filter = EntryStatus | 'all';
@@ -51,13 +65,24 @@ const productName = (productNo: number) =>
 /** 인스타그램 게시물 주소에서 코드를 뽑는다. 수동 등록분의 임시 mediaId로 쓴다. */
 const shortcodeOf = (url: string) => url.match(/instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+)/)?.[1] ?? '';
 
-export default function AdminConsole({ entries: initial, plan }: Props) {
+export default function AdminConsole({ entries: initial, plan, links, maxRate }: Props) {
   const [entries, setEntries] = useState(initial);
   /* 검수 대기가 없으면 빈 화면부터 보게 된다. 그때는 전체를 먼저 펼친다. */
   const [filter, setFilter] = useState<Filter>(
     initial.some(entry => entry.status === 'pending') ? 'pending' : 'all',
   );
-  const [approved, setApproved] = useState(false);
+  /* 코스피가 채운 기본값으로 시작한다. 관리자는 여기서 빼거나 낮춘다 —
+     전부 손으로 정하는 화면이 되면 코스피 연동이 장식이 된다. */
+  const [rows, setRows] = useState<PlanRow[]>(() => plan.items.map(item => ({
+    productNo: item.productNo,
+    name: item.name,
+    price: item.price,
+    suggested: plan.rate,
+    rate: plan.rate,
+    selected: true,
+  })));
+  const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState('');
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [productNo, setProductNo] = useState(PRODUCTS[0]?.productNo ?? 0);
@@ -70,6 +95,41 @@ export default function AdminConsole({ entries: initial, plan }: Props) {
   }), [entries]);
 
   const shown = filter === 'all' ? entries : entries.filter(entry => entry.status === filter);
+
+  /** 10원 단위 절사 — 서버(publish 라우트)와 같은 규칙이어야 금액이 어긋나지 않는다 */
+  const finalPrice = (row: PlanRow) => Math.floor((row.price * (1 - row.rate)) / 10) * 10;
+  const setRow = (productNo: number, patch: Partial<PlanRow>) =>
+    setRows(previous => previous.map(row => (row.productNo === productNo ? { ...row, ...patch } : row)));
+  const chosen = rows.filter(row => row.selected);
+
+  /** 고른 제품을 자사몰에 반영한다. 연결되지 않은 제품은 서버가 건너뛰고 이유를 돌려준다. */
+  const publish = async () => {
+    setPublishing(true);
+    setPublished('');
+    try {
+      const response = await fetch('/api/admin/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: chosen.map(row => ({ productNo: row.productNo, rate: row.rate })) }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { setPublished(data.error ?? `반영 실패 (${response.status})`); return; }
+
+      const lines: string[] = [];
+      for (const item of data.applied ?? []) {
+        lines.push(`반영됨 — ${item.name}: ${won(Number(item.originalPrice))}원 → ${won(Number(item.newPrice))}원`);
+      }
+      for (const item of data.skipped ?? []) {
+        lines.push(`건너뜀 — ${item.name ?? item.productNo}: ${item.reason}`);
+      }
+      if (data.warning) lines.push(data.warning);
+      setPublished(lines.join('\n') || '반영할 것이 없었습니다.');
+    } catch (cause) {
+      setPublished(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   /** 체크/엑스. 같은 버튼을 다시 누르면 검수 대기로 되돌린다 — 잘못 누른 것을 취소할 길이 필요하다. */
   const judge = (id: string, next: Exclude<EntryStatus, 'pending'>) => {
@@ -133,27 +193,53 @@ export default function AdminConsole({ entries: initial, plan }: Props) {
           </div>
 
           <ul className={styles.planItems}>
-            {plan.items.map(item => (
-              <li key={item.productNo}>
-                <span>{item.name}</span>
-                <del>{won(item.price)}원</del>
-                <b>{won(item.finalPrice)}원</b>
-              </li>
-            ))}
+            {rows.map(row => {
+              const linked = links[row.productNo];
+              return (
+                <li key={row.productNo} className={styles.planRow} data-off={!row.selected}>
+                  <input
+                    type="checkbox"
+                    checked={row.selected}
+                    aria-label={`${row.name} 포함`}
+                    onChange={() => setRow(row.productNo, { selected: !row.selected })}
+                  />
+                  <span className={styles.rowName}>
+                    {row.name}
+                    {linked
+                      ? <small> · 자사몰 #{linked}</small>
+                      : <small className={styles.unlinked}> · 연결 안 됨</small>}
+                  </span>
+                  <del>{won(row.price)}원</del>
+                  <b>{won(finalPrice(row))}원</b>
+                  <span className={styles.rateBox}>
+                    <input
+                      value={Math.round(row.rate * 100)}
+                      inputMode="numeric"
+                      aria-label={`${row.name} 할인율`}
+                      onChange={event => setRow(row.productNo, {
+                        rate: Math.min(Math.max(Number(event.target.value) || 0, 0), maxRate * 100) / 100,
+                      })}
+                    />%
+                  </span>
+                  {row.rate !== row.suggested && (
+                    <small className={styles.adjusted}>제안 {Math.round(row.suggested * 100)}%</small>
+                  )}
+                </li>
+              );
+            })}
           </ul>
 
           <div className={styles.planActions}>
-            <button type="button" className={styles.submit} onClick={() => setApproved(previous => !previous)}>
-              {approved ? '승인 취소' : '승인하고 게시'}
+            <button type="button" className={styles.submit} onClick={publish} disabled={publishing || !chosen.length}>
+              {publishing ? '반영 중…' : `자사몰에 반영 (${chosen.length}종)`}
             </button>
-            <span className={styles.state} data-on={approved ? 'published' : 'waiting'}>
-              {approved ? '게시됨 · PUBLISHED' : '승인 대기'}
-            </span>
             {plan.soldOutCount > 0 && <span className={styles.note}>품절 {plan.soldOutCount}종은 목록에서 제외됨</span>}
           </div>
+          {published && <p className={styles.note} style={{ marginTop: 12, whiteSpace: 'pre-line' }}>{published}</p>}
           <p className={styles.note} style={{ marginTop: 12 }}>
-            승인하면 손님 화면에 이 할인이 나갑니다. 자사몰 가격 반영은 아직 수동입니다 —
-            카페24 관리자에서 같은 할인율을 설정해야 결제 금액이 맞습니다.
+            할인율은 코스피가 채운 값입니다. 재고나 기업 요청으로 빼거나 낮출 수 있고,
+            상한 {Math.round(maxRate * 100)}%(기업 확인값)는 넘지 못합니다.
+            반영하면 자사몰 판매가가 실제로 바뀌며, 바꾸기 전 가격은 기록에 남습니다.
           </p>
         </div>
       </section>

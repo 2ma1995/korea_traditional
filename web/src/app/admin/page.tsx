@@ -3,6 +3,9 @@ import AdminConsole, { type PlanSummary } from '@/components/AdminConsole';
 import AdminLogin from '@/components/AdminLogin';
 import Cafe24Panel from '@/components/Cafe24Panel';
 import { isAdmin } from '@/lib/adminAuth';
+import TierSettings from '@/components/TierSettings';
+import { loadProductLinks, loadTiers } from '@/lib/settings';
+import { MAX_DISCOUNT_RATE } from '@/data/indicators';
 import { CURRENT_ENTRIES } from '@/data/contest';
 import { buildDailyPlan } from '@/lib/discount';
 import { getMarketSnapshot } from '@/lib/market';
@@ -28,8 +31,13 @@ export default async function AdminPage() {
     </main>;
   }
 
-  const market = await getMarketSnapshot(new Date());
-  const daily = buildDailyPlan(market);
+  /* 구간과 연결표는 관리자가 바꾸는 값이라 DB에서 읽는다. 비어 있으면 코드 기본값. */
+  const [market, tiers, links] = await Promise.all([
+    getMarketSnapshot(new Date()),
+    loadTiers(),
+    loadProductLinks(),
+  ]);
+  const daily = buildDailyPlan(market, undefined, tiers);
   const plan: PlanSummary = {
     date: daily.date,
     headline: daily.headline,
@@ -52,7 +60,8 @@ export default async function AdminPage() {
         <p>멘션으로 들어온 출품을 확인하고, 오늘의 할인안을 게시합니다.</p>
       </div>
     </header>
-    <AdminConsole entries={CURRENT_ENTRIES} plan={plan} />
-    <Cafe24Panel />
+    <AdminConsole entries={CURRENT_ENTRIES} plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} />
+    <TierSettings initial={tiers} maxRate={MAX_DISCOUNT_RATE} />
+    <Cafe24Panel links={links} />
   </main>;
 }

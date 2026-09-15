@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { PRODUCTS } from '@/data/products';
 import styles from './AdminConsole.module.css';
 
 /**
@@ -27,7 +28,14 @@ interface Product {
 
 const won = (text: string) => Number(text).toLocaleString('ko-KR');
 
-export default function Cafe24Panel() {
+interface Props {
+  /** 우리 제품번호 → 자사몰 상품번호 */
+  links: Record<number, number>;
+}
+
+export default function Cafe24Panel({ links: initialLinks }: Props) {
+  const [links, setLinks] = useState(initialLinks);
+  const [linkMessage, setLinkMessage] = useState('');
   const [no, setNo] = useState('9');
   const [product, setProduct] = useState<Product | null>(null);
   /** 바꾸기 직전의 판매가. 되돌리기 버튼이 이 값을 쓴다 */
@@ -51,6 +59,30 @@ export default function Cafe24Panel() {
       setMessage(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** 칸에서 포커스가 빠질 때 저장한다. 비우면 연결을 끊는다. */
+  const saveLink = async (productNo: number, raw: string) => {
+    const value = raw.trim();
+    const cafe24ProductNo = value === '' ? null : Number(value);
+    if (cafe24ProductNo !== null && (!Number.isInteger(cafe24ProductNo) || cafe24ProductNo <= 0)) {
+      setLinkMessage('자사몰 상품번호는 숫자여야 합니다.');
+      return;
+    }
+    if ((links[productNo] ?? null) === cafe24ProductNo) return; // 안 바뀌었으면 부르지 않는다
+    try {
+      const response = await fetch('/api/admin/links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productNo, cafe24ProductNo }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { setLinkMessage(data.error ?? `저장 실패 (${response.status})`); return; }
+      setLinks(data.links);
+      setLinkMessage(cafe24ProductNo ? '연결했습니다.' : '연결을 끊었습니다.');
+    } catch (cause) {
+      setLinkMessage(cause instanceof Error ? cause.message : String(cause));
     }
   };
 
@@ -141,6 +173,36 @@ export default function Cafe24Panel() {
         <p className={styles.note} style={{ marginTop: 12 }}>
           판매가(price)만 바꾸고 소비자가(retail_price)는 그대로 둡니다. 되돌리기는 이 화면에 머무는 동안만
           가능합니다 — 새로고침하면 원래 가격을 잃으니, 바꾸기 전 값을 따로 적어두세요.
+        </p>
+      </div>
+
+      <div className={styles.head} style={{ marginTop: 40 }}>
+        <h2>상품 연결표</h2>
+        <span className={styles.count}>막지 제품 ↔ 자사몰 상품번호</span>
+      </div>
+
+      <div className={styles.plan}>
+        <ul className={styles.planItems} style={{ borderTop: 'none', paddingTop: 0, marginTop: 0 }}>
+          {PRODUCTS.map(product => (
+            <li key={product.productNo} className={styles.planRow}>
+              <span className={styles.rowName}>{product.name} <small>#{product.productNo}</small></span>
+              <span className={styles.rateBox}>
+                자사몰 #
+                <input
+                  defaultValue={links[product.productNo] ?? ''}
+                  inputMode="numeric"
+                  aria-label={`${product.name} 자사몰 상품번호`}
+                  onBlur={event => saveLink(product.productNo, event.target.value)}
+                />
+              </span>
+            </li>
+          ))}
+        </ul>
+        {linkMessage && <p className={styles.note} style={{ marginTop: 12 }}>{linkMessage}</p>}
+        <p className={styles.note} style={{ marginTop: 12 }}>
+          여기서 이은 제품만 할인안 반영이 됩니다. 체험몰에는 막지 제품이 없으니
+          시험용으로 아무 상품번호(9·10)에 이어두고, 실제 자사몰에 붙일 때 다시 맞추면 됩니다.
+          칸을 비우고 나가면 연결이 끊어집니다.
         </p>
       </div>
     </section>
