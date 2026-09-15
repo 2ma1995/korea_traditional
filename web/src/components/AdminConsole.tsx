@@ -83,6 +83,10 @@ export default function AdminConsole({ entries: initial, plan, links, maxRate }:
   })));
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState('');
+  /* 자사몰의 현재 판매가. 반영은 이 값을 기준으로 계산되므로,
+     우리 목록 정가와 다를 수 있다는 것을 눌러서 확인할 수 있어야 한다. */
+  const [shopPrices, setShopPrices] = useState<Record<number, string>>({});
+  const [checking, setChecking] = useState(false);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [productNo, setProductNo] = useState(PRODUCTS[0]?.productNo ?? 0);
@@ -101,6 +105,24 @@ export default function AdminConsole({ entries: initial, plan, links, maxRate }:
   const setRow = (productNo: number, patch: Partial<PlanRow>) =>
     setRows(previous => previous.map(row => (row.productNo === productNo ? { ...row, ...patch } : row)));
   const chosen = rows.filter(row => row.selected);
+
+  /** 자사몰의 현재 판매가를 불러온다. 반영 전에 "무엇이 얼마로 바뀌는지"를 눈으로 보기 위한 것. */
+  const checkShopPrices = async () => {
+    setChecking(true);
+    const found: Record<number, string> = {};
+    for (const row of chosen) {
+      const target = links[row.productNo] ?? row.productNo;
+      try {
+        const response = await fetch(`/api/admin/cafe24/product?no=${target}`);
+        const data = await response.json().catch(() => ({}));
+        found[row.productNo] = response.ok ? data.price : `오류: ${data.error ?? response.status}`;
+      } catch {
+        found[row.productNo] = '오류: 서버에 닿지 못함';
+      }
+    }
+    setShopPrices(previous => ({ ...previous, ...found }));
+    setChecking(false);
+  };
 
   /** 고른 제품을 자사몰에 반영한다. 연결되지 않은 제품은 서버가 건너뛰고 이유를 돌려준다. */
   const publish = async () => {
@@ -211,6 +233,13 @@ export default function AdminConsole({ entries: initial, plan, links, maxRate }:
                   </span>
                   <del>{won(row.price)}원</del>
                   <b>{won(finalPrice(row))}원</b>
+                  {shopPrices[row.productNo] && (
+                    <small className={styles.shopPrice}>
+                      {shopPrices[row.productNo].startsWith('오류')
+                        ? shopPrices[row.productNo]
+                        : `자사몰 ${won(Number(shopPrices[row.productNo]))}원 → ${won(Math.floor(Number(shopPrices[row.productNo]) * (1 - row.rate) / 10) * 10)}원`}
+                    </small>
+                  )}
                   <span className={styles.rateBox}>
                     <input
                       value={Math.round(row.rate * 100)}
@@ -230,6 +259,9 @@ export default function AdminConsole({ entries: initial, plan, links, maxRate }:
           </ul>
 
           <div className={styles.planActions}>
+            <button type="button" className={styles.outline} onClick={checkShopPrices} disabled={checking || !chosen.length}>
+              {checking ? '확인 중…' : '자사몰 현재가 확인'}
+            </button>
             <button type="button" className={styles.submit} onClick={publish} disabled={publishing || !chosen.length}>
               {publishing ? '반영 중…' : `자사몰에 반영 (${chosen.length}종)`}
             </button>
@@ -239,6 +271,8 @@ export default function AdminConsole({ entries: initial, plan, links, maxRate }:
           <p className={styles.note} style={{ marginTop: 12 }}>
             할인율은 코스피가 채운 값입니다. 재고나 기업 요청으로 빼거나 낮출 수 있고,
             상한 {Math.round(maxRate * 100)}%(기업 확인값)는 넘지 못합니다.
+            <b>할인은 자사몰의 현재 판매가를 기준으로 겁니다</b> — 위에 보이는 정가는 우리 목록(products.ts) 값이라
+            자사몰 가격과 다를 수 있습니다. <b>자사몰 현재가 확인</b>을 누르면 실제로 얼마가 될지 보여줍니다.
             반영하면 자사몰 판매가가 실제로 바뀌며, 바꾸기 전 가격은 기록에 남습니다.
           </p>
         </div>

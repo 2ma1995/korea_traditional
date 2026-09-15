@@ -200,8 +200,9 @@ export default function Cafe24Panel({ links: initialLinks }: Props) {
         </ul>
         {linkMessage && <p className={styles.note} style={{ marginTop: 12 }}>{linkMessage}</p>}
         <p className={styles.note} style={{ marginTop: 12 }}>
-          여기서 이은 제품만 할인안 반영이 됩니다. 체험몰에는 막지 제품이 없으니
-          시험용으로 아무 상품번호(9·10)에 이어두고, 실제 자사몰에 붙일 때 다시 맞추면 됩니다.
+          왼쪽 <b>#번호는 makji.kr의 실제 카페24 상품번호</b>입니다(products.ts에 그렇게 적혀 있습니다).
+          그래서 실제 자사몰에 붙이면 이 표를 비워둬도 그대로 동작합니다.
+          이 표는 상품번호가 다른 <b>체험몰용 우회로</b>입니다 — 이어두면 그 번호로 대신 보냅니다.
           칸을 비우고 나가면 연결이 끊어집니다.
         </p>
       </div>

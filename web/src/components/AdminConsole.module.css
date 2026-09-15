@@ -118,3 +118,5 @@
   font: inherit; margin-left: auto; width: 30px; height: 30px; font-size: 13px;
   background: none; border: 1px solid var(--line); color: var(--muted);
 }
+
+.shopPrice { font-size: 11px; color: var(--dancheong); background: #e9ecdf; padding: 3px 7px; }

@@ -38,13 +38,14 @@ export async function POST(request: Request) {
     if (!product) { skipped.push({ productNo: item.productNo, reason: '없는 제품' }); continue; }
 
     const rate = Math.min(Math.max(item.rate, 0), MAX_DISCOUNT_RATE);
-    const cafe24No = links[item.productNo];
-    if (!cafe24No) {
-      skipped.push({ productNo: item.productNo, name: product.name, reason: '자사몰 상품과 연결되지 않음' });
-      continue;
-    }
+    /* products.ts의 productNo는 makji.kr의 실제 카페24 상품번호다.
+       그래서 실제 몰에서는 연결표 없이 그대로 쓰면 맞다.
+       연결표는 상품번호가 다른 체험몰을 위한 우회로다. */
+    const cafe24No = links[item.productNo] ?? item.productNo;
 
     try {
+      /* 할인은 자사몰의 현재 판매가를 기준으로 건다. products.ts 정가로 계산하면
+         자사몰 가격이 그 사이 바뀌었을 때 엉뚱한 금액이 걸린다. */
       const before = await getProduct(cafe24No);
       const target = floorTo10(Number(before.price) * (1 - rate));
       const after = await setProductPrice(cafe24No, target);
