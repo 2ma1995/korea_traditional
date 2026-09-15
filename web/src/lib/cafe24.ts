@@ -201,3 +201,22 @@ export async function adminApi<T>(
   }
   return (text ? JSON.parse(text) : null) as T;
 }
+
+/* ── 상품 ─────────────────────────────────────────────── */
+
+export interface Cafe24Product {
+  product_no: number;
+  product_name: string;
+  /** 실제 결제되는 금액. 우리가 바꾸는 값 */
+  price: string;
+  /** 취소선이 그어질 원래 가격. 건드리지 않는다 */
+  retail_price: string;
+  selling: string;
+  display: string;
+}
+
+/** 상품 한 건 조회. 가격을 바꾸기 전에 원래 값을 확인·보존하는 용도이기도 하다. */
+export async function getProduct(productNo: number): Promise<Cafe24Product> {
+  const data = await adminApi<{ product: Cafe24Product }>(`/api/v2/admin/products/${productNo}`);
+  return data.product;
+}

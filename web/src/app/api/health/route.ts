@@ -1,4 +1,4 @@
-import { cafe24Config } from '@/lib/cafe24';
+import { cafe24Config, getProduct } from '@/lib/cafe24';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
  */
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   const cafe24 = cafe24Config();
   const db = supabase();
 
@@ -40,6 +40,23 @@ export async function GET() {
         ? { mallId: tokens.data[0].mall_id, expiresAt: tokens.data[0].expires_at }
         : '아직 인증 전',
     };
+  }
+
+  /* ?product=9 를 붙이면 그 상품을 실제로 조회해 본다.
+     토큰과 상품 읽기 권한이 살아 있는지 확인하는 가장 싼 방법이다. */
+  const productNo = new URL(request.url).searchParams.get('product');
+  if (productNo) {
+    try {
+      const product = await getProduct(Number(productNo));
+      result.product = {
+        product_no: product.product_no,
+        product_name: product.product_name,
+        price: product.price,
+        retail_price: product.retail_price,
+      };
+    } catch (cause) {
+      result.product = `오류: ${cause instanceof Error ? cause.message : String(cause)}`;
+    }
   }
 
   return Response.json(result, { headers: { 'Cache-Control': 'no-store' } });
