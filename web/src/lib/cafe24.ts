@@ -220,3 +220,22 @@ export async function getProduct(productNo: number): Promise<Cafe24Product> {
   const data = await adminApi<{ product: Cafe24Product }>(`/api/v2/admin/products/${productNo}`);
   return data.product;
 }
+
+/**
+ * 판매가 변경.
+ *
+ * price(실제 결제 금액)만 바꾸고 retail_price(취소선 그을 원래 가격)는 건드리지 않는다.
+ * 그래야 자사몰에도 "5,000원 → 3,500원"으로 우리 사이트와 같게 보인다.
+ *
+ * 되돌릴 책임은 호출부에 있다. 원래 price를 먼저 저장해 두지 않으면
+ * 할인 전 가격을 잃는다 — 카페24는 이전 값을 보관해 주지 않는다.
+ *
+ * 카페24 쓰기 요청은 본문을 request로 감싼다. shop_no는 기본 상점(1).
+ */
+export async function setProductPrice(productNo: number, price: number): Promise<Cafe24Product> {
+  const data = await adminApi<{ product: Cafe24Product }>(`/api/v2/admin/products/${productNo}`, {
+    method: 'PUT',
+    body: { shop_no: 1, request: { price: price.toFixed(2) } },
+  });
+  return data.product;
+}

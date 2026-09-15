@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import AdminConsole, { type PlanSummary } from '@/components/AdminConsole';
+import AdminLogin from '@/components/AdminLogin';
+import Cafe24Panel from '@/components/Cafe24Panel';
+import { isAdmin } from '@/lib/adminAuth';
 import { CURRENT_ENTRIES } from '@/data/contest';
 import { buildDailyPlan } from '@/lib/discount';
 import { getMarketSnapshot } from '@/lib/market';
@@ -12,6 +15,19 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage() {
+  /* 서버에서 막는다. 화면만 감추면 API 주소를 직접 부르는 순간 뚫린다. */
+  if (!(await isAdmin())) {
+    return <main id="main-content" className="page-width inner-page">
+      <header className="page-heading">
+        <div>
+          <span className="eyebrow">ADMIN · 내부용</span>
+          <h1>관리자 <em>확인.</em></h1>
+        </div>
+      </header>
+      <AdminLogin />
+    </main>;
+  }
+
   const market = await getMarketSnapshot(new Date());
   const daily = buildDailyPlan(market);
   const plan: PlanSummary = {
@@ -37,5 +53,6 @@ export default async function AdminPage() {
       </div>
     </header>
     <AdminConsole entries={CURRENT_ENTRIES} plan={plan} />
+    <Cafe24Panel />
   </main>;
 }

@@ -113,8 +113,8 @@ export default function AdminConsole({ entries: initial, plan }: Props) {
   return (
     <>
       <p className={styles.warn}>
-        <b>저장되지 않는 화면입니다.</b> 저장소(Supabase) 연결 전이라 검수·승인 결과가 이 브라우저에만 남고 새로고침하면 초기화됩니다.
-        로그인도 아직 없으니 주소를 공유하지 마세요.
+        <b>검수·승인 결과는 아직 저장되지 않습니다.</b> 이 브라우저에만 남고 새로고침하면 초기화됩니다.
+        아래 <b>카페24 연결 시험</b>은 실제로 체험몰 판매가를 바꿉니다.
       </p>
 
       <section className={styles.section}>
