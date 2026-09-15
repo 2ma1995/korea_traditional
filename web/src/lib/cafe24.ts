@@ -18,8 +18,16 @@ import { requireSupabase } from '@/lib/supabase';
 /** 갱신 여유. 만료 5분 전부터 새로 받는다 — 호출 도중 만료되는 것을 막는다. */
 const REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
-/** API 버전 헤더. 카페24는 버전을 헤더로 고정하게 되어 있고, 올릴 때는 개발자센터에서 확인한다. */
-const API_VERSION = process.env.CAFE24_API_VERSION ?? '2024-06-01';
+/**
+ * API 버전 헤더.
+ *
+ * 앱이 처음 API를 부른 시점의 값으로 카페24가 앱 버전을 고정한다(개발자센터 '버전관리').
+ * 고정된 값과 다른 버전을 요청하면 400이 나고, 응답에 올바른 값이 적혀 온다:
+ *   "2024-06-01 version you requested is not available.
+ *    The default value for the app version is 2026-09-01."
+ * 버전을 올릴 때는 개발자센터에서 바꾸고 이 값도 같이 바꾼다.
+ */
+const API_VERSION = process.env.CAFE24_API_VERSION ?? '2026-09-01';
 
 export interface Cafe24Config {
   mallId: string;
