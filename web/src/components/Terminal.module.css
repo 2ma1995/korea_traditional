@@ -194,3 +194,46 @@
   .tapeSum, .gauge { grid-template-columns: 1fr; }
   .result dl { grid-template-columns: 1fr; }
 }
+
+/* ── 오늘 내 종목 ─────────────────────────── */
+.pickPanel { padding: 28px 22px 22px; }
+.pickPanel h3 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin-top: 10px; }
+.pickPanel p { font-size: 13.5px; color: var(--muted); line-height: 1.9; margin-top: 12px; max-width: 56ch; word-break: keep-all; }
+.pickPanel p b { color: var(--ink); font-weight: 600; }
+.pickGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 18px; }
+.pickGrid button { font: inherit; padding: 16px 14px; background: var(--paper); border: 0; text-align: left; color: var(--ink); cursor: pointer; }
+.pickGrid button:hover { background: var(--background); }
+.pickGrid b { display: block; font-size: 15px; font-weight: 600; }
+.pickGrid span { display: block; font-size: 10.5px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+.stock { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+.stockName { font-size: 13px; font-weight: 600; }
+.stockChg { font-family: var(--font-geist-mono), monospace; font-size: 13px; font-variant-numeric: tabular-nums; }
+.stockChg[data-side='gain'] { color: var(--up); }
+.stockChg[data-side='loss'] { color: var(--down); }
+.spark { width: 120px; height: 32px; display: block; }
+.lock { font-size: 11px; color: var(--muted); }
+.relink { font: inherit; font-size: inherit; color: var(--down); background: none; border: 0; border-bottom: 1px solid currentColor; padding: 0; cursor: pointer; }
+
+/* 닫힌 칸 — 내 자리보다 깊다. 더 크게 움직인 날 열린다 */
+.row[data-state='closed'] { opacity: .38; }
+.row[data-state='closed'] .rPrice, .row[data-state='closed'] .rDepth { color: var(--muted); }
+.row[data-state='seat'] { background: #e6ecf2; box-shadow: inset 3px 0 0 var(--down); }
+.row[data-state='open'][data-instant='true'] { background: #eef0e6; }
+a.bid { display: block; text-align: center; text-decoration: none; }
+a.bid[aria-disabled='true'] { pointer-events: none; border-color: var(--line); color: var(--muted); }
+
+/* 시세가 움직인 순간 — 증권 앱처럼 색이 잠깐 튄다 */
+.flashUp { animation: flashUp .6s ease-out; }
+.flashDown { animation: flashDown .6s ease-out; }
+@keyframes flashUp { from { color: var(--up); } to { color: inherit; } }
+@keyframes flashDown { from { color: var(--down); } to { color: inherit; } }
+@media (prefers-reduced-motion: reduce) { .flashUp, .flashDown { animation: none; } }
+
+button.buy { font: inherit; cursor: pointer; }
+button.buy:disabled { background: #cfd2c3; border-color: #cfd2c3; opacity: 1; cursor: default; }
+
+@media (max-width: 900px) {
+  .pickGrid { grid-template-columns: repeat(2, 1fr); }
+  .pickPanel { padding: 20px 16px; }
+}

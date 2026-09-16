@@ -20,24 +20,30 @@ export interface FillResult {
   slot: number | null;
 }
 
-/** 오늘 상품·칸별 체결 수. 화면이 남은 수량을 그릴 때 쓴다 */
-export async function loadFilled(at: Date = new Date()): Promise<FilledLookup> {
+/** "productNo:depth" → 오늘 체결 수. 클라이언트가 그대로 받아 잔량을 계산한다 */
+export async function loadFilledCounts(at: Date = new Date()): Promise<Record<string, number>> {
   const db = supabase();
-  if (!db) return () => 0;
+  if (!db) return {};
 
   const { data, error } = await db
     .from('fills')
     .select('product_no, depth')
     .eq('day', seoulDateString(at));
 
-  if (error || !data) return () => 0;
+  if (error || !data) return {};
 
-  const counts = new Map<string, number>();
+  const counts: Record<string, number> = {};
   for (const row of data as { product_no: number; depth: number | string }[]) {
     const key = `${row.product_no}:${Number(row.depth).toFixed(3)}`;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    counts[key] = (counts[key] ?? 0) + 1;
   }
-  return (productNo, depth) => counts.get(`${productNo}:${depth.toFixed(3)}`) ?? 0;
+  return counts;
+}
+
+/** 오늘 상품·칸별 체결 수. 서버가 호가표를 만들 때 쓴다 */
+export async function loadFilled(at: Date = new Date()): Promise<FilledLookup> {
+  const counts = await loadFilledCounts(at);
+  return (productNo, depth) => counts[`${productNo}:${depth.toFixed(3)}`] ?? 0;
 }
 
 async function countFilled(productNo: number, depth: number, day: string): Promise<number> {

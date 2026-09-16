@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { findWatchItem } from '@/data/watchlist';
-import { fetchSymbolQuote } from '@/lib/market';
+import { fetchKospiTick, fetchSymbolQuote } from '@/lib/market';
 
 /**
  * 관심 종목 한 개의 오늘 등락률.
@@ -25,7 +25,9 @@ export async function GET(request: Request) {
     );
   }
 
-  const quote = await fetchSymbolQuote(item.symbol);
+  /* 개장 여부는 네이버 코스피 틱이 알려준다(1초 캐시라 공짜에 가깝다).
+     장이 닫히면 화면이 폴링을 멈추고, 집계에 최종 자리를 보고한다 */
+  const [quote, kospi] = await Promise.all([fetchSymbolQuote(item.symbol), fetchKospiTick()]);
   if (!quote) {
     return NextResponse.json(
       { ok: false as const, error: '시세를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.' },
@@ -41,6 +43,8 @@ export async function GET(request: Request) {
       value: quote.value,
       changePct: quote.changePct,
       updatedAt: quote.updatedAt,
+      series: quote.series,
+      marketOpen: kospi?.marketOpen ?? null,
     },
     { headers: NO_STORE },
   );

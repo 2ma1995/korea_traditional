@@ -96,11 +96,11 @@ interface YahooQuote extends Quote {
   series: number[];
 }
 
-async function fetchYahoo(symbol: string, tick = false, range = '5d'): Promise<YahooQuote | null> {
+async function fetchYahoo(symbol: string, tick = false, range = '5d', interval = '1d'): Promise<YahooQuote | null> {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
       symbol,
-    )}?interval=1d&range=${range}`;
+    )}?interval=${interval}&range=${range}`;
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
       ...cacheOption(tick),
@@ -325,16 +325,27 @@ export async function getMarketSnapshot(date = new Date()): Promise<MarketSnapsh
  * Next의 fetch 캐시는 라우트 핸들러에서 동작하지 않는 것을 이 저장소에서
  * 이미 실측했다(fetchKospiTick 주석). 그래서 여기서도 직접 물고 있는다.
  */
-const SYMBOL_TTL_MS = 30_000;
-const symbolCache = new Map<string, { at: number; quote: Quote | null }>();
+/**
+ * 5초 — 장중에 내 빵값이 뛰는 걸 보여주려면 30초는 너무 느렸다.
+ * 화면이 5초마다 물어도 같은 종목은 서버가 5초에 한 번만 외부에 나간다.
+ */
+const SYMBOL_TTL_MS = 5_000;
 
-export async function fetchSymbolQuote(symbol: string): Promise<Quote | null> {
+/** 오늘 분봉 종가까지 포함한 종목 시세. 스파크라인용 */
+export interface SymbolQuote extends Quote {
+  series: number[];
+}
+
+const symbolCache = new Map<string, { at: number; quote: SymbolQuote | null }>();
+
+export async function fetchSymbolQuote(symbol: string): Promise<SymbolQuote | null> {
   const hit = symbolCache.get(symbol);
   if (hit && Date.now() - hit.at < SYMBOL_TTL_MS) return hit.quote;
 
-  const raw = await fetchYahoo(symbol, true);
-  const quote: Quote | null = raw
-    ? { value: raw.value, changePct: raw.changePct, live: raw.live, updatedAt: raw.updatedAt }
+  /* 1일 5분봉 — 장중엔 오늘 흐름, 장 마감 후엔 마지막 거래일 흐름이 온다 */
+  const raw = await fetchYahoo(symbol, true, '1d', '5m');
+  const quote: SymbolQuote | null = raw
+    ? { value: raw.value, changePct: raw.changePct, live: raw.live, updatedAt: raw.updatedAt, series: raw.series }
     : null;
 
   // 실패(null)도 캐시한다 — 외부가 죽었을 때 재시도가 몰리지 않게 한다

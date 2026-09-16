@@ -81,6 +81,28 @@ function seoulParts(at: Date) {
   };
 }
 
+/** 종목 선택 마감 시각 (KST). 주식장이 열리기 전에 골라야 결과를 보고 고를 수 없다 */
+export const PICK_CLOSE_HOUR = 9;
+
+export interface PickWindow {
+  open: boolean;
+  reason: 'open' | 'closed' | 'holiday' | 'test';
+}
+
+/**
+ * 오늘 종목을 고를 수 있는가.
+ *
+ * 결과를 보고 고르면 게임이 된다 — 장 끝나고 제일 많이 움직인 종목을 고르면
+ * 항상 제일 깊은 자리다. 그래서 장 시작(09:00) 전에만 받고 그 뒤로는 잠근다.
+ * 테스트 중에는 열어둔다(ALWAYS_OPEN). 화면에 그 사실을 표시한다.
+ */
+export function pickWindow(at: Date = new Date()): PickWindow {
+  if (ALWAYS_OPEN) return { open: true, reason: 'test' };
+  const { hour, weekday } = seoulParts(at);
+  if (weekday === 'Sat' || weekday === 'Sun') return { open: false, reason: 'holiday' };
+  return hour < PICK_CLOSE_HOUR ? { open: true, reason: 'open' } : { open: false, reason: 'closed' };
+}
+
 /**
  * 개장 판정.
  *

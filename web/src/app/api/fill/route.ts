@@ -3,7 +3,7 @@ import { PRODUCTS } from '@/data/products';
 import { getMarketSnapshot } from '@/lib/market';
 import { depthFor, marketHours, quantityForDepth } from '@/lib/orderbook';
 import { loadTiers } from '@/lib/settings';
-import { tryFill } from '@/lib/fills';
+import { loadFilledCounts, tryFill } from '@/lib/fills';
 
 /**
  * 한정 호가 체결 — POST { productNo, depth }
@@ -16,6 +16,11 @@ import { tryFill } from '@/lib/fills';
 const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
 const bad = (error: string, status = 400) =>
   NextResponse.json({ ok: false as const, error }, { status, headers: NO_STORE });
+
+/** 오늘 상품·칸별 체결 수. 화면이 5초마다 불러 잔량 막대를 줄인다 */
+export async function GET() {
+  return NextResponse.json({ ok: true as const, filled: await loadFilledCounts() }, { headers: NO_STORE });
+}
 
 export async function POST(request: Request) {
   let body: { productNo?: unknown; depth?: unknown };

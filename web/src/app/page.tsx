@@ -2,7 +2,7 @@ import Terminal from '@/components/Terminal';
 import { PRODUCTS } from '@/data/products';
 import { loadFilled } from '@/lib/fills';
 import { getMarketSnapshot } from '@/lib/market';
-import { buildBreadMarket } from '@/lib/orderbook';
+import { buildBreadMarket, pickWindow } from '@/lib/orderbook';
 import { loadTiers } from '@/lib/settings';
 import { loadTape } from '@/lib/tape';
 
@@ -42,6 +42,7 @@ export default async function BreadMarketPage() {
           tier: book.tier,
         }}
         hours={book.hours}
+        pickWindow={pickWindow(now)}
         today={tape.day}
         initialTape={tape}
       />

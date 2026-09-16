@@ -42,13 +42,13 @@ export default function InfoTab({ kospi, kospiLive, changePct, absChangePct, tie
       <ol className={styles.rules}>
         <li><b>15:30</b> 주식장 마감 — 오늘 KOSPI가 <b>{absChangePct.toFixed(2)}%</b> 움직였습니다</li>
         <li>움직인 크기가 <b>{tier.label}</b> 구간이라 정산 한도가 <b>정가 −{Math.round(tier.rate * 100)}%</b>까지 열렸습니다</li>
-        <li>그 한도 안에서 <b>오늘 내 하루</b>가 내 자리를 정합니다 — 잃었으면 위로가, 벌었으면 자축가</li>
-        <li><b>{OPEN_HOUR}:00</b> 개장 — 내 자리에서 더 내려갈지는 <b>내가 고릅니다</b>. 못 잡으면 다음날 우선권</li>
+        <li>그 한도 안에서 <b>오늘 내 종목</b>이 내 자리를 정합니다 — 내렸으면 위로가, 올랐으면 자축가. 종목은 <b>09:00 전에</b> 고르고 바꿀 수 없습니다</li>
+        <li><b>{OPEN_HOUR}:00</b> 개장 — 싼데 적은 <b>내 자리</b>와 덜 싼데 많은 <b>위 칸</b> 중 어디서 살지는 내가 고릅니다. 못 잡으면 다음날 우선권</li>
       </ol>
 
       <p className={styles.note}>
         시장은 오르든 내리든 같은 규칙입니다. 시장이 정하는 것은 <b>오늘 얼마나 크게 정산할 수 있는지</b>까지이고,
-        그 안에서 어디에 앉을지는 내 하루가, 마지막 한 칸은 내 선택이 정합니다.
+        그 안에서 어디에 앉을지는 내 종목이, 어디서 살지는 내 선택이 정합니다.
         빵장은 {OPEN_HOUR}:00–{CLOSE_HOUR}:00에 열리고, 주식시장이 쉬는 날은 빵장도 쉽니다.
       </p>
 
