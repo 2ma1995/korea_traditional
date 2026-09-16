@@ -10,6 +10,9 @@
   --paper: #fdfbf6;
   --line: #d8d9ca;
   --muted: #717767;
+  /* 한국 증시 관례 — 상승 빨강, 하락 파랑. 정가보다 내려간 가격은 파랑으로 읽힌다 */
+  --up: var(--hong);
+  --down: #2b5f8a;
   color-scheme: light;
 }
 @theme inline {

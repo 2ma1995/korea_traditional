@@ -20,6 +20,15 @@ export type SettlementSideKey = 'gain' | 'loss' | 'flat';
 /** 이 인원을 넘겨야 비율을 보여준다 */
 export const MIN_SAMPLE = 10;
 
+/** 체결 탭에 시간순으로 보여줄 한 줄 */
+export interface TapeEvent {
+  /** ISO 시각 */
+  at: string;
+  side: SettlementSideKey;
+  seat: number;
+  demo: boolean;
+}
+
 export interface Tape {
   day: string;
   total: number;
@@ -34,10 +43,15 @@ export interface Tape {
   ready: boolean;
   /** 저장소에 닿았는가. false면 "집계 준비 전"이다 (DB 미연결) */
   live: boolean;
+  /** 최근 순. 체결 탭이 시간순 목록으로 보여준다 */
+  recent: TapeEvent[];
 }
 
+/** 체결 탭에 보여줄 최대 줄 수 */
+const RECENT_LIMIT = 40;
+
 const empty = (day: string, live: boolean): Tape => ({
-  day, total: 0, loss: 0, gain: 0, flat: 0, deepest: 0, demo: 0, ready: false, live,
+  day, total: 0, loss: 0, gain: 0, flat: 0, deepest: 0, demo: 0, ready: false, live, recent: [],
 });
 
 export async function loadTape(at: Date = new Date()): Promise<Tape> {
@@ -47,12 +61,13 @@ export async function loadTape(at: Date = new Date()): Promise<Tape> {
 
   const { data, error } = await db
     .from('settlement_events')
-    .select('side, seat, demo')
-    .eq('day', day);
+    .select('side, seat, demo, created_at')
+    .eq('day', day)
+    .order('created_at', { ascending: false });
 
   if (error || !data) return empty(day, false);
 
-  const rows = data as { side: SettlementSideKey; seat: number; demo: boolean }[];
+  const rows = data as { side: SettlementSideKey; seat: number; demo: boolean; created_at: string }[];
   const maxSeat = rows.reduce((top, row) => Math.max(top, row.seat), 0);
 
   return {
@@ -67,6 +82,9 @@ export async function loadTape(at: Date = new Date()): Promise<Tape> {
     demo: rows.filter(row => row.demo).length,
     ready: rows.length >= MIN_SAMPLE,
     live: true,
+    recent: rows.slice(0, RECENT_LIMIT).map(row => ({
+      at: row.created_at, side: row.side, seat: row.seat, demo: row.demo,
+    })),
   };
 }
 

@@ -50,7 +50,12 @@ function badgeOf({ live, marketOpen }: KospiView) {
 const fmt = (value: number) =>
   value.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function KospiQuote({ initial }: { initial: KospiView }) {
+/**
+ * compact — 상태바 한 줄용. "KOSPI 3,214.52 ▲0.85% [장 마감]".
+ * 폴링 로직은 같고 그리는 모양만 다르다. 두 곳에서 각각 폴링하면 호출이 두 배라
+ * 컴포넌트를 나누지 않고 모드로 가른다.
+ */
+export default function KospiQuote({ initial, compact = false }: { initial: KospiView; compact?: boolean }) {
   const [quote, setQuote] = useState<KospiView>(initial);
 
   // 값이 움직인 순간에만 잠깐 색을 준다. seq가 바뀔 때 key로 애니메이션을 다시 태운다.
@@ -129,6 +134,25 @@ export default function KospiQuote({ initial }: { initial: KospiView }) {
 
   const up = quote.changePct >= 0;
   const badge = badgeOf(quote);
+
+  if (compact) {
+    return (
+      <span className={styles.compact}>
+        <b>KOSPI</b>
+        <strong
+          key={flash?.seq ?? 'init'}
+          className={flash ? (flash.dir === 'up' ? styles.tickUp : styles.tickDown) : ''}
+        >{fmt(quote.value)}</strong>
+        <span className={up ? styles.up : styles.down}>
+          {up ? '▲' : '▼'}{Math.abs(quote.changePct).toFixed(2)}%
+        </span>
+        <span className={styles.marketBadge} data-tone={badge.tone}>
+          {badge.tone === 'open' && <i className={styles.pulse} aria-hidden="true" />}
+          {badge.label}
+        </span>
+      </span>
+    );
+  }
 
   return (
     <>

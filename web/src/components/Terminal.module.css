@@ -1,0 +1,196 @@
+/* 빵장 터미널 — 증권 앱의 문법을 그대로 쓴다.
+   관심종목 → 종목 하나 → 호가 | 체결 | 정보 → 하단 고정 버튼.
+   여백보다 정렬과 숫자가 먼저고, 정가보다 내려간 가격은 파랑이다(한국 증시 관례). */
+
+.terminal {
+  width: min(1240px, calc(100% - 48px)); margin: 18px auto 40px;
+  border: 1px solid var(--line); background: var(--paper);
+  display: flex; flex-direction: column; min-height: 640px;
+}
+
+/* ── 상태바 ─────────────────────────────────── */
+.bar { display: flex; align-items: center; gap: 18px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 12px; flex-wrap: wrap; }
+.status { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: .06em; white-space: nowrap; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.status[data-open='true'] .dot { background: #4d8a4a; box-shadow: 0 0 0 3px #4d8a4a22; }
+.status small { color: var(--muted); }
+.limit { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.limit b { color: var(--down); font-weight: 600; }
+.account { margin-left: auto; }
+.accountBtn { font: inherit; font-size: 12px; font-weight: 600; padding: 8px 14px; border: 1px solid var(--dancheong); background: var(--dancheong); color: #fdfbf6; cursor: pointer; }
+.accountBadge { font: inherit; font-size: 12px; padding: 7px 12px; border: 1px solid var(--line); background: var(--background); display: inline-flex; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; cursor: pointer; color: var(--ink); }
+.accountBadge b { font-weight: 600; }
+.accountBadge[data-side='loss'] b { color: var(--down); }
+.accountBadge[data-side='gain'] b { color: var(--up); }
+.accountBadge[data-side='flat'] b { color: var(--gold); }
+
+.body { display: grid; grid-template-columns: 280px 1fr; flex: 1; min-height: 0; }
+
+/* ── 관심상품 (증권의 관심종목) ─────────────────── */
+.rail { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+.railHead { display: flex; justify-content: space-between; padding: 12px 16px 8px; font-size: 10px; letter-spacing: .14em; color: var(--muted); }
+.list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+.item {
+  width: 100%; display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center;
+  padding: 11px 16px; border: 0; border-top: 1px solid var(--line); background: transparent;
+  font: inherit; text-align: left; color: var(--ink); cursor: pointer;
+}
+.item:hover { background: var(--background); }
+.item[aria-current='true'] { background: var(--background); box-shadow: inset 3px 0 0 var(--ink); }
+.item[data-soldout='true'] { opacity: .45; }
+.thumb { width: 40px; height: 40px; overflow: hidden; border: 1px solid var(--line); }
+.thumb :global(.product-photo) { width: 100%; height: 100%; object-fit: cover; }
+.itemName { font-size: 13px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.itemSub { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+.itemPrice { text-align: right; font-variant-numeric: tabular-nums; }
+.itemPrice strong { display: block; font-size: 14px; font-weight: 600; }
+.itemPrice span { font-size: 11px; color: var(--down); }
+
+/* ── 종목 화면 ─────────────────────────────── */
+.stage { display: flex; flex-direction: column; min-width: 0; }
+.back { display: none; }
+.head { padding: 18px 22px 0; }
+.headTop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.head h2 { font-family: var(--font-geist-sans), sans-serif; font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+.flavor { font-size: 10.5px; font-weight: 600; letter-spacing: .04em; padding: 3px 8px; border: 1px solid currentColor; }
+.flavor[data-side='loss'] { color: var(--down); }
+.flavor[data-side='gain'] { color: var(--up); }
+.flavor[data-side='flat'] { color: var(--gold); }
+.soldout { font-size: 10px; border: 1px solid var(--line); padding: 3px 7px; color: var(--muted); }
+.priceRow { display: flex; align-items: baseline; gap: 12px; margin-top: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.bigPrice { font-family: var(--font-geist-mono), monospace; font-size: 38px; font-weight: 500; letter-spacing: -.04em; line-height: 1.1; color: var(--down); }
+.change { font-family: var(--font-geist-mono), monospace; font-size: 14px; color: var(--down); }
+.listPrice { font-size: 12px; color: var(--muted); }
+.priceNote { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.priceNote b { color: var(--ink); font-weight: 500; }
+
+.tabs { display: flex; border-bottom: 1px solid var(--line); margin-top: 16px; padding: 0 22px; }
+.tabs button { font: inherit; font-size: 13px; padding: 11px 2px; margin-right: 22px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; }
+.tabs button[aria-selected='true'] { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
+
+.panel { flex: 1; padding: 16px 22px 22px; overflow-y: auto; }
+
+/* ── 하단 고정 액션 (토스증권의 [구매하기] 자리) ── */
+.action {
+  position: sticky; bottom: 0; padding: 12px 22px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--paper); border-top: 1px solid var(--line); display: flex; gap: 10px; align-items: center;
+}
+.buy {
+  flex: 1; display: flex; justify-content: center; align-items: center; gap: 10px; min-height: 52px;
+  font-size: 15px; font-weight: 600; background: var(--down); color: #fdfbf6; border: 1px solid var(--down);
+  font-variant-numeric: tabular-nums;
+}
+.buy[aria-disabled='true'] { pointer-events: none; background: #cfd2c3; border-color: #cfd2c3; }
+.buy small { font-size: 11px; font-weight: 400; opacity: .85; }
+
+/* ── 호가창 ─────────────────────────────── */
+.ladder { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.colHead, .row { display: grid; grid-template-columns: 110px 70px 1fr 116px; align-items: center; gap: 12px; padding: 0 14px; background: var(--paper); }
+.colHead { font-size: 10px; letter-spacing: .08em; color: var(--muted); height: 30px; }
+.colHead span:last-child { text-align: right; }
+.row { min-height: 54px; font-variant-numeric: tabular-nums; }
+.row[data-seat='true'] { background: #e6ecf2; box-shadow: inset 3px 0 0 var(--down); }
+.row[data-instant='true']:not([data-seat='true']) { background: #eef0e6; }
+.rPrice { font-family: var(--font-geist-mono), monospace; font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
+.rDepth { font-family: var(--font-geist-mono), monospace; font-size: 12px; color: var(--down); }
+.rQty { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.meter { flex: 1; height: 8px; background: var(--line); position: relative; overflow: hidden; }
+.meter i { position: absolute; inset: 0 auto 0 0; background: var(--down); opacity: .55; }
+.rQty small { font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 60px; text-align: right; }
+.rEnd { text-align: right; }
+.rTag { font-size: 11px; color: var(--muted); }
+.rTag b { color: var(--down); font-weight: 600; }
+.bid { font: inherit; font-size: 12px; font-weight: 500; padding: 9px 0; width: 100%; border: 1px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; }
+.bid:disabled { border-color: var(--line); color: var(--muted); background: var(--paper); opacity: 1; cursor: default; }
+.bid[data-state='filled'] { background: var(--dancheong); border-color: var(--dancheong); color: #fdfbf6; }
+.bid[data-state='missed'] { border-color: var(--line); color: var(--muted); }
+.above { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; font-size: 11px; color: var(--muted); background: var(--background); }
+.fillNote { font-size: 12px; line-height: 1.85; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); background: var(--background); word-break: keep-all; }
+.fillNote b { font-weight: 600; }
+.fillNote a { color: var(--down); border-bottom: 1px solid currentColor; }
+.hint { font-size: 11.5px; color: var(--muted); line-height: 1.85; margin-top: 14px; word-break: keep-all; }
+
+/* ── 체결 탭 ─────────────────────────────── */
+.tapeSum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); margin: 0; }
+.tapeSum > div { background: var(--paper); padding: 12px 14px; }
+.tapeSum dt { font-size: 10px; letter-spacing: .06em; color: var(--muted); }
+.tapeSum dd { margin: 6px 0 0; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tapeSum dd[data-side='loss'] { color: var(--down); }
+.tapeSum dd[data-side='gain'] { color: var(--up); }
+.tapeList { list-style: none; margin: 14px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.tapeList li { display: grid; grid-template-columns: 56px 1fr auto auto; gap: 14px; align-items: center; padding: 9px 4px; border-bottom: 1px solid var(--line); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.tapeList time { font-family: var(--font-geist-mono), monospace; font-size: 11.5px; color: var(--muted); }
+.tapeList b { font-weight: 600; }
+.tapeList b[data-side='loss'] { color: var(--down); }
+.tapeList b[data-side='gain'] { color: var(--up); }
+.tapeList b[data-side='flat'] { color: var(--gold); }
+.tapeList span { color: var(--muted); font-size: 11.5px; }
+.demoTag { font-size: 9.5px; letter-spacing: .06em; border: 1px solid var(--gold); color: var(--gold); padding: 1px 5px; }
+.demoWarn { font-size: 11.5px; color: var(--hong); margin-top: 12px; line-height: 1.8; }
+.empty { font-size: 12.5px; color: var(--muted); line-height: 1.9; padding: 18px 0; word-break: keep-all; }
+
+/* ── 정보 탭 ─────────────────────────────── */
+.gauge { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.gauge > div { background: var(--paper); padding: 14px 16px; }
+.gauge span { display: block; font-size: 10px; letter-spacing: .06em; color: var(--muted); }
+.gauge strong { display: block; font-size: 24px; font-weight: 600; margin-top: 8px; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.gauge strong[data-down='true'] { color: var(--down); }
+.gauge small { display: block; font-size: 11px; color: var(--muted); margin-top: 6px; }
+.rules { margin: 18px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; counter-reset: r; }
+.rules li { font-size: 13px; line-height: 1.8; padding-left: 28px; position: relative; word-break: keep-all; }
+.rules li::before { counter-increment: r; content: counter(r); position: absolute; left: 0; top: 3px; width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid var(--line); font-size: 10px; color: var(--muted); }
+.rules b { font-weight: 600; }
+.note { font-size: 12px; color: var(--muted); line-height: 1.9; margin-top: 16px; word-break: keep-all; }
+.note b { color: var(--ink); font-weight: 500; }
+.warn { font-size: 12px; line-height: 1.9; margin-top: 12px; padding: 10px 12px; border: 1px solid #e0d1b8; background: #f4edde; color: #6b4f1f; word-break: keep-all; }
+.shopLink { display: inline-flex; align-items: center; gap: 12px; margin-top: 18px; font-size: 13px; padding: 12px 18px; border: 1px solid var(--dancheong); color: var(--ink); }
+
+/* ── 정산 시트 (증권의 계좌 연결 자리) ─────────── */
+.overlay { position: fixed; inset: 0; background: #22352c88; display: grid; place-items: end center; z-index: 50; }
+.sheet { width: min(560px, 100%); background: var(--paper); border: 1px solid var(--line); padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 0px)); max-height: 92vh; overflow-y: auto; }
+.sheetHead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.sheetHead h3 { font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
+.sheetLede { font-size: 13px; color: var(--muted); line-height: 1.85; margin-top: 8px; word-break: keep-all; }
+.sheetLede b { color: var(--ink); font-weight: 600; }
+.close { font: inherit; font-size: 12px; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 4px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 16px; }
+.seg button { font: inherit; font-size: 12.5px; padding: 11px; background: var(--paper); color: var(--muted); border: 0; cursor: pointer; }
+.seg button[aria-pressed='true'] { background: var(--ink); color: var(--paper); font-weight: 600; }
+.form { display: grid; gap: 10px; margin-top: 16px; }
+.field { display: grid; gap: 7px; }
+.field > span { font-size: 11px; letter-spacing: .06em; color: var(--muted); }
+.field select, .field input { font: inherit; font-size: 15px; color: var(--ink); border: 1px solid var(--line); background: var(--background); padding: 12px 14px; min-height: 48px; width: 100%; font-variant-numeric: tabular-nums; }
+.submit { font: inherit; font-size: 14px; font-weight: 600; min-height: 50px; background: var(--dancheong); color: #fffdf4; border: 1px solid var(--dancheong); cursor: pointer; }
+.submit:disabled { background: #cfd2c3; border-color: #cfd2c3; opacity: 1; }
+.sheetHint { font-size: 11.5px; color: var(--muted); line-height: 1.85; word-break: keep-all; }
+.sheetHint b { color: var(--ink); font-weight: 500; }
+.error { font-size: 12.5px; color: var(--hong); }
+.result { margin-top: 16px; padding: 16px; border: 1px solid var(--line); background: var(--background); }
+.result strong { display: block; font-family: var(--font-serif-kr), serif; font-size: 28px; letter-spacing: -.04em; }
+.result[data-side='loss'] strong { color: var(--down); }
+.result[data-side='gain'] strong { color: var(--up); }
+.result p { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.8; word-break: keep-all; }
+.result dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0 0; }
+.result dt { font-size: 10px; color: var(--muted); letter-spacing: .06em; }
+.result dd { margin: 5px 0 0; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.linkBtn { font: inherit; font-size: 12px; color: var(--muted); background: none; border: 0; border-bottom: 1px solid var(--line); padding: 4px 0; margin-top: 14px; cursor: pointer; }
+
+@media (max-width: 900px) {
+  .terminal { width: 100%; margin: 0; border-left: 0; border-right: 0; min-height: 0; }
+  .body { grid-template-columns: 1fr; }
+  .rail { border-right: 0; }
+  .terminal[data-view='detail'] .rail { display: none; }
+  .terminal[data-view='list'] .stage { display: none; }
+  .back { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12px; background: none; border: 0; color: var(--muted); padding: 12px 16px 0; cursor: pointer; }
+  .head { padding: 10px 16px 0; }
+  .bigPrice { font-size: 32px; }
+  .tabs, .panel, .action { padding-left: 16px; padding-right: 16px; }
+  .colHead { display: none; }
+  .row { grid-template-columns: 1fr auto; grid-template-areas: 'price depth' 'qty end'; row-gap: 8px; padding-top: 10px; padding-bottom: 10px; }
+  .rPrice { grid-area: price; }
+  .rDepth { grid-area: depth; text-align: right; }
+  .rQty { grid-area: qty; }
+  .rEnd { grid-area: end; min-width: 116px; }
+  .tapeSum, .gauge { grid-template-columns: 1fr; }
+  .result dl { grid-template-columns: 1fr; }
+}

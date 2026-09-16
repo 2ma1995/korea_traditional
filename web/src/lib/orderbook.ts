@@ -38,8 +38,10 @@ export interface Tick {
   price: number;
   /** 수량 제한 없이 지금 살 수 있는 칸 */
   instant: boolean;
-  /** 한정 수량. instant면 null */
+  /** 오늘 이 칸에 배정된 수량. instant면 null */
   quantity: number | null;
+  /** 오늘 이미 체결된 수. quantity - filled 가 남은 수량 */
+  filled: number;
   label: string;
 }
 
@@ -124,19 +126,45 @@ function defaultQuantity(index: number, inStock: boolean): number {
   return [0, 12, 4, 1][index] ?? 1;
 }
 
+/** 구간 할인 폭들을 얕은 것부터 정렬한 호가 단계 목록 */
+export function depthSteps(tiers: DiscountTier[]): number[] {
+  return [...new Set(tiers.map(tier => Math.min(tier.rate, MAX_DISCOUNT_RATE)))].sort((a, b) => a - b);
+}
+
+/**
+ * 특정 할인 폭 칸의 오늘 배정 수량.
+ *
+ * /api/fill이 클라이언트가 보낸 수량을 믿지 않고 서버에서 다시 계산할 때 쓴다.
+ * 단계 인덱스는 전체 단계 목록에서의 위치다 — 오늘 몇 칸이 열렸는지와 무관하게
+ * 같은 폭은 항상 같은 수량을 가진다.
+ */
+export function quantityForDepth(product: Product, depth: number, tiers: DiscountTier[]): number | null {
+  const index = depthSteps(tiers).findIndex(step => Math.abs(step - depth) < 1e-9);
+  if (index < 0) return null;
+  if (index === 0) return null; // 즉시구매 칸은 수량 제한이 없다
+  return defaultQuantity(index, product.inStock);
+}
+
+/** 오늘 체결된 수를 알려주는 함수. (productNo, depth) → 건수 */
+export type FilledLookup = (productNo: number, depth: number) => number;
+
 /** 한 상품의 호가표. 오늘 열린 폭보다 깊은 칸은 만들지 않는다. */
-export function buildBook(product: Product, tiers: DiscountTier[], maxDepth: number): ProductBook {
+export function buildBook(
+  product: Product,
+  tiers: DiscountTier[],
+  maxDepth: number,
+  filledFor: FilledLookup = () => 0,
+): ProductBook {
   /* 구간의 할인 폭들이 그대로 호가 단계가 된다. 오늘 열린 폭 이하만 남긴다.
      등락이 작은 날은 칸이 하나뿐일 수도 있다 — 그때도 즉시구매는 있다. */
-  const depths = [...new Set(tiers.map(tier => Math.min(tier.rate, MAX_DISCOUNT_RATE)))]
-    .filter(depth => depth <= maxDepth + 1e-9)
-    .sort((a, b) => a - b);
+  const depths = depthSteps(tiers).filter(depth => depth <= maxDepth + 1e-9);
 
   const ticks: Tick[] = depths.map((depth, index) => ({
     depth,
     price: floorTo10(product.price * (1 - depth)),
     instant: index === 0,
     quantity: index === 0 ? null : defaultQuantity(index, product.inStock),
+    filled: index === 0 ? 0 : filledFor(product.productNo, depth),
     label: index === 0 ? '지금 바로 구매' : `한정 ${defaultQuantity(index, product.inStock)}개`,
   }));
 
@@ -165,6 +193,7 @@ export function buildBreadMarket(
   tiers: DiscountTier[],
   at: Date = new Date(),
   products: Product[] = PRODUCTS,
+  filledFor: FilledLookup = () => 0,
 ): BreadMarket {
   const absChangePct = Math.abs(market.kospi.changePct);
   const tier = depthFor(absChangePct, tiers);
@@ -179,6 +208,6 @@ export function buildBreadMarket(
     /* 재고 있는 상품을 먼저, 그 안에서는 정가 높은 순 — 할인 폭이 큰 것이 위로 온다 */
     books: [...products]
       .sort((a, b) => Number(b.inStock) - Number(a.inStock) || b.price - a.price)
-      .map(product => buildBook(product, tiers, tier.rate)),
+      .map(product => buildBook(product, tiers, tier.rate, filledFor)),
   };
 }

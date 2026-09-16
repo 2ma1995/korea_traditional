@@ -12,7 +12,6 @@ export default function SiteHeader() {
   return (
     <>
       <a className="skip-link" href="#main-content">본문으로 바로가기</a>
-      <div className="announcement">장이 끝나면, 빵장이 열립니다. <span>매일 저녁 8시 개장</span></div>
       <header className="site-header">
         <div className="header-inner">
           <Link href="/" className="wordmark" aria-label="막지 빵장 홈">
