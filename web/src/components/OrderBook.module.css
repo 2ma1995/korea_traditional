@@ -65,3 +65,21 @@
   .qty { grid-area: qty; text-align: left; }
   .buy, .order { grid-area: btn; }
 }
+
+/* 정산을 마친 손님의 자리 — 오늘 이 손님에게 보장된 한 칸 */
+.tick[data-seat='true'] { background: #e4e8d6; box-shadow: inset 2px 0 0 var(--dancheong); }
+.seatTag {
+  font-style: normal; font-size: 10px; letter-spacing: .06em; font-weight: 600;
+  color: var(--dancheong); border: 1px solid var(--dancheong);
+  padding: 2px 6px; margin-left: 9px; vertical-align: 3px;
+}
+
+/* 오늘의 별명 — 손절빵 / 익절빵 / 본전빵 */
+.flavor {
+  font-style: normal; font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  padding: 3px 8px; margin-right: 9px; vertical-align: 2px;
+  border: 1px solid currentColor;
+}
+.flavor[data-side='loss'] { color: var(--hong); }
+.flavor[data-side='gain'] { color: var(--dancheong); }
+.flavor[data-side='flat'] { color: var(--gold); }

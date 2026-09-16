@@ -310,3 +310,50 @@ export async function getMarketSnapshot(date = new Date()): Promise<MarketSnapsh
     kospiMarketOpen: naverKospi?.marketOpen ?? null,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* 개별 종목 시세 — 관심 종목 경로                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 관심 종목 한 개의 오늘 등락률.
+ *
+ * 손님이 종목을 고를 때만 불린다(초당 폴링이 아니다). 그래도 같은 종목을
+ * 여러 명이 동시에 고를 수 있어 30초 공유 캐시를 둔다 — 비공식 엔드포인트라
+ * 호출량은 아낄수록 좋고, 종목 등락률은 30초 안에 자리를 바꿀 만큼 변하지 않는다.
+ *
+ * Next의 fetch 캐시는 라우트 핸들러에서 동작하지 않는 것을 이 저장소에서
+ * 이미 실측했다(fetchKospiTick 주석). 그래서 여기서도 직접 물고 있는다.
+ */
+const SYMBOL_TTL_MS = 30_000;
+const symbolCache = new Map<string, { at: number; quote: Quote | null }>();
+
+export async function fetchSymbolQuote(symbol: string): Promise<Quote | null> {
+  const hit = symbolCache.get(symbol);
+  if (hit && Date.now() - hit.at < SYMBOL_TTL_MS) return hit.quote;
+
+  const raw = await fetchYahoo(symbol, true);
+  const quote: Quote | null = raw
+    ? { value: raw.value, changePct: raw.changePct, live: raw.live, updatedAt: raw.updatedAt }
+    : null;
+
+  // 실패(null)도 캐시한다 — 외부가 죽었을 때 재시도가 몰리지 않게 한다
+  symbolCache.set(symbol, { at: Date.now(), quote });
+  return quote;
+}
+
+/**
+ * KST 기준 오늘 날짜 (YYYY-MM-DD).
+ *
+ * toDateString()은 서버 로컬 시간을 쓴다. Vercel은 UTC라서 빵장이 열려 있는
+ * 20:00~24:00 KST 중 일부가 전날로 기록될 수 있다. 날짜로 묶는 집계는 이걸 쓴다.
+ */
+export function seoulDateString(at: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(at);
+  return parts; // en-CA는 YYYY-MM-DD로 준다
+}
