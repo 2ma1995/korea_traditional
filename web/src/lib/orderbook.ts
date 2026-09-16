@@ -20,6 +20,18 @@ import type { MarketSnapshot } from './market';
 export const OPEN_HOUR = 20;
 export const CLOSE_HOUR = 24;
 
+/**
+ * 테스트용 상시 개장.
+ *
+ * 빵장은 원래 20:00~24:00에만 열리는데, 그 시간이 아니면 화면에서 아무것도
+ * 눌러볼 수 없어 개발·발표 준비가 막힌다. 그동안만 시간 제한을 끈다.
+ *
+ * ⚠️ 끄면 "장이 끝나면 빵장이 열립니다"라는 기획의 전제가 화면에서 사라진다.
+ *    테스트가 끝나면 false로 되돌릴 것. 켜져 있는 동안에는 화면 시계가
+ *    '테스트 · 상시 개장'으로 표시돼 실제 동작과 혼동되지 않는다.
+ */
+export const ALWAYS_OPEN = true;
+
 export interface Tick {
   /** 정가 대비 할인 폭 (0.05 = 5%) */
   depth: number;
@@ -41,8 +53,8 @@ export interface ProductBook {
 export interface MarketHours {
   /** 지금 빵장이 열려 있는가 */
   open: boolean;
-  /** 왜 닫혔는가 */
-  reason: 'open' | 'before' | 'after' | 'holiday';
+  /** 왜 닫혔는가. test = 테스트용 상시 개장이라 열려 있다 */
+  reason: 'open' | 'before' | 'after' | 'holiday' | 'test';
   /** KST 기준 현재 시각 표시용 */
   nowLabel: string;
 }
@@ -77,6 +89,9 @@ function seoulParts(at: Date) {
 export function marketHours(at: Date = new Date()): MarketHours {
   const { hour, minute, weekday } = seoulParts(at);
   const nowLabel = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+  /* 테스트 중에는 요일·시간을 보지 않는다. 판정 로직 자체는 그대로 남겨둔다 */
+  if (ALWAYS_OPEN) return { open: true, reason: 'test', nowLabel };
 
   if (weekday === 'Sat' || weekday === 'Sun') {
     return { open: false, reason: 'holiday', nowLabel };

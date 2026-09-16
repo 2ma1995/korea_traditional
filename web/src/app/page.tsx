@@ -1,6 +1,6 @@
 import KospiQuote from '@/components/KospiQuote';
 import MyDesk from '@/components/MyDesk';
-import { buildBreadMarket, CLOSE_HOUR, OPEN_HOUR } from '@/lib/orderbook';
+import { ALWAYS_OPEN, buildBreadMarket, CLOSE_HOUR, OPEN_HOUR } from '@/lib/orderbook';
 import { getMarketSnapshot } from '@/lib/market';
 import { loadTiers } from '@/lib/settings';
 import { loadTape } from '@/lib/tape';
@@ -49,12 +49,16 @@ export default async function BreadMarketPage() {
       </div>
 
       <div className={styles.clock} data-open={book.hours.open}>
-        <span className={styles.clockLabel}>{book.hours.open ? '개장 중' : '휴장'}</span>
+        <span className={styles.clockLabel}>
+          {book.hours.reason === 'test' ? '테스트 · 상시 개장' : book.hours.open ? '개장 중' : '휴장'}
+        </span>
         <strong>{OPEN_HOUR}:00 – {CLOSE_HOUR}:00</strong>
         <small>
-          {book.hours.open
-            ? `지금 ${book.hours.nowLabel} · 자정에 닫힙니다`
-            : REASON_TEXT[book.hours.reason] ?? ''}
+          {book.hours.reason === 'test'
+            ? `지금 ${book.hours.nowLabel} · 테스트를 위해 시간 제한을 꺼두었습니다`
+            : book.hours.open
+              ? `지금 ${book.hours.nowLabel} · 자정에 닫힙니다`
+              : REASON_TEXT[book.hours.reason] ?? ''}
         </small>
       </div>
     </header>
@@ -88,6 +92,7 @@ export default async function BreadMarketPage() {
       {market.kospi.live
         ? '코스피는 실제 시세입니다.'
         : '⚠️ 코스피 수집에 실패해 샘플 값이 표시되고 있습니다. 실제 시세가 아닙니다.'}
+      {ALWAYS_OPEN && <> <b>지금은 테스트를 위해 24시간 열어두었습니다</b> — 원래는 20:00~24:00, 주식시장이 쉬는 날은 빵장도 쉽니다.</>}
       {' '}가격별 한정 수량은 아직 코드 기본값이며, 관리자가 직접 입력하는 화면은 다음 단계입니다.
       한정 호가의 체결 처리도 구현 전이라 <b>지금은 맨 위 칸만 실제로 구매까지 이어집니다.</b>
     </p>
