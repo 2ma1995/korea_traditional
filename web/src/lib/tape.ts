@@ -28,6 +28,8 @@ export interface Tape {
   flat: number;
   /** 오늘 가장 깊은 칸에 앉은 사람 수 */
   deepest: number;
+  /** 이 중 화면 확인용 샘플이 몇 건인가. 0이 아니면 화면에 밝힌다 */
+  demo: number;
   /** 비율을 보여줘도 되는 표본인가 */
   ready: boolean;
   /** 저장소에 닿았는가. false면 "집계 준비 전"이다 (DB 미연결) */
@@ -35,7 +37,7 @@ export interface Tape {
 }
 
 const empty = (day: string, live: boolean): Tape => ({
-  day, total: 0, loss: 0, gain: 0, flat: 0, deepest: 0, ready: false, live,
+  day, total: 0, loss: 0, gain: 0, flat: 0, deepest: 0, demo: 0, ready: false, live,
 });
 
 export async function loadTape(at: Date = new Date()): Promise<Tape> {
@@ -45,12 +47,12 @@ export async function loadTape(at: Date = new Date()): Promise<Tape> {
 
   const { data, error } = await db
     .from('settlement_events')
-    .select('side, seat')
+    .select('side, seat, demo')
     .eq('day', day);
 
   if (error || !data) return empty(day, false);
 
-  const rows = data as { side: SettlementSideKey; seat: number }[];
+  const rows = data as { side: SettlementSideKey; seat: number; demo: boolean }[];
   const maxSeat = rows.reduce((top, row) => Math.max(top, row.seat), 0);
 
   return {
@@ -62,6 +64,7 @@ export async function loadTape(at: Date = new Date()): Promise<Tape> {
     /* 오늘 실제로 앉은 칸 중 가장 깊은 칸의 인원. 열린 칸 수는 날마다 다르므로
        고정 인덱스가 아니라 오늘 관측된 최대값을 기준으로 센다 */
     deepest: rows.filter(row => row.seat === maxSeat).length,
+    demo: rows.filter(row => row.demo).length,
     ready: rows.length >= MIN_SAMPLE,
     live: true,
   };
@@ -77,6 +80,6 @@ export async function recordSettlement(
   const db = supabase();
   if (!db) return empty(day, false);
 
-  await db.from('settlement_events').insert({ day, side, seat });
+  await db.from('settlement_events').insert({ day, side, seat, demo: false });
   return loadTape(at);
 }

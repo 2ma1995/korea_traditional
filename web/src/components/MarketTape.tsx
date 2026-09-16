@@ -77,6 +77,14 @@ export default function MarketTape({ tape }: Props) {
 
       <p className={styles.sub}>
         오늘 <b>가장 깊이 앉은 자리</b>에 {tape.deepest}명이 함께 있습니다.
+        {tape.demo > 0 && (
+          <>
+            <br />
+            <span className={styles.demo}>
+              ⚠️ 이 중 {tape.demo}명은 화면 확인용 <b>샘플</b>입니다. 실제 정산이 아닙니다.
+            </span>
+          </>
+        )}
       </p>
     </section>
   );
