@@ -1,0 +1,11 @@
+/* 오르면 홍(상승), 내리면 청(하락). 코스피 등락색과 같은 규칙을 쓴다. */
+.chart { color: #45618b; margin-top: 14px; }
+.chart[data-rising='true'] { color: var(--hong); }
+
+.svg { display: block; width: 100%; height: 56px; touch-action: pan-y; cursor: crosshair; }
+.line { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.cursor { stroke: currentColor; stroke-width: 1; stroke-dasharray: 2 3; opacity: .45; vector-effect: non-scaling-stroke; }
+.dot { fill: var(--paper); stroke: currentColor; stroke-width: 1.8; vector-effect: non-scaling-stroke; }
+
+.legend { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; font-size: 9px; color: var(--muted); }
+.legend > b { font-family: var(--font-geist-mono), monospace; font-size: 12px; font-weight: 500; color: currentColor; font-variant-numeric: tabular-nums; }

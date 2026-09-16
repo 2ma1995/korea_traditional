@@ -69,6 +69,7 @@ em { color: var(--hong); font-style: normal; }
 .site-header nav a[aria-current='page']::after { content: ''; position: absolute; height: 3px; bottom: -1px; left: 0; right: 0; background: var(--ink); }
 .shop-link { font-size: 11px; display: flex; gap: 24px; align-items: center; }
 .shop-link span { font-size: 18px; }
+.home-hero { display: grid; grid-template-columns: 1fr 1.08fr; gap: 40px; align-items: center; padding-top: 52px; padding-bottom: 52px; }
 .hero-copy { padding-bottom: 10px; }
 .hero-copy .eyebrow { display: flex; align-items: center; gap: 10px; }
 .tiny-star { font-size: 24px; font-weight: 400; }
@@ -84,18 +85,41 @@ em { color: var(--hong); font-style: normal; }
 .hero-stamp { position: absolute; bottom: 65px; left: -25px; border: 2px solid var(--hong); outline: 1px solid var(--hong); outline-offset: -6px; padding: 12px 15px; color: var(--hong); font-family: var(--font-serif-kr), serif; font-size: 23px; line-height: 1.3; transform: rotate(-8deg); background: #f7f5eee8; }
 .hero-caption { display: flex; justify-content: space-between; margin-top: 14px; font-size: 9px; letter-spacing: .08em; color: var(--muted); }
 .mobile-only { display: none; }
+.season-strip { border-block: 1px solid var(--line); padding: 27px 0; display: flex; gap: 40px; align-items: center; }
+.season-strip-label { min-width: 135px; }
+.season-strip-label .eyebrow { font-size: 8px; color: var(--muted); }
+.season-strip-label p { font-family: var(--font-serif-kr), serif; line-height: 1.6; font-size: 16px; margin-top: 5px; }
+.season-track { flex: 1; display: flex; gap: 26px; overflow-x: auto; padding: 4px 3px 8px; }
+.season-group { flex: 1; min-width: 172px; }
+.season-name { display: block; font-size: 10px; color: var(--muted); margin-bottom: 16px; }
+.season-group > div { display: flex; justify-content: space-between; }
+.term-mark { display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 9px; color: #777d70; position: relative; min-width: 24px; }
+.term-dot { width: 5px; height: 5px; border-radius: 50%; background: #cdd0c0; }
+.term-mark.done .term-dot { background: #81917a; }
+.term-mark.current { color: var(--hong); font-weight: 700; }
+.term-mark.current .term-dot { background: var(--hong); outline: 1px solid var(--hong); outline-offset: 4px; }
+.term-mark:hover { color: var(--hong); }
 .section-space { padding-block: 88px; }
 .section-intro h2, .section-heading h2, .community-banner h2 { font-size: clamp(29px, 3vw, 40px); line-height: 1.55; margin-top: 16px; }
 .section-intro > p, .community-banner p { color: var(--muted); line-height: 1.9; margin-top: 18px; font-size: 13px; }
 .section-intro .text-link { margin-top: 26px; }
+.seasonal-feature { display: grid; grid-template-columns: .95fr 1.15fr 1fr; gap: 64px; align-items: center; }
 .current-term-card { background: #e9ecdf; padding: 23px 28px; border: 1px solid #d2d9c5; position: relative; }
 .current-term-card::before { content: ''; position: absolute; inset: 7px; border: 1px solid #d2d9c5; pointer-events: none; }
+.term-card-top, .term-card-bottom { display: flex; justify-content: space-between; font-size: 10px; color: #69765e; }
+.term-calligraphy { display: flex; align-items: center; justify-content: center; gap: 17px; padding: 20px 0; }
+.term-calligraphy h3 { font-family: var(--font-serif-kr), serif; font-size: 54px; font-weight: 500; letter-spacing: .12em; }
+.term-calligraphy > span { writing-mode: vertical-rl; font-family: var(--font-serif-kr), serif; font-size: 17px; letter-spacing: .15em; }
 .current-term-card > p { font-size: 12px; line-height: 1.9; text-align: center; min-height: 45px; word-break: keep-all; }
+.term-card-bottom { border-top: 1px solid #c9d0be; padding-top: 14px; margin-top: 19px; }
+.seasonal-note > .eyebrow { color: var(--muted); }
 .ingredient-names { margin-top: 14px; }
 .ingredient-names > div { display: flex; align-items: baseline; gap: 20px; border-bottom: 1px solid var(--line); padding: 13px 0; }
 .ingredient-names span { color: #8a8e7c; font-size: 10px; }
 .ingredient-names span:last-child { margin-left: auto; font-size: 16px; }
 .ingredient-names strong { font-family: var(--font-serif-kr), serif; font-size: 20px; font-weight: 400; }
+.seasonal-note > p { font-size: 12px; line-height: 1.9; color: var(--muted); margin-top: 19px; }
+.seasonal-note .text-link { margin-top: 11px; }
 .market-section { background: #eceee3; }
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
 .section-description { font-size: 13px; color: var(--muted); margin-top: 14px; }
@@ -113,7 +137,11 @@ em { color: var(--hong); font-style: normal; }
 .product-price strong { color: var(--hong); font-size: 18px; }
 .product-price b { font-size: 18px; font-weight: 600; }
 .product-price del { font-size: 12px; color: var(--muted); }
+.market-details { margin-top: 30px; border-block: 1px solid #c9cebd; }
+.market-details summary { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; font-size: 13px; list-style: none; }
 summary::-webkit-details-marker { display: none; }
+.market-details summary > span { font-size: 20px; transition: transform .2s; }
+.market-details[open] summary > span { transform: rotate(45deg); }
 .market-detail-body { padding: 0 0 24px; font-size: 13px; line-height: 1.8; }
 .market-detail-body > p + p { margin-top: 8px; }
 .market-numbers { display: grid; grid-template-columns: repeat(4, 1fr); margin: 24px 0; }
@@ -140,11 +168,21 @@ summary::-webkit-details-marker { display: none; }
 .page-heading { display: flex; justify-content: space-between; align-items: center; gap: 30px; padding-bottom: 44px; }
 .page-heading h1 { font-size: clamp(34px, 4.3vw, 56px); line-height: 1.5; margin-top: 18px; word-break: keep-all; }
 .page-heading p { font-size: 14px; color: var(--muted); margin-top: 16px; line-height: 1.9; }
+.steps-strip { display: grid; grid-template-columns: repeat(3, 1fr); list-style: none; padding: 23px 0; border-block: 1px solid var(--line); margin: 0 0 40px; gap: 16px; }
+.steps-strip li { display: flex; gap: 14px; align-items: center; font-size: 12px; }
+.steps-strip span { color: var(--hong); font-family: var(--font-serif-kr), serif; font-size: 19px; }
+.builder-layout { display: grid; grid-template-columns: 1.75fr 1fr; gap: 64px; align-items: start; scroll-margin-top: 20px; }
 .bread-builder { min-width: 0; }
+.builder-section-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.builder-section-heading > span { color: var(--hong); font-size: 12px; }
+.builder-section-heading h2 { font-family: inherit; font-size: 17px; font-weight: 500; letter-spacing: -.025em; }
+.builder-section-heading small { margin-left: auto; font-size: 11px; color: var(--muted); }
 .bread-options { display: flex; flex-wrap: wrap; gap: 7px; }
 .bread-options button { padding: 12px 15px; border: 1px solid var(--line); font-size: 12px; transition: background .2s; }
 .bread-options button:hover { background: #e7ebdd; }
 .bread-options button.selected { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.builder-preview { position: relative; overflow: hidden; margin: 23px 0 35px; background: #e9e9dd; }
+.builder-preview .product-photo { width: 100%; max-height: 450px; object-fit: cover; }
 .preview-label { position: absolute; top: 18px; left: 20px; font-size: 9px; letter-spacing: .16em; background: #f7f5eee8; padding: 6px 9px; }
 .picked-toppings { position: absolute; bottom: 50px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; padding: 12px; }
 .picked-toppings button { display: flex; align-items: center; gap: 8px; border: 1px solid #c8c6b4; padding: 9px 12px; background: #faf9f0f2; font-size: 12px; box-shadow: 0 3px 10px #263d3412; }
@@ -159,7 +197,19 @@ summary::-webkit-details-marker { display: none; }
 .ingredient-options small { display: block; font-size: 9px; color: var(--muted); margin-top: 4px; }
 .ingredient-check { margin-left: auto; font-size: 14px; }
 .bread-builder > .fine-print { margin-top: 12px; }
+.builder-result { margin-top: 30px; padding: 28px; border: 1px solid var(--line); background: #eeefe5; }
+.builder-result > h3 { font-family: var(--font-serif-kr), serif; font-weight: 500; line-height: 1.8; font-size: 20px; margin-top: 10px; }
+.builder-price { display: flex; justify-content: space-between; align-items: center; gap: 15px; border-top: 1px solid var(--line); padding-top: 22px; margin-top: 22px; }
+.builder-price > span { font-size: 12px; }
+.builder-price > div { display: flex; gap: 9px; align-items: baseline; }
+.builder-price del { font-size: 11px; color: var(--muted); }
+.builder-price strong { font-size: 25px; font-weight: 500; }
+.builder-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }
+.builder-actions .button { gap: 8px; padding-inline: 16px; font-size: 12px; }
 .share-status { font-size: 12px; min-height: 18px; margin-top: 10px; color: var(--hong); }
+.season-story { padding: 30px; background: #e7eadc; border-top: 2px solid var(--dancheong); }
+.season-story h2 { font-size: 31px; line-height: 1.6; margin-top: 25px; }
+.season-story > p { color: #68735d; font-size: 13px; line-height: 1.9; margin-top: 20px; }
 .story-pairing { border-block: 1px solid #c9d0bc; padding-block: 22px; margin-block: 25px 10px; }
 .story-pairing span, .story-pairing strong { display: block; }
 .story-pairing span { font-size: 10px; color: var(--muted); }
@@ -170,12 +220,24 @@ summary::-webkit-details-marker { display: none; }
 .aside-product h3 { font-size: 17px; font-weight: 500; margin-top: 8px; }
 .aside-product p { margin: 12px 0; font-size: 20px; }
 .aside-product p span { font-size: 14px; margin-left: 8px; }
+.builder-notice { max-width: 750px; margin-top: 23px; }
+.inline-invitation { border-block: 1px solid var(--line); margin-top: 70px; padding: 38px 0; display: flex; justify-content: space-between; gap: 25px; align-items: center; }
+.inline-invitation h2 { font-size: 28px; margin-top: 12px; line-height: 1.7; }
+.inline-invitation p { font-size: 13px; color: var(--muted); margin-top: 10px; line-height: 1.9; }
+.inline-invitation .button { flex-shrink: 0; }
+.contest-banner { background: #e5e9d9; border-block: 1px solid #c5ceb6; padding: 32px; display: flex; align-items: center; justify-content: space-between; gap: 35px; }
+.contest-title h2 { font-size: 28px; margin: 14px 0; }
+.contest-title > p { font-size: 12px; color: var(--muted); }
+.contest-title strong { color: var(--hong); margin-left: 8px; }
 .rewards { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
 .rewards li { border-left: 1px solid #c5ceb6; padding: 8px 24px; }
 .rewards li > span { font-family: var(--font-serif-kr), serif; font-size: 23px; color: #79856b; display: block; margin-bottom: 15px; }
 .rewards strong { font-size: 12px; font-weight: 500; }
 .rewards p { font-size: 10px; color: var(--muted); margin-top: 6px; }
+.gallery-section { padding-top: 55px; }
+.gallery-count { font-size: 11px; color: var(--muted); }
 .demo-note { font-size: 11px; color: #737763; line-height: 1.9; background: #eeeee3; border-left: 2px solid #9a9e84; padding: 12px 16px; margin: 25px 0; }
+.contest-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 28px; list-style: none; padding: 0; }
 
 /* 빵 카테고리별 1~3위.
    카드 폭을 기존 2열 그리드와 같게 두어(= (100% - 28px) / 2) 크기를 유지한다.
@@ -185,15 +247,84 @@ summary::-webkit-details-marker { display: none; }
 .category-rank-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 22px; }
 .category-rank-head h3 { font-family: var(--font-serif-kr), serif; font-size: 21px; font-weight: 500; letter-spacing: -.03em; }
 .category-rank-head > span { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.rank-row { display: flex; align-items: stretch; gap: 28px; list-style: none; margin: 0; padding: 0 0 16px; overflow-x: auto; overscroll-behavior-x: contain; }
+.rank-row > li { flex: 0 0 calc((100% - 28px) / 2); }
+.recipe-card { border: 1px solid var(--line); background: var(--paper); }
+.recipe-image { position: relative; overflow: hidden; }
+.recipe-image .product-photo { aspect-ratio: 1.5; transition: transform .5s; }
+.recipe-card:hover .product-photo { transform: scale(1.025); }
+.recipe-rank { position: absolute; top: 15px; left: 15px; font-family: var(--font-serif-kr), serif; font-size: 17px; background: var(--paper); min-width: 42px; height: 42px; padding: 0 12px; display: grid; place-items: center; }
+.recipe-card.is-first .recipe-rank { background: var(--hong); color: #fffdf4; }
 .reference-label { position: absolute; right: 10px; bottom: 10px; font-size: 9px; padding: 5px 7px; background: #f7f5eeeb; }
+.recipe-content { padding: 24px; }
+.recipe-tags { display: flex; flex-wrap: wrap; gap: 10px; color: #7b826b; font-size: 10px; }
+.recipe-content h4 { font-family: var(--font-serif-kr), serif; font-size: 23px; font-weight: 500; margin-top: 10px; }
+.recipe-content > p { color: var(--muted); line-height: 1.8; font-size: 12px; margin-top: 12px; min-height: 44px; }
+.recipe-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 20px; gap: 10px; }
+.recipe-footer > span { font-size: 10px; color: var(--muted); overflow-wrap: anywhere; }
 /* 좋아요는 게시물에서 가져온 수치다 — 누를 수 없는 표시이므로 버튼이 아니다.
    동기화 시점의 스냅샷이라 기준 시각을 함께 적는다. */
 /* 좋아요 수 아래에 기준 시각을 따로 놓는다 — 한 줄에 붙이면 숫자가 묻힌다 */
+.like-count { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12px; white-space: nowrap; }
+.like-count-main { display: flex; gap: 7px; align-items: baseline; }
+.like-count-main > span { color: var(--hong); font-size: 16px; }
+.like-count-main > b { font-weight: 500; font-size: 14px; }
+.like-count > small { color: var(--muted); font-size: 9px; }
+.like-count.is-hidden-count { color: var(--muted); font-size: 10px; }
+.recipe-author { font-size: 11px; color: var(--muted); margin-top: 7px; overflow-wrap: anywhere; }
+.post-link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; font-size: 11px; color: var(--ink); border: 1px solid var(--line); background: var(--paper); padding: 11px 15px; min-height: 40px; transition: color .2s, border-color .2s, background .2s; }
+.post-link > span { font-size: 14px; line-height: 1; }
+.post-link:hover { color: var(--hong); border-color: var(--hong); background: #f4f2e7; }
+.archive-total { display: flex; align-items: center; gap: 18px; }
+.archive-total strong { font-family: var(--font-serif-kr), serif; font-size: 76px; font-weight: 400; line-height: 1.1; }
+.archive-total > span { font-size: 12px; line-height: 2; color: var(--muted); }
+.archive-season-nav { display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--line); }
+.archive-season-nav a { display: flex; align-items: center; gap: 16px; padding: 18px 26px; border-right: 1px solid var(--line); font-size: 13px; }
+.archive-season-nav a:first-child { border-left: 1px solid var(--line); }
+.archive-season-nav a > span:first-child { font-family: var(--font-serif-kr), serif; font-size: 27px; color: #788566; }
+.archive-season-nav a > span:last-child { margin-left: auto; }
+.archive-season-nav a:hover { background: #e7ebdc; }
+.archive-season { padding-top: 40px; scroll-margin-top: 30px; }
+.archive-season-heading { display: flex; align-items: center; gap: 22px; margin-bottom: 24px; }
+.season-character { font-family: var(--font-serif-kr), serif; font-size: 44px; color: #839574; width: 55px; }
+.archive-season-heading h2 { font-size: 26px; margin-top: 6px; }
+.archive-season-heading > .fine-print { margin-left: auto; }
+.archive-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; align-items: start; }
+.archive-term { border: 1px solid var(--line); background: #f9f8f1; scroll-margin-top: 35px; }
+.archive-term summary { padding: 22px; list-style: none; }
+.archive-term.current { border-color: #7f906b; background: #e7ecd9; }
+.archive-term:target { outline: 2px solid var(--hong); outline-offset: 3px; }
+.archive-term-top { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); gap: 10px; }
+.archive-term.current .archive-term-top > span:last-child { color: var(--hong); }
+.archive-term-name { display: flex; align-items: center; gap: 12px; margin-top: 17px; }
+.archive-term-name h3 { font-family: var(--font-serif-kr), serif; font-size: 28px; font-weight: 400; }
+.archive-term-name > span { font-family: var(--font-serif-kr), serif; font-size: 13px; color: #8f957f; }
+.archive-term-name > b { margin-left: auto; font-size: 18px; font-weight: 400; transition: transform .2s; }
+.archive-term[open] .archive-term-name > b { transform: rotate(45deg); }
+.archive-term summary > p { font-size: 12px; color: var(--muted); line-height: 1.8; margin-top: 15px; }
 /* 절기 설명이 1~2줄로 갈려 카드 높이가 어긋난다. 2줄 자리를 항상 잡아 카드 크기를 맞춘다.
    em으로 두어 반응형에서 font-size가 바뀌어도 줄 수 기준이 유지된다.
+   .archive-grid는 align-items: start를 유지해야 한다 — stretch면 카드 하나를 펼쳤을 때
    같은 줄의 다른 카드까지 늘어난다. */
+.archive-term summary > p:first-of-type { min-height: calc(1.8em * 2); }
+.archive-term-detail { padding: 0 22px 22px; font-size: 12px; line-height: 1.9; }
+.archive-term-detail > p { padding-top: 12px; }
+.archive-term-detail > *:first-child { border-top: 1px solid var(--line); }
 /* 제철 재료 — 그 무렵 나오는 재료. 만들 수 있는 제품명이 아니다 */
+.term-ingredients { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.term-ingredients > span { font-size: 9px; color: var(--muted); letter-spacing: .06em; margin-right: 3px; }
+.term-ingredients > b { font-weight: 400; font-size: 11px; color: #5c6b4f; background: #eceedf; border: 1px solid #dcdfcb; padding: 3px 8px; }
+.archive-term.current .term-ingredients > b { background: #f4f7ea; border-color: #c5cfb0; }
 /* 우승작 — 사진을 제일 위에 둔다 */
+.archive-winner { padding-top: 14px; }
+.archive-winner-photo { position: relative; overflow: hidden; margin-bottom: 13px; }
+.archive-winner-photo .product-photo { aspect-ratio: 1.5; }
+.archive-winner > strong { display: block; font-family: var(--font-serif-kr), serif; font-size: 17px; font-weight: 500; margin-top: 2px; }
+.archive-winner-likes { display: block; color: var(--hong); font-size: 11px; margin-top: 6px; }
+.archive-author { color: var(--hong); }
+.season-1 .season-character { color: #567d6c; }
+.season-2 .season-character { color: #9e6848; }
+.season-3 .season-character { color: #727d84; }
 .empty-note { padding: 40px 20px; background: #e9ecdf; text-align: center; font-size: 14px; line-height: 1.9; }
 @media (min-width: 1500px) { .home-hero { padding-block: 65px; } }
 @media (max-width: 1100px) {
@@ -201,10 +332,18 @@ summary::-webkit-details-marker { display: none; }
   .header-inner { width: calc(100% - 56px); gap: 20px; }
   .site-header nav { gap: 24px; }
   .wordmark small { display: none; }
+  .home-hero { gap: 26px; }
   .hero-copy h1 { font-size: 53px; }
+  .seasonal-feature { gap: 32px; }
+  .season-strip { gap: 20px; }
+  .season-track { gap: 20px; }
+  .season-group { min-width: 160px; }
   .community-banner { gap: 60px; }
+  .builder-layout { gap: 30px; grid-template-columns: 1.65fr 1fr; }
   .ingredient-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .season-story { padding: 25px; }
   .rewards li { padding: 8px 16px; }
+  .contest-banner { gap: 20px; padding: 26px; }
 }
 @media (max-width: 760px) {
   html { scroll-padding-top: 24px; }
@@ -218,6 +357,7 @@ summary::-webkit-details-marker { display: none; }
   .shop-link { margin-left: auto; font-size: 10px; gap: 12px; }
   .announcement { font-size: 9px; padding: 8px 10px; }
   .announcement span { margin-left: 6px; }
+  .home-hero { grid-template-columns: 1fr; padding-top: 35px; padding-bottom: 30px; gap: 32px; }
   .hero-copy .eyebrow { font-size: 9px; }
   .hero-copy h1 { font-size: clamp(41px, 10vw, 66px); margin-top: 18px; line-height: 1.4; }
   .hero-description { margin: 18px 0 23px; font-size: 13px; }
@@ -228,16 +368,29 @@ summary::-webkit-details-marker { display: none; }
   .hero-stamp { bottom: 50px; left: -14px; font-size: 20px; padding: 11px; }
   .hero-vertical { font-size: 10px; }
   .hero-caption { font-size: 8px; gap: 8px; }
+  .season-strip { display: block; padding-block: 19px; }
+  .season-strip-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .season-strip-label p { margin: 0; font-size: 13px; }
+  .season-strip-label br { display: none; }
+  .season-track { padding-bottom: 12px; gap: 25px; }
+  .season-group { min-width: 180px; }
   .section-space { padding-block: 48px; }
+  .seasonal-feature { grid-template-columns: 1fr 1fr; gap: 27px 20px; }
   .section-intro { grid-column: 1 / -1; }
   .section-intro h2 br, .section-intro > p br { display: none; }
   .section-intro h2, .section-heading h2, .community-banner h2 { font-size: 29px; margin-top: 12px; }
   .section-intro > p { margin-top: 10px; }
   .section-intro .text-link { margin-top: 10px; }
   .current-term-card { padding: 21px 18px; }
+  .term-calligraphy { gap: 6px; }
+  .term-calligraphy h3 { font-size: 39px; letter-spacing: .02em; }
+  .term-calligraphy > span { font-size: 13px; }
   .current-term-card > p { font-size: 11px; }
+  .term-card-top, .term-card-bottom { font-size: 9px; }
   .ingredient-names > div { gap: 12px; padding-block: 10px; }
   .ingredient-names strong { font-size: 19px; }
+  .seasonal-note > p { font-size: 11px; }
+  .seasonal-note .eyebrow { font-size: 9px; }
   .section-heading { align-items: start; flex-wrap: wrap; gap: 10px; }
   .section-heading .text-link { font-size: 11px; padding-block: 6px; }
   .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; margin-top: 25px; }
@@ -249,6 +402,7 @@ summary::-webkit-details-marker { display: none; }
   .product-badge { top: 8px; left: 8px; padding: 5px 7px; font-size: 9px; }
   .product-arrow { width: 26px; height: 26px; bottom: 8px; right: 8px; }
   .market-numbers { grid-template-columns: 1fr 1fr; gap: 22px; }
+  .market-details summary { font-size: 12px; }
   .community-banner { grid-template-columns: 1fr; gap: 28px; }
   .community-art { min-height: 260px; }
   .community-art > span { font-size: 40px; }
@@ -264,28 +418,85 @@ summary::-webkit-details-marker { display: none; }
   .page-heading h1 { font-size: 36px; margin-top: 13px; }
   .page-heading p { font-size: 12px; margin-top: 12px; }
   .page-heading .eyebrow { font-size: 9px; }
+  .steps-strip { gap: 10px; padding-block: 18px; margin-bottom: 25px; }
+  .steps-strip li { flex-direction: column; align-items: start; gap: 6px; font-size: 10px; line-height: 1.7; }
+  .steps-strip span { font-size: 16px; }
+  .builder-layout { grid-template-columns: 1fr; gap: 30px; }
+  .builder-aside { display: grid; grid-template-columns: 1fr; }
   .aside-product { display: grid; grid-template-columns: 1fr 1fr; align-items: center; }
   .aside-product .product-photo { aspect-ratio: 1; height: 100%; }
   .aside-product > div { padding: 16px; }
   .aside-product h3 { font-size: 14px; }
   .aside-product .text-link { font-size: 10px; }
   .aside-product p { font-size: 17px; }
+  .builder-result { padding: 20px; }
+  .builder-result > h3 { font-size: 18px; }
+  .builder-actions { gap: 8px; }
+  .builder-actions .button { font-size: 11px; padding-inline: 12px; }
+  .builder-price { align-items: start; }
+  .builder-price > div { flex-wrap: wrap; justify-content: end; }
+  .builder-price strong { font-size: 22px; }
+  .builder-price > span { font-size: 11px; }
   .bread-options button { padding: 11px 12px; font-size: 11px; }
+  .builder-section-heading h2 { font-size: 16px; }
+  .builder-preview .product-photo { max-height: 400px; }
+  .inline-invitation { margin-top: 40px; padding-block: 28px; flex-direction: column; align-items: start; }
+  .inline-invitation h2 { font-size: 25px; }
+  .inline-invitation p { font-size: 12px; }
+  .contest-banner { display: block; padding: 24px 20px; }
+  .contest-title h2 { font-size: 24px; }
   .rewards { margin-top: 25px; border-top: 1px solid #c5ceb6; padding-top: 20px; }
   .rewards li { padding: 0 12px; }
   .rewards li:first-child { border: 0; padding-left: 0; }
   .rewards li > span { font-size: 21px; margin-bottom: 9px; }
+  .gallery-section { padding-top: 35px; }
+  .contest-grid { grid-template-columns: 1fr; gap: 24px; }
   .category-rankings { gap: 34px; }
+  .rank-row { gap: 24px; }
+  .rank-row > li { flex: 0 0 100%; }
   .category-rank-head h3 { font-size: 18px; }
+  .recipe-content { padding: 20px; }
+  .recipe-content h4 { font-size: 22px; }
+  .recipe-content > p { min-height: 0; }
+  .recipe-footer { flex-wrap: wrap; gap: 12px; }
+  .post-link { flex: 1 1 auto; }
+  .archive-total strong { font-size: 49px; }
+  .archive-total { gap: 12px; }
+  .archive-total > span { font-size: 10px; }
+  .archive-season-nav a { padding: 13px 10px; gap: 8px; font-size: 11px; }
+  .archive-season-nav a > span:first-child { font-size: 22px; }
+  .archive-season-heading { gap: 12px; }
+  .archive-season-heading h2 { font-size: 23px; }
+  .archive-season-heading > .fine-print { display: none; }
+  .season-character { font-size: 36px; width: 40px; }
+  .archive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   /* 2열 구간은 카드가 좁아 설명이 3줄, 재료 칩이 2줄까지 늘어난다.
      그만큼 자리를 미리 잡아 두 칸의 높이를 맞춘다. */
+  .archive-term summary > p:first-of-type { min-height: calc(1.8em * 3); }
+  .term-ingredients { min-height: 52px; align-content: start; }
+  .archive-term summary { padding: 16px; }
+  .archive-term-top { font-size: 9px; }
+  .archive-term-name { gap: 7px; }
+  .archive-term-name h3 { font-size: 24px; }
+  .archive-term-name > span { font-size: 11px; }
+  .archive-term-name > b { font-size: 14px; }
+  .archive-term summary > p { font-size: 11px; }
+  .archive-term-detail { padding: 0 16px 16px; font-size: 11px; }
+  .term-ingredients { gap: 5px; margin-top: 10px; }
+  .term-ingredients > b { font-size: 10px; padding: 2px 6px; }
+  .archive-winner > strong { font-size: 15px; }
 }
 @media (max-width: 380px) {
   .page-width, .header-inner { width: calc(100% - 32px); }
   .announcement span { display: none; }
   .page-heading h1 { font-size: 31px; }
+  .seasonal-feature { grid-template-columns: 1fr; }
   .section-intro { grid-column: auto; }
+  .seasonal-note { padding-top: 6px; }
   .hero-copy h1 { font-size: 41px; }
+  .archive-grid { grid-template-columns: 1fr; }
+  .builder-actions { grid-template-columns: 1fr; }
+  .archive-season-nav a { gap: 5px; }
 }
 /* 동작 줄이기 — 전역으로 싹 끄지 않는다.
    이 설정은 아이폰 저전력·안드로이드 절전에서도 켜지는데, 그러면 첫 화면 연출을
