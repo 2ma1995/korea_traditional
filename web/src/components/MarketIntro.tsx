@@ -57,7 +57,8 @@ export default function MarketIntro({ children, theme, changePct }: Props) {
 
   return (
     <>
-      {state === 'done' && children}
+      {/* 문이 걷히기 시작하는 순간부터 본문을 깐다 — 페이드 뒤가 비어 보이지 않게 */}
+      {(state === 'exiting' || state === 'done') && children}
       {(state === 'playing' || state === 'exiting') && (
         <dialog
           ref={dialog}
@@ -83,7 +84,7 @@ export default function MarketIntro({ children, theme, changePct }: Props) {
             </div>
             <span className={intro.mark} aria-hidden="true">국 장 이 끝 나 면 , 빵 장</span>
           </div>
-          <button type="button" className={intro.skip} onClick={finish} autoFocus>건너뛰기 <span aria-hidden="true">↗</span></button>
+          {state === 'playing' && <button type="button" className={intro.skip} onClick={finish} autoFocus>건너뛰기 <span aria-hidden="true">↗</span></button>}
         </dialog>
       )}
     </>
