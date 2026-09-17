@@ -13,7 +13,7 @@ import type { DiscountTier } from '@/data/indicators';
 import { moodFor, priceAt, type TodayMarket, type TodayOffer } from '@/lib/offers';
 import { depthFor, OPEN_HOUR } from '@/lib/orderbook';
 import { qtyOf, sortHoldings, usePortfolio } from '@/lib/portfolioStore';
-import { useKospiLive } from '@/lib/useKospiLive';
+import { useKospiLive, type Point } from '@/lib/useKospiLive';
 import styles from './Market.module.css';
 
 /**
@@ -30,7 +30,7 @@ import styles from './Market.module.css';
 
 interface Props {
   today: TodayMarket;
-  series: number[];
+  points: Point[];
   kospi: KospiView;
   tiers: DiscountTier[];
 }
@@ -70,8 +70,8 @@ function RollingPrice({ from, to, delay }: { from: number; to: number; delay: nu
   return <Flip value={won(v)} />;
 }
 
-export default function Market({ today, series, kospi, tiers }: Props) {
-  const k = useKospiLive({ value: kospi.value, changePct: kospi.changePct, marketOpen: kospi.marketOpen, live: kospi.live, series });
+export default function Market({ today, points, kospi, tiers }: Props) {
+  const k = useKospiLive({ value: kospi.value, changePct: kospi.changePct, marketOpen: kospi.marketOpen, live: kospi.live, points });
   const [filled, setFilled] = useState<Record<string, number>>({});
   const [bids, setBids] = useState<Record<number, Bid>>({});
   const [sort, setSort] = useState<Sort>('popular');
@@ -95,7 +95,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   /* 표시 가격은 실시간 폭으로. 실제 예약은 서버 확정 폭(today.rate)으로 간다 */
   const offers: TodayOffer[] = today.offers.map(o => ({ ...o, ...priceAt(o.product.price, rate) }));
 
-  const base = series.length < 2 ? 0 : DRAW_MS + 150;
+  const base = points.length < 2 ? 0 : DRAW_MS + 150;
   const reveal = (step: number) => ({ ['--d' as string]: `${base + step * 90}ms` });
 
   useEffect(() => {

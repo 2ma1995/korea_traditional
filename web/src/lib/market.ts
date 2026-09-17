@@ -388,7 +388,7 @@ export interface HistoryPoint { t: number; v: number }
 export interface KospiHistory { points: HistoryPoint[]; prevClose: number | null }
 
 /* 짧은 기간은 자주, 긴 기간은 드물게 다시 받는다 */
-const HIST_TTL_MS: Record<KospiRange, number> = { '1d': 5_000, '5d': 60_000, '1mo': 60_000, '3mo': 300_000, '1y': 300_000 };
+const HIST_TTL_MS: Record<KospiRange, number> = { '1d': 30_000, '5d': 60_000, '1mo': 60_000, '3mo': 300_000, '1y': 300_000 };
 /* [range, interval] — 1주는 30분봉이라 하루 안 흐름도 남는다 */
 const HIST_ARGS: Record<KospiRange, [string, string]> = {
   '1d': ['1d', '5m'], '5d': ['5d', '30m'], '1mo': ['1mo', '1d'], '3mo': ['3mo', '1d'], '1y': ['1y', '1d'],
@@ -399,14 +399,59 @@ const histCache = new Map<KospiRange, { at: number; data: KospiHistory | null }>
  * 기간별 코스피 종가 + 시각. 차트의 1일/1개월/1년 탭이 쓴다.
  * 점을 누르면 그날 등락률로 "그날이었다면 내 관심빵이 얼마였을지"를 보여주는 데 쓴다.
  */
+/**
+ * 당일 분봉 — 네이버 모바일 차트 API.
+ *
+ * Yahoo ^KS11 분봉은 15:00봉에서 끊긴다(5m·1m·15m 모두). 장은 15:30에 끝나므로
+ * 15:05~15:30이 통째로 없고, 그래서 선이 15:00에서 멈추거나 억지로 이어야 했다.
+ * 네이버는 09:00~15:32를 1분 단위로 전부 준다(마지막 값이 종가와 일치).
+ *
+ * ⚠️ 비공식 엔드포인트다. Referer가 필요하고, 실서비스 전환 시 금융위 지수시세정보
+ *    API로 교체해야 한다. 실패하면 Yahoo 5분봉으로 폴백한다(그때는 15:00까지만 나온다).
+ */
+async function fetchNaverIntraday(): Promise<KospiHistory | null> {
+  try {
+    const res = await fetch('https://api.stock.naver.com/chart/domestic/index/KOSPI?periodType=day', {
+      headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://m.stock.naver.com/' },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const rows = json?.priceInfos;
+    if (!Array.isArray(rows) || !rows.length) return null;
+
+    /* localDateTime은 'YYYYMMDDHHmmss' (KST). epoch 초로 바꾼다 */
+    const points: HistoryPoint[] = [];
+    for (const row of rows) {
+      const d = String(row?.localDateTime ?? '');
+      const v = Number(row?.currentPrice);
+      if (d.length < 12 || !Number.isFinite(v)) continue;
+      const iso = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T${d.slice(8, 10)}:${d.slice(10, 12)}:00+09:00`;
+      const t = Date.parse(iso);
+      if (Number.isFinite(t)) points.push({ t: Math.floor(t / 1000), v });
+    }
+    if (points.length < 2) return null;
+    /* 전일 종가는 이 응답에 없다 — 실시간 틱의 등락률로 되돌려 계산한다 */
+    const tick = await fetchNaverKospi(true);
+    const prevClose = tick ? tick.value / (1 + tick.changePct / 100) : null;
+    return { points, prevClose };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchKospiHistory(range: KospiRange): Promise<KospiHistory | null> {
   const hit = histCache.get(range);
   if (hit && Date.now() - hit.at < HIST_TTL_MS[range]) return hit.data;
-  const [r, interval] = HIST_ARGS[range];
-  const raw = await fetchYahoo('^KS11', true, r, interval);
-  const data: KospiHistory | null = raw
-    ? { points: raw.series.map((v, i) => ({ t: raw.timestamps[i], v })), prevClose: raw.chartPreviousClose }
-    : null;
+
+  let data: KospiHistory | null = null;
+  /* 당일은 네이버(15:30까지), 기간은 Yahoo 일봉 */
+  if (range === '1d') data = await fetchNaverIntraday();
+  if (!data) {
+    const [r, interval] = HIST_ARGS[range];
+    const raw = await fetchYahoo('^KS11', true, r, interval);
+    data = raw ? { points: raw.series.map((v, i) => ({ t: raw.timestamps[i], v })), prevClose: raw.chartPreviousClose } : null;
+  }
   histCache.set(range, { at: Date.now(), data });
   return data;
 }

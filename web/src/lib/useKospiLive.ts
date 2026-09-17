@@ -17,13 +17,15 @@ import { useEffect, useRef, useState } from 'react';
  */
 
 export interface Tick { t: string; v: number; dir: 'up' | 'down' }
+/** 당일 분봉 한 점 — t는 epoch 초(KST 기준 시각), v는 지수 */
+export interface Point { t: number; v: number }
 
 export interface KospiLive {
   value: number;
   changePct: number;
   marketOpen: boolean | null;
   live: boolean;
-  series: number[];
+  points: Point[];
   ticks: Tick[];
   /** 값이 바뀔 때마다 +1. 숫자 롤링 애니메이션 키 */
   seq: number;
@@ -55,12 +57,15 @@ export function useKospiLive(initial: Omit<KospiLive, 'ticks' | 'seq' | 'dir'>):
         const dir: 'up' | 'down' | null = changed ? (next.value > last.current ? 'up' : 'down') : null;
         last.current = next.value;
         setState(prev => {
-          const series = prev.series.length ? [...prev.series.slice(0, -1), next.value] : prev.series;
+          /* 마지막 분봉의 값만 갈아끼운다 — 새 분이 되면 60초 폴링이 점을 추가한다 */
+          const points = prev.points.length
+            ? [...prev.points.slice(0, -1), { ...prev.points[prev.points.length - 1], v: next.value }]
+            : prev.points;
           const ticks = changed && dir ? [{ t: clock.format(new Date()), v: next.value, dir }, ...prev.ticks].slice(0, KEEP) : prev.ticks;
           return {
             ...prev, value: next.value, changePct: next.changePct, live: next.live,
             marketOpen: typeof next.marketOpen === 'boolean' ? next.marketOpen : null,
-            series, ticks, seq: changed ? prev.seq + 1 : prev.seq, dir: dir ?? prev.dir,
+            points, ticks, seq: changed ? prev.seq + 1 : prev.seq, dir: dir ?? prev.dir,
           };
         });
         if (next.marketOpen === false) stop();
@@ -72,7 +77,7 @@ export function useKospiLive(initial: Omit<KospiLive, 'ticks' | 'seq' | 'dir'>):
       try {
         const res = await fetch('/api/kospi/series', { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) });
         const json = await res.json();
-        if (alive && json?.ok && Array.isArray(json.series) && json.series.length) setState(prev => ({ ...prev, series: json.series }));
+        if (alive && json?.ok && Array.isArray(json.points) && json.points.length) setState(prev => ({ ...prev, points: json.points }));
       } catch { /* */ }
     };
 

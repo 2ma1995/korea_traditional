@@ -80,7 +80,7 @@ export default function KospiLive({ k, mood, rate, phase, openAt, tiers, breads,
   const up = k.changePct >= 0;
   const prevClose = k.value / (1 + k.changePct / 100);
   const diff = k.value - prevClose;
-  const s = k.series;
+  const s = k.points.map(p => p.v);
   const has = s.length >= 2;
   const iMax = has ? s.indexOf(Math.max(...s)) : 0, iMin = has ? s.indexOf(Math.min(...s)) : 0;
 

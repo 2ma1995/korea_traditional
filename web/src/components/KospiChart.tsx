@@ -37,7 +37,12 @@ interface Props {
 }
 
 const W = 640, H = 210, PL = 10, PR = 10, PT = 30, PB = 30;
-const BARS = 78;
+/* 정규장 09:00~15:30 — 1일 x축은 봉 개수가 아니라 이 시각 범위로 잡는다.
+   네이버 분봉은 1분 단위 393점이고 마지막이 15:32라 개수 가정이 통하지 않는다. */
+const OPEN_MIN = 9 * 60, CLOSE_MIN = 15 * 60 + 30, DAY_SPAN = CLOSE_MIN - OPEN_MIN;
+/** epoch 초 → KST 그날의 분(0~1439). KST는 UTC+9라 오프셋만 더하면 된다 */
+const kstMinute = (sec: number) => Math.floor((sec + 32_400) / 60) % 1440;
+const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 const RANGES: { key: Range; label: string }[] = [
   { key: '1d', label: '1일' }, { key: '5d', label: '1주' }, { key: '1mo', label: '1달' },
   { key: '3mo', label: '3달' }, { key: '1y', label: '1년' },
@@ -49,7 +54,7 @@ const kstMonth = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', {
 /** 1주(30분봉)는 날짜 + 시각이 같이 있어야 어느 날 어느 때인지 읽힌다 */
 const kstDayTime = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\s+/g, ' ');
 const kstDay = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' }).replace(/\s+/g, '');
-const intradayLabel = (i: number) => { const m = 9 * 60 + i * 5; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+
 
 export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }: Props) {
   const [range, setRange] = useState<Range>('1d');
@@ -80,7 +85,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
   }, [range, hist]);
 
   const prevClose1d = k.value / (1 + k.changePct / 100);
-  const points: Pt[] = range === '1d' ? k.series.map((v, i) => ({ t: i, v })) : (hist[range]?.points ?? []);
+  const points: Pt[] = range === '1d' ? k.points : (hist[range]?.points ?? []);
   const prevClose = range === '1d' ? prevClose1d : (hist[range]?.prevClose ?? points[0]?.v ?? null);
   const n = points.length;
   const has = n >= 2;
@@ -102,16 +107,12 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
   const pad = (hi0 - lo0) * 0.06 || 1;
   const lo = lo0 - pad, hi = hi0 + pad, span = hi - lo;
   /* 1일은 배열 인덱스가 아니라 점의 바 위치(t)로 x를 잡는다 — 종가 점이 15:30에 놓이도록 */
-  /**
-   * 1일 x축의 분모.
-   *
-   * 장중엔 하루 전체(BARS=78, 09:00~15:30)로 두어 지나온 만큼만 선이 그려진다.
-   * 마감 뒤엔 마지막 봉까지로 줄인다 — Yahoo ^KS11 분봉은 15:00봉이 마지막이고
-   * 그 봉의 종가가 실제 마감가(regularMarketPrice)다. 78로 두면 15:00 이후가 빈
-   * 구간으로 남고, 거기에 종가 점을 억지로 찍으면 15:00 → 15:30 직선이 생긴다.
-   */
-  const span1d = phase === 'live' ? BARS : Math.max(1, n - 1);
-  const x = (i: number) => range === '1d' ? PL + (Math.min(points[i]?.t ?? i, span1d) / span1d) * (W - PL - PR) : PL + (i / Math.max(1, n - 1)) * (W - PL - PR);
+  /* 1일은 실제 시각으로 자리를 잡는다 — 09:00이 왼쪽 끝, 15:30이 오른쪽 끝.
+     장중엔 지나온 만큼만 선이 차고, 마감 뒤엔 15:30까지 꽉 찬다. */
+  const dayFrac = (t: number) => Math.max(0, Math.min(1, (kstMinute(t) - OPEN_MIN) / DAY_SPAN));
+  const x = (i: number) => range === '1d'
+    ? PL + dayFrac(points[i]?.t ?? 0) * (W - PL - PR)
+    : PL + (i / Math.max(1, n - 1)) * (W - PL - PR);
   const y = (v: number) => PT + (1 - (v - lo) / span) * (H - PT - PB);
   const line = points.map((_, i) => `${x(i).toFixed(1)},${y(valueAt(i)).toFixed(1)}`).join(' ');
   const area = has ? `M${x(0).toFixed(1)},${(H - PB).toFixed(1)} L${line.replace(/ /g, ' L')} L${x(n - 1).toFixed(1)},${(H - PB).toFixed(1)} Z` : '';
@@ -128,7 +129,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
     const rows = noWatch && !view ? [] : list.map(b => ({ ...b, ...priceAt(b.listPrice, rate) }));
     /* 마지막 봉은 종가다 — 15:00봉이지만 담고 있는 값은 15:30 마감가 */
     const label = range === '1d'
-      ? (active === n - 1 && phase !== 'live' ? '15:30 마감' : intradayLabel(p.t))
+      ? (active === n - 1 && phase !== 'live' ? `${hhmm(Math.min(kstMinute(p.t), CLOSE_MIN))} 마감` : hhmm(kstMinute(p.t)))
       : range === '5d' ? kstDayTime(p.t) : kstDate(p.t);
     return { p, pct, mood, rate, rows, label, xPct: (x(active) / W) * 100 };
   })() : null;
@@ -138,8 +139,8 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
     const xr = ((e.clientX - rect.left) / rect.width) * W;
     const f = (xr - PL) / (W - PL - PR);
     if (range === '1d') {
-      const bar = Math.round(f * span1d); let best = 0;
-      for (let i = 1; i < n; i++) if (Math.abs(points[i].t - bar) < Math.abs(points[best].t - bar)) best = i;
+      const want = OPEN_MIN + f * DAY_SPAN; let best = 0;
+      for (let i = 1; i < n; i++) if (Math.abs(kstMinute(points[i].t) - want) < Math.abs(kstMinute(points[best].t) - want)) best = i;
       return best;
     }
     return Math.max(0, Math.min(n - 1, Math.round(f * (n - 1))));
@@ -147,13 +148,16 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
 
   /* x축 라벨 */
   const axis: { i: number; label: string; anchor: 'start' | 'middle' | 'end' }[] = range === '1d'
-    ? [{ i: 0, label: '09:00', anchor: 'start' }, { i: 36, label: '12:00', anchor: 'middle' }, { i: span1d, label: phase === 'live' ? '15:30' : '15:30 마감', anchor: 'end' }]
+    ? [{ i: OPEN_MIN, label: '09:00', anchor: 'start' }, { i: 12 * 60, label: '12:00', anchor: 'middle' }, { i: CLOSE_MIN, label: phase === 'live' ? '15:30' : '15:30 마감', anchor: 'end' }]
     : has ? [0, Math.round((n - 1) / 3), Math.round(((n - 1) * 2) / 3), n - 1].map((i, j) => ({
         i,
         label: range === '1y' || range === '3mo' ? kstMonth(points[i].t) : kstDay(points[i].t),
         anchor: j === 0 ? 'start' : j === 3 ? 'end' : 'middle' as const,
       })) : [];
-  const xAt = (i: number) => range === '1d' ? PL + (Math.min(i, span1d) / span1d) * (W - PL - PR) : x(i);
+  /* 1일 축 라벨의 i는 '분'이다 */
+  const xAt = (i: number) => range === '1d'
+    ? PL + Math.max(0, Math.min(1, (i - OPEN_MIN) / DAY_SPAN)) * (W - PL - PR)
+    : x(i);
 
   return (
     <div className={styles.chartWrap} data-dir={dir}>

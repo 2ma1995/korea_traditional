@@ -79,7 +79,7 @@ export default function Portfolio({ offers, onBuyAll, bulk, onPick }: Props) {
               </span>
               <span className={styles.pfName}>
                 {row.offer && onPick
-                  ? <button type="button" className={styles.pfNameBtn} onClick={() => onPick(row.no)}><b>{name}</b> <em aria-hidden="true">›</em></button>
+                  ? <button type="button" className={styles.pfNameBtn} onClick={() => onPick(row.no)}><b>{name}</b></button>
                   : <b>{name}</b>}
                 <span>{row.offer ? `오늘 ${won(row.offer.price)}원 · −${won(row.offer.saved)}원` : '오늘 품절'}</span>
               </span>

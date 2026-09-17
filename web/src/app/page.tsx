@@ -2,7 +2,7 @@ import Market from '@/components/Market';
 import MarketIntro from '@/components/MarketIntro';
 import { PRODUCTS } from '@/data/products';
 import { loadFilled } from '@/lib/fills';
-import { fetchSymbolQuote, getMarketSnapshot } from '@/lib/market';
+import { fetchKospiHistory, getMarketSnapshot } from '@/lib/market';
 import { buildToday } from '@/lib/offers';
 import { loadTiers } from '@/lib/settings';
 
@@ -17,7 +17,7 @@ export default async function BreadMarketPage() {
     getMarketSnapshot(now),
     loadTiers(),
     loadFilled(now),
-    fetchSymbolQuote('^KS11'),
+    fetchKospiHistory('1d'),
   ]);
   const today = buildToday(market, tiers, filled, now, PRODUCTS);
 
@@ -27,7 +27,7 @@ export default async function BreadMarketPage() {
       <Market
         today={today}
         tiers={tiers}
-        series={intraday?.series ?? []}
+        points={intraday?.points ?? []}
         kospi={{ value: market.kospi.value, changePct: market.kospi.changePct, live: market.kospi.live, marketOpen: market.kospiMarketOpen }}
       />
       </MarketIntro>

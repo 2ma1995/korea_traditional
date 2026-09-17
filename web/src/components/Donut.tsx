@@ -60,7 +60,7 @@ export default function Donut({ slices, onPick }: { slices: Slice[]; onPick?: (p
           <li key={s.no} data-today={s.today} onMouseEnter={() => setHover(s.no)} onMouseLeave={() => setHover(null)}>
             <i style={{ background: PALETTE[i % PALETTE.length] }} />
             {onPick && s.today
-              ? <button type="button" className={styles.legendPick} onClick={() => onPick(s.no)}>{s.emoji} {s.name} <em aria-hidden="true">›</em></button>
+              ? <button type="button" className={styles.legendPick} onClick={() => onPick(s.no)}>{s.emoji} {s.name}</button>
               : <span>{s.emoji} {s.name}</span>}
             <b>{s.share}%</b>
           </li>
