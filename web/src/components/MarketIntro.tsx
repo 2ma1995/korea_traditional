@@ -8,8 +8,9 @@ import styles from './Market.module.css';
  * 빵장 대문 — 들어올 때 한옥 문이 열리고 "막지의 빵장이 시작했습니다." 뒤에 화면이 나온다.
  *
  * /season의 오프닝(Intro.tsx)과 같은 문·같은 CSS다. 문구만 다르다.
- * 문이 열리는 동안 본문은 마운트하지 않는다 — 그래야 문이 걷힌 뒤에 그래프가 그려지고
- * 카드가 촤라락 올라오는 순서가 지켜진다. 문 뒤에서 이미 다 끝나 있으면 김이 빠진다.
+ * 본문은 서버에서 그대로 렌더한다(첫 HTML이 비면 안 된다). 대신 문이 걷히기 시작하는
+ * 순간 본문의 key를 바꿔 다시 마운트한다 — 그래야 문 뒤에서 미리 끝나 있던 애니메이션이
+ * 아니라, 문이 열리는 그 순간에 그래프가 그려지고 카드가 촤라락 올라온다.
  *
  * 건너뛰는 경우: URL에 해시가 있을 때(딥링크), 동작 줄이기 설정, 그리고 버튼·ESC.
  */
@@ -25,6 +26,8 @@ interface Props {
 
 export default function MarketIntro({ children, theme, changePct }: Props) {
   const [state, setState] = useState<'idle' | 'playing' | 'exiting' | 'done'>('idle');
+  /* 본문 리마운트 키 — 문이 걷히기 시작할 때 한 번 올린다 */
+  const [round, setRound] = useState(0);
   const dialog = useRef<HTMLDialogElement>(null);
   const timers = useRef<number[]>([]);
 
@@ -33,7 +36,7 @@ export default function MarketIntro({ children, theme, changePct }: Props) {
     timers.current = [];
     if (dialog.current?.open) dialog.current.close();
     document.documentElement.style.overflow = '';
-    setState('done');
+    setState(prev => { if (prev === 'playing') setRound(r => r + 1); return 'done'; });
   }, []);
 
   useEffect(() => {
@@ -48,7 +51,7 @@ export default function MarketIntro({ children, theme, changePct }: Props) {
     if (!overlay) return;
     document.documentElement.style.overflow = 'hidden';
     if (!overlay.open) overlay.showModal();
-    timers.current.push(window.setTimeout(() => setState('exiting'), OPEN_MS));
+    timers.current.push(window.setTimeout(() => { setState('exiting'); setRound(r => r + 1); }, OPEN_MS));
     timers.current.push(window.setTimeout(finish, OPEN_MS + FADE_MS));
     return () => { timers.current.forEach(window.clearTimeout); timers.current = []; };
   }, [state, finish]);
@@ -57,8 +60,8 @@ export default function MarketIntro({ children, theme, changePct }: Props) {
 
   return (
     <>
-      {/* 문이 걷히기 시작하는 순간부터 본문을 깐다 — 페이드 뒤가 비어 보이지 않게 */}
-      {(state === 'exiting' || state === 'done') && children}
+      {/* 본문은 항상 있다(SSR). 문이 걷히기 시작할 때 key가 바뀌어 애니메이션이 그때 시작된다 */}
+      <div key={round} aria-hidden={state === 'playing'}>{children}</div>
       {(state === 'playing' || state === 'exiting') && (
         <dialog
           ref={dialog}
