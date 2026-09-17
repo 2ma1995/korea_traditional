@@ -131,7 +131,13 @@ export default function KospiLive({ k, mood, rate, phase, openAt, tiers, breads,
       {phase !== 'live' && facts.length > 0 && (
         <div className={styles.factsTicker} aria-label="오늘의 기록">
           <div className={styles.factsTrack}>
-            {[...facts, ...facts].map((f, i) => <span key={i} className={styles.fact} data-tone={f.tone}>{f.t}</span>)}
+            <div className={styles.factsSet}>
+              {facts.map((f, i) => <span key={i} className={styles.fact} data-tone={f.tone}>{f.t}</span>)}
+            </div>
+            {/* 흐름이 끊기지 않게 한 벌 더 — 동작 줄이기에서는 숨긴다 */}
+            <div className={styles.factsSet} aria-hidden="true">
+              {facts.map((f, i) => <span key={i} className={styles.fact} data-tone={f.tone}>{f.t}</span>)}
+            </div>
           </div>
         </div>
       )}
@@ -140,7 +146,11 @@ export default function KospiLive({ k, mood, rate, phase, openAt, tiers, breads,
       <div className={styles.countCenter}>
         <span className={styles.marketTag} data-open={phase === 'open'}>
           <i aria-hidden="true" />
-          {phase === 'live' ? `BREAD MARKET · 15:30 확정 후 OPEN` : phase === 'locked' ? `BREAD MARKET OPEN · ${openAt}` : phase === 'open' ? 'BREAD MARKET OPEN' : 'BREAD MARKET CLOSED · 다음 거래일 09:00'}
+          {/* 숫자가 무엇까지 남은 시간인지 앞에 붙인다 — 라벨만 보고도 읽히게 */}
+          {phase === 'live' ? '확정까지 · BREAD MARKET 15:30 OPEN'
+            : phase === 'locked' ? `개장까지 · BREAD MARKET OPEN ${openAt}`
+            : phase === 'open' ? '마감까지 · BREAD MARKET OPEN'
+            : '다음 LIVE까지 · BREAD MARKET CLOSED'}
         </span>
         <strong><Flip value={(phase === 'live' ? toClose : phase === 'locked' ? toOpen : phase === 'open' ? toEnd : toLive) ?? '-- : -- : --'} /></strong>
       </div>
