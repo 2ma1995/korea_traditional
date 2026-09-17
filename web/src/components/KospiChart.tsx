@@ -29,6 +29,8 @@ interface Props {
   tiers: DiscountTier[];
   /** 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것), 없으면 오늘 TOP 1 */
   breads: { name: string; emoji: string; listPrice: number }[];
+  /** 관심빵이 없어 대표 빵(스콘)으로 보여주고 있는가 — 안내를 붙인다 */
+  noWatch: boolean;
   drawMs: number;
 }
 
@@ -41,7 +43,7 @@ const kstDate = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', { 
 const kstMonth = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric' }).replace(' ', '');
 const intradayLabel = (i: number) => { const m = 9 * 60 + i * 5; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 
-export default function KospiChart({ k, phase, tiers, breads, drawMs }: Props) {
+export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }: Props) {
   const [range, setRange] = useState<Range>('1d');
   const [hist, setHist] = useState<Partial<Record<Range, Hist>>>({});
   const [hover, setHover] = useState<number | null>(null);
@@ -111,8 +113,15 @@ export default function KospiChart({ k, phase, tiers, breads, drawMs }: Props) {
 
   return (
     <div className={styles.chartWrap} data-dir={dir}>
-      <div className={styles.rangeTabs} role="tablist" aria-label="기간">
-        {RANGES.map(r => <button key={r.key} type="button" role="tab" aria-selected={range === r.key} onClick={() => { setRange(r.key); setPinned(null); setHover(null); }}>{r.label}</button>)}
+      <div className={styles.rangeRow}>
+        <div className={styles.rangeTabs} role="tablist" aria-label="기간">
+          {RANGES.map(r => <button key={r.key} type="button" role="tab" aria-selected={range === r.key} onClick={() => { setRange(r.key); setPinned(null); setHover(null); }}>{r.label}</button>)}
+        </div>
+        <span className={styles.chartHint}>
+          {noWatch
+            ? <>점을 누르면 그날 <b>{breads[0]?.name ?? '빵'}</b> 가격이 보여요 · 🔔 알림받기로 관심빵을 담으면 <b>내 빵</b>으로 바뀝니다</>
+            : <>점을 누르면 그날 <b>내 관심빵 {breads.length}종</b>의 가격이 보여요</>}
+        </span>
       </div>
 
       {has ? (
@@ -169,6 +178,7 @@ export default function KospiChart({ k, phase, tiers, breads, drawMs }: Props) {
                 </div>
               )}
               {range !== '1d' && <small className={styles.tipHint}>그날 마감 등락률 기준으로 계산한 값</small>}
+              {noWatch && <small className={styles.tipHint}>🔔 알림받기로 관심빵을 담으면 여기 내 빵이 보여요</small>}
             </div>
           )}
         </div>

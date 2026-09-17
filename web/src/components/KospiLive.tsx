@@ -29,8 +29,11 @@ interface Props {
   openAt: string;
   test: boolean;
   tiers: DiscountTier[];
-  /** 차트 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것), 없으면 오늘 TOP 1 */
+  /** 차트 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것), 없으면 대표 빵 */
   breads: { name: string; emoji: string; listPrice: number }[];
+  noWatch: boolean;
+  /** 오늘 변동폭 구간 이름 — "작은 움직임" */
+  tierLabel: string;
 }
 
 export const DRAW_MS = 1600;
@@ -88,7 +91,7 @@ function Timeline() {
   );
 }
 
-export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, breads }: Props) {
+export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, breads, noWatch, tierLabel }: Props) {
   const [oh, om] = openAt.split(':').map(Number);
   const toClose = useCountdown(atToday(15, 30), phase === 'live');
   const toOpen = useCountdown(atToday(oh, om), phase === 'locked');
@@ -135,7 +138,7 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
         <span className={`${styles.pct} ${up ? styles.up : styles.down}`}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</span>
       </div>
 
-      <KospiChart k={k} phase={phase} tiers={tiers} breads={breads} drawMs={DRAW_MS} />
+      <KospiChart k={k} phase={phase} tiers={tiers} breads={breads} noWatch={noWatch} drawMs={DRAW_MS} />
 
       {phase === 'live' && k.ticks.length > 0 && (
         <div className={styles.ticker} aria-hidden="true">
@@ -147,11 +150,9 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
         </div>
       )}
       {phase !== 'live' && facts.length > 0 && (
-        <div className={styles.ticker} aria-hidden="true">
-          <div className={styles.tickerTrack}>
-            {[...facts, ...facts].map((f, i) => <span key={i} className={styles.fact} data-tone={f.tone}>{f.t}</span>)}
-          </div>
-        </div>
+        <ul className={styles.facts} aria-label="오늘의 기록">
+          {facts.map((f, i) => <li key={i} className={styles.fact} data-tone={f.tone}>{f.t}</li>)}
+        </ul>
       )}
       {(phase === 'open' || phase === 'locked') && <Timeline />}
 
@@ -159,7 +160,8 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
         <div className={styles.verdict} key={mood.side}>
           <div className={styles.verdictPop}>
             <span className={styles.eyebrow}>지금 마감한다면</span>
-            <h1>「{mood.theme.replace(/^\S+\s/, '')}」<small>오늘의 할인 라인 · 모든 빵 {Math.round(rate * 100)}%</small></h1>
+            <h1>모든 빵 <b>{Math.round(rate * 100)}%</b> 할인</h1>
+            <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {tierLabel} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
           </div>
           {toClose && (
             <div className={styles.count}>
@@ -172,8 +174,9 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
       ) : (
         <div className={styles.verdict}>
           <div>
-            <span className={styles.eyebrow}>오늘은 {k.changePct > 0 ? '상승' : k.changePct < 0 ? '하락' : '보합'} 마감</span>
-            <h1>{mood.theme}<span className={styles.stamp}>확정 ✓</span><small>오늘의 할인 라인 · 모든 빵 {Math.round(rate * 100)}%</small></h1>
+            <span className={styles.eyebrow}>오늘은 {k.changePct > 0 ? '상승' : k.changePct < 0 ? '하락' : '보합'} 마감<span className={styles.stamp}>확정 ✓</span></span>
+            <h1>오늘 모든 빵 <b>{Math.round(rate * 100)}%</b> 할인</h1>
+            <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {tierLabel} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
           </div>
           <div className={styles.count}>
             <span>BREAD MARKET {phase === 'open' ? 'OPEN' : phase === 'locked' ? `OPEN · ${openAt}` : 'CLOSED'}</span>

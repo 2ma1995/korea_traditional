@@ -35,9 +35,10 @@ interface Props {
   tiers: DiscountTier[];
 }
 
-type Sort = 'saved' | 'popular';
-const TOP = 3;
+type Sort = 'popular' | 'watched';
 const MEDAL = ['🥇', '🥈', '🥉'];
+/** 관심빵이 없을 때 차트에 고정으로 보여주는 대표 빵 — 글루텐프리 스콘 */
+const FIXED_BREAD_NO = 25;
 const EMOJI: Record<number, string> = { 29: '🍰', 33: '🥖', 19: '🍮', 23: '🍰', 31: '🍞', 32: '🥐', 28: '🧁', 25: '🥐', 27: '🥪', 30: '🧁' };
 const won = (n: number) => n.toLocaleString('ko-KR');
 const key = (no: number, rate: number) => `${no}:${rate.toFixed(3)}`;
@@ -75,9 +76,8 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   const k = useKospiLive({ value: kospi.value, changePct: kospi.changePct, marketOpen: kospi.marketOpen, live: kospi.live, series });
   const [filled, setFilled] = useState<Record<string, number>>({});
   const [bids, setBids] = useState<Record<number, Bid>>({});
-  const [sort, setSort] = useState<Sort>('saved');
+  const [sort, setSort] = useState<Sort>('popular');
   const [selected, setSelected] = useState<number | null>(null);
-  const [showAll, setShowAll] = useState(false);
   const [showSoldOut, setShowSoldOut] = useState(false);
   const [pfOpen, setPfOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -132,8 +132,10 @@ export default function Market({ today, series, kospi, tiers }: Props) {
     }
   }
 
-  const sorted = [...offers].sort((a, b) => sort === 'popular' ? filledOf(b) - filledOf(a) || b.saved - a.saved : b.saved - a.saved || b.product.price - a.product.price);
-  const top = sorted.slice(0, TOP), rest = sorted.slice(TOP);
+  /* 인기순 = 오늘 많이 산 순, 관심순 = 내가 알림 걸어둔 순. 동률이면 할인 금액 큰 순 */
+  const sorted = [...offers].sort((a, b) => sort === 'watched'
+    ? (portfolio[b.product.productNo] ?? 0) - (portfolio[a.product.productNo] ?? 0) || b.saved - a.saved
+    : filledOf(b) - filledOf(a) || b.saved - a.saved);
   const ranking = offers.map(o => ({ o, n: filledOf(o) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
   const selectedOffer = offers.find(o => o.product.productNo === selected) ?? null;
 
@@ -148,50 +150,40 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   });
   const hit = entries.map(e => offers.find(o => o.product.productNo === e.no)).find((o): o is TodayOffer => Boolean(o));
   const hitShare = hit ? Math.round(((portfolio[hit.product.productNo] ?? 0) / pfTotal) * 100) : 0;
-  /* 차트 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것, 비중 순, 최대 4), 없으면 오늘 TOP 1 */
-  const watched = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o)).slice(0, 4);
-  const chartBreads = (watched.length ? watched : sorted.slice(0, 1)).map(o => ({ name: o.product.name, emoji: EMOJI[o.product.productNo] ?? '🍞', listPrice: o.product.price }));
+  /* 차트 툴팁에 보여줄 빵들 — 내 관심빵(오늘 빵장에 있는 것, 비중 순, 최대 3).
+     없으면 대표 빵(글루텐프리 스콘) 하나로 고정하고, 관심빵을 담으라는 안내를 붙인다 */
+  const watched = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o)).slice(0, 3);
+  const fixed = offers.find(o => o.product.productNo === FIXED_BREAD_NO) ?? sorted[0];
+  const chartBreads = (watched.length ? watched : fixed ? [fixed] : []).map(o => ({ name: o.product.name, emoji: EMOJI[o.product.productNo] ?? '🍞', listPrice: o.product.price }));
+  const tierLabel = depthFor(Math.abs(k.changePct), tiers).label;
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  const listRow = (offer: TodayOffer, idx: number) => {
-    const no = offer.product.productNo, remaining = remainingOf(offer), n = portfolio[no] ?? 0;
-    const sub = [offer.badges.join(' · ') || offer.product.label.split('/')[0].trim(), remaining < offer.allotment ? (remaining > 0 ? `남음 ${remaining}` : '오늘 물량 끝') : null, n > 0 ? `♡ ${n}` : null].filter(Boolean).join(' · ');
-    return (
-      <li key={no} className={styles.pop} style={{ animationDelay: `${idx * 40}ms` }}>
-        <button type="button" className={styles.row} onClick={() => setSelected(no)}>
-          <span className={styles.thumb}><ProductPhoto productNo={no} name={offer.product.name} /></span>
-          <span className={styles.rowMain}><b>{offer.product.name}</b><small>{sub}</small></span>
-          <span className={styles.rowPrice}><strong><RollingPrice from={offer.product.price} to={offer.price} delay={200 + idx * 120} />원</strong><small><del>{won(offer.product.price)}</del><em>−{won(offer.saved)}</em></small></span>
-          <span className={styles.chev} aria-hidden="true">›</span>
-        </button>
-      </li>
-    );
-  };
 
   return (
     <div className={styles.page} data-side={mood.side}>
       {/* ══ MARKET ══ */}
-      <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} test={test} tiers={tiers} breads={chartBreads} />
+      <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} test={test} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} />
 
       {/* ══ TODAY ══ */}
-      <section id="today" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="오늘의 빵장">
+      <section id="today" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="오늘의 할인 빵">
         <div className={styles.eyebrowRow}><span className={styles.eyebrow}>🔔 TODAY&apos;S BREAD MARKET</span><span className={styles.theme}>{mood.theme}</span></div>
         <header className={styles.cardHead}>
-          <h2>{phase === 'live' ? '지금 예상되는 오늘의 할인 TOP 3' : '오늘의 할인 TOP 3'} <small>{offers.length}종 · 각 {offers[0]?.allotment ?? 30}개</small></h2>
+          <h2>{phase === 'live' ? '지금 예상되는 오늘의 할인 빵' : '오늘의 할인 빵'} <small>{offers.length}종 · 각 {offers[0]?.allotment ?? 30}개 · 전부 {Math.round(rate * 100)}%</small></h2>
           <div className={styles.sort} role="group" aria-label="정렬">
-            <button type="button" aria-pressed={sort === 'saved'} onClick={() => setSort('saved')}>할인순</button>
             <button type="button" aria-pressed={sort === 'popular'} onClick={() => setSort('popular')}>인기순</button>
+            <button type="button" aria-pressed={sort === 'watched'} onClick={() => setSort('watched')}>관심순</button>
           </div>
         </header>
 
-        <ul className={styles.top3}>
-          {top.map((o, i) => {
-            const no = o.product.productNo, remaining = remainingOf(o);
+        <ul className={styles.grid}>
+          {sorted.map((o, i) => {
+            const no = o.product.productNo, remaining = remainingOf(o), n = portfolio[no] ?? 0;
+            const ranked = sort === 'popular' ? filledOf(o) > 0 : n > 0;
             return (
               <li key={no} className={styles.reveal} style={reveal(1 + i)}>
                 <button type="button" className={styles.topCard} style={{ ['--ph' as string]: `${i * 5}s` }} onClick={() => setSelected(no)}>
-                  <span className={styles.medal}>{MEDAL[i]}</span>
+                  {ranked && i < 3 && <span className={styles.medal}>{MEDAL[i]}</span>}
+                  {n > 0 && <span className={styles.bell} aria-label="알림 설정됨">🔔</span>}
                   <span className={styles.topPhoto}><ProductPhoto productNo={no} name={o.product.name} /></span>
                   <b>{o.product.name}</b>
                   <span className={styles.topPrice}>
@@ -212,9 +204,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
           })}
         </ul>
 
-        {rest.length > 0 && !showAll && <button type="button" className={styles.expand} onClick={() => setShowAll(true)}>오늘의 빵장 전체보기 ({offers.length}종) →</button>}
-        {showAll && <ul className={styles.list}>{rest.map((o, i) => listRow(o, i))}</ul>}
-        {showAll && today.soldOut.length > 0 && (
+        {today.soldOut.length > 0 && (
           <>
             <button type="button" className={styles.more} onClick={() => setShowSoldOut(v => !v)} aria-expanded={showSoldOut}>품절 {today.soldOut.length}종 {showSoldOut ? '접기 ▴' : '보기 ▾'}</button>
             {showSoldOut && (

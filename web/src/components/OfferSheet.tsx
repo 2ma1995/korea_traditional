@@ -74,7 +74,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
 
         <p className={styles.sheetStock}>
           오늘 {offer.allotment}개 한정 · <b>{remaining > 0 ? `남음 ${remaining}` : '오늘 물량 끝'}</b>
-          {watching > 0 && <> · ♡ {watching}</>}
+          {watching > 0 && <> · 🔔 알림 설정</>}
         </p>
 
         {bid?.status === 'filled' && (
@@ -90,13 +90,14 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
 
         <div className={styles.sheetActions}>
           {watching > 0
-            ? <button type="button" className={styles.ghost} onClick={onUnwatch}>♥ 관심 {watching}</button>
-            : <button type="button" className={styles.ghost} onClick={onWatch}>♡ 관심</button>}
+            ? <button type="button" className={styles.ghost} onClick={onUnwatch}><b>🔔 알림 설정됨 ✓</b><small>더 할인할 때 알려드려요</small></button>
+            : <button type="button" className={styles.ghost} onClick={onWatch}><b>🔔 알림받기</b><small>더 할인할 때 구매하기</small></button>}
           <button type="button" className={styles.primary}
             disabled={!canBuy || remaining <= 0 || bid?.status === 'busy' || bid?.status === 'filled'} onClick={onBuy}>
-            {bid?.status === 'busy' ? '예약 중…' : bid?.status === 'filled' ? '예약 완료' : !canBuy ? lockNote : remaining <= 0 ? '오늘 물량 끝' : `${won(offer.price)}원에 사기`}
+            {bid?.status === 'busy' ? '예약 중…' : bid?.status === 'filled' ? '예약 완료' : !canBuy ? lockNote : remaining <= 0 ? '오늘 물량 끝' : `${won(offer.price)}원에 구매하기`}
           </button>
         </div>
+        <p className={styles.sheetFine}>알림은 내 관심빵으로 저장됩니다. 실제 발송(푸시·문자)은 준비 중이에요.</p>
       </div>
     </div>
   );
