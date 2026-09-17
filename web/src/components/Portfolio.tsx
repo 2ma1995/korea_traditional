@@ -2,7 +2,7 @@
 
 import ProductPhoto from '@/components/ProductPhoto';
 import type { TodayOffer } from '@/lib/offers';
-import { usePortfolio } from '@/lib/portfolioStore';
+import { sortHoldings, usePortfolio } from '@/lib/portfolioStore';
 import styles from './Market.module.css';
 
 /**
@@ -21,11 +21,10 @@ const won = (n: number) => n.toLocaleString('ko-KR');
 
 export default function Portfolio({ offers }: Props) {
   const { portfolio, add, remove } = usePortfolio();
-  const entries = Object.entries(portfolio).map(([no, qty]) => ({ no: Number(no), qty }));
+  /* 수량 많은 순 → 같으면 최근에 담은 순 */
+  const entries = sortHoldings(portfolio);
   const total = entries.reduce((a, b) => a + b.qty, 0);
-  const rows = entries
-    .map(e => ({ ...e, offer: offers.find(o => o.product.productNo === e.no) }))
-    .sort((a, b) => b.qty - a.qty);
+  const rows = entries.map(e => ({ ...e, offer: offers.find(o => o.product.productNo === e.no) }));
   const top = rows[0];
   /* 오늘 빵장에 있는 관심빵을 1개씩 산다고 치면 — 정가 합, 오늘 가격 합, 아끼는 금액 */
   const inToday = rows.filter(r => r.offer).map(r => r.offer!);

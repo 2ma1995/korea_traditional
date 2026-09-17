@@ -12,7 +12,7 @@ import ProductPhoto from '@/components/ProductPhoto';
 import type { DiscountTier } from '@/data/indicators';
 import { moodFor, priceAt, type TodayMarket, type TodayOffer } from '@/lib/offers';
 import { depthFor, OPEN_HOUR } from '@/lib/orderbook';
-import { usePortfolio } from '@/lib/portfolioStore';
+import { qtyOf, sortHoldings, usePortfolio } from '@/lib/portfolioStore';
 import { useKospiLive } from '@/lib/useKospiLive';
 import styles from './Market.module.css';
 
@@ -79,7 +79,6 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   const [showSoldOut, setShowSoldOut] = useState(false);
   const [pfOpen, setPfOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  const [alarm, setAlarm] = useState(false);
   const { portfolio, add, remove } = usePortfolio();
 
   /* ── KOSPI 상태 → 아래로 전파 ── */
@@ -132,13 +131,14 @@ export default function Market({ today, series, kospi, tiers }: Props) {
 
   /* 인기순 = 오늘 많이 산 순, 관심순 = 내가 알림 걸어둔 순. 동률이면 할인 금액 큰 순 */
   const sorted = [...offers].sort((a, b) => sort === 'watched'
-    ? (portfolio[b.product.productNo] ?? 0) - (portfolio[a.product.productNo] ?? 0) || b.saved - a.saved
+    ? qtyOf(portfolio, b.product.productNo) - qtyOf(portfolio, a.product.productNo) || b.saved - a.saved
     : filledOf(b) - filledOf(a) || b.saved - a.saved);
   const ranking = offers.map(o => ({ o, n: filledOf(o) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
   const selectedOffer = offers.find(o => o.product.productNo === selected) ?? null;
 
   /* ── MY ── */
-  const entries = Object.entries(portfolio).map(([no, qty]) => ({ no: Number(no), qty })).sort((a, b) => b.qty - a.qty);
+  /* 수량 많은 순 → 같으면 최근에 담은 순 */
+  const entries = sortHoldings(portfolio);
   const pfTotal = entries.reduce((a, b) => a + b.qty, 0);
   /* 하나만 담아도 도넛을 보여준다. '3개부터'는 성급한 판정을 막자는 안이었지만, 담았는데 안 보이는 게 더 이상하다 */
   const actions = pfTotal;
@@ -148,9 +148,6 @@ export default function Market({ today, series, kospi, tiers }: Props) {
     return { no: e.no, name: nameOf(e.no), emoji: EMOJI[e.no] ?? '🍞', share: Math.round((e.qty / pfTotal) * 100), today: Boolean(o), price: o?.price };
   });
   const hits = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o));
-  const hit = hits[0];
-  const hitTotal = hits.reduce((a, o) => a + o.saved, 0);
-  const hitShare = hit ? Math.round(((portfolio[hit.product.productNo] ?? 0) / pfTotal) * 100) : 0;
   /* 차트 툴팁에 보여줄 빵들 — 내 관심빵(오늘 빵장에 있는 것, 비중 순, 최대 3).
      없으면 빵을 보여주지 않고 "알림받기로 담아라" 안내만 한다 */
   const watched = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o)).slice(0, 3);
@@ -177,7 +174,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
 
         <ul className={styles.grid}>
           {sorted.map((o, i) => {
-            const no = o.product.productNo, remaining = remainingOf(o), n = portfolio[no] ?? 0;
+            const no = o.product.productNo, remaining = remainingOf(o), n = qtyOf(portfolio, no);
             const ranked = sort === 'popular' ? filledOf(o) > 0 : n > 0;
             return (
               <li key={no} className={styles.reveal} style={reveal(1 + i)}>
@@ -237,7 +234,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
 
       {/* ══ MY ══ */}
       <section id="foryou" className={`${styles.card} ${styles.reveal}`} style={reveal(6)} aria-label="내 빵 포트폴리오">
-        <div className={styles.eyebrowRow}><span className={styles.eyebrow}>♡ MY BREAD PORTFOLIO</span>{pfTotal > 0 && <span className={styles.theme}>관심빵 {entries.length}종</span>}</div>
+        <div className={styles.eyebrowRow}><span className={styles.eyebrow}>♡ MY BREAD PORTFOLIO</span>{pfTotal > 0 && <span className={styles.theme}>관심빵 {entries.length}종{hits.length > 0 && ` · 오늘 ${hits.length}종 할인`}</span>}</div>
 
         {actions === 0 ? (
           <div className={styles.emptyBox}>
@@ -254,27 +251,6 @@ export default function Market({ today, series, kospi, tiers }: Props) {
           <>
             <p className={styles.sub}>내가 관심을 보인 빵으로 만든 포트폴리오</p>
             <Donut slices={slices} />
-            {hit ? (
-              <div className={styles.hitCard} data-side={mood.side}>
-                <span className={styles.eyebrow}>🎯 TODAY</span>
-                <h3>{hits.length > 1 ? `관심빵 ${hits.length}종이 오늘 할인 라인에 들어왔어요` : `회원님 관심빵 「${hit.product.name}」이 오늘 할인 라인에 들어왔어요`}</h3>
-                <dl>
-                  <div><dt>{hits.length}종 다 사면</dt><dd className={styles.saveTotal}>−{won(hitTotal)}원</dd></div>
-                  <div><dt>비중 1위 · {hitShare}%</dt><dd>{hit.product.name}</dd></div>
-                  <div><dt>{phase === 'live' ? '지금 예상' : '오늘 가격'}</dt><dd>{won(hit.price)}원 <small>({won(hit.product.price)})</small></dd></div>
-                </dl>
-                {phase === 'locked' ? (
-                  <div className={styles.hitLock}>
-                    <span>오늘 할인 확정 ✓ · 가격 공개까지 {openAt}</span>
-                    <button type="button" className={styles.ghost} onClick={() => setAlarm(true)} disabled={alarm}>{alarm ? '알림 예약됨 · 발송은 준비 중' : '🔔 OPEN 알림 받기'}</button>
-                  </div>
-                ) : (
-                  <button type="button" className={styles.primary} onClick={() => setSelected(hit.product.productNo)}>{phase === 'live' ? '지금 예상 가격 확인 →' : '오늘 가격 확인 →'}</button>
-                )}
-              </div>
-            ) : (
-              <p className={styles.callout}>오늘은 내 관심빵이 빵장에 없어요. 들어오면 여기서 먼저 보입니다.</p>
-            )}
             <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen}>내 포트폴리오 {pfOpen ? '접기 ▴' : '→'}</button>
             {pfOpen && <div className={styles.pop}><Portfolio offers={offers} /></div>}
           </>
@@ -291,7 +267,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
 
       {selectedOffer && (
         <OfferSheet offer={selectedOffer} mood={mood} changePct={k.changePct} rate={rate} estimate={phase === 'live'}
-          remaining={remainingOf(selectedOffer)} bid={bids[selectedOffer.product.productNo]} watching={portfolio[selectedOffer.product.productNo] ?? 0}
+          remaining={remainingOf(selectedOffer)} bid={bids[selectedOffer.product.productNo]} watching={qtyOf(portfolio, selectedOffer.product.productNo)}
           canBuy={canBuy} lockNote={lockNote}
           onBuy={() => buy(selectedOffer)} onWatch={() => add(selectedOffer.product.productNo)} onUnwatch={() => remove(selectedOffer.product.productNo)} onClose={() => setSelected(null)} />
       )}
