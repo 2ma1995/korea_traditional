@@ -140,6 +140,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   /* ── MY ── */
   const entries = Object.entries(portfolio).map(([no, qty]) => ({ no: Number(no), qty })).sort((a, b) => b.qty - a.qty);
   const pfTotal = entries.reduce((a, b) => a + b.qty, 0);
+  /* 하나만 담아도 도넛을 보여준다. '3개부터'는 성급한 판정을 막자는 안이었지만, 담았는데 안 보이는 게 더 이상하다 */
   const actions = pfTotal;
   const nameOf = (no: number) => offers.find(o => o.product.productNo === no)?.product.name ?? today.soldOut.find(p => p.productNo === no)?.name ?? `#${no}`;
   const slices: Slice[] = entries.map(e => {
@@ -245,18 +246,6 @@ export default function Market({ today, series, kospi, tiers }: Props) {
             <p>마음에 드는 빵을 고르면 나만의 포트폴리오가 만들어집니다.</p>
             <div className={styles.emptyBtns} data-single="true">
               <button type="button" className={styles.ghost} onClick={() => scrollTo('today')}>♡ 빵 둘러보기</button>
-            </div>
-          </div>
-        ) : actions < 3 ? (
-          <div className={styles.building}>
-            <div className={styles.buildRing} style={{ ['--p' as string]: actions / 3 }}><span>생성 중</span><b>{actions} / 3</b></div>
-            <div>
-              <span className={styles.eyebrow}>첫 관심 데이터</span>
-              <h3>{EMOJI[entries[0].no] ?? '🍞'} {nameOf(entries[0].no)}</h3>
-              <p>조금만 더 관심을 남기면 나의 구성비가 공개됩니다.</p>
-              <div className={styles.emptyBtns} data-single="true">
-                <button type="button" className={styles.ghost} onClick={() => scrollTo('today')}>♡ 빵 둘러보기</button>
-              </div>
             </div>
           </div>
         ) : (
