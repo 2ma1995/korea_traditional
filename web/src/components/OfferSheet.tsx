@@ -8,6 +8,9 @@ import styles from './Market.module.css';
 /**
  * 빵 하나의 상세 — 바텀시트. 행동은 여기서 한 번.
  * 장중엔 "지금 기준 예상"이고 구매는 확정 뒤에만(테스트 모드 제외). 20시 전엔 🔒.
+ *
+ * 관심(알림)에 담아둔 수량이 곧 살 개수다 — 버튼에 개수와 그만큼의 총액을 적고,
+ * 구매를 누르면 그 수량만큼 예약한다. 담아두지 않았으면 1개로 본다.
  */
 export interface Bid { status: 'busy' | 'filled' | 'missed'; slot: number | null }
 
@@ -19,7 +22,10 @@ interface Props {
   estimate: boolean;
   remaining: number;
   bid: Bid | undefined;
+  /** 관심(알림)에 담아둔 개수 */
   watching: number;
+  /** 실제로 살 개수 — watching이 0이면 1 */
+  qty: number;
   canBuy: boolean;
   lockNote: string;
   onBuy: () => void;
@@ -31,7 +37,7 @@ interface Props {
 const won = (n: number) => n.toLocaleString('ko-KR');
 const shopUrl = (no: number) => `https://makji.kr/product/detail.html?product_no=${no}`;
 
-export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, canBuy, lockNote, onBuy, onWatch, onUnwatch, onClose }: Props) {
+export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, onBuy, onWatch, onUnwatch, onClose }: Props) {
   const pct = Math.round(rate * 100);
   const up = changePct >= 0;
 
@@ -74,7 +80,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
 
         <p className={styles.sheetStock}>
           오늘 {offer.allotment}개 한정 · <b>{remaining > 0 ? `남음 ${remaining}` : '오늘 물량 끝'}</b>
-          {watching > 0 && <> · 🔔 알림 설정</>}
+          {watching > 0 && <> · 🔔 알림 {watching}개</>}
         </p>
 
         {bid?.status === 'filled' && (
@@ -90,11 +96,12 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
 
         <div className={styles.sheetActions}>
           {watching > 0
-            ? <button type="button" className={styles.ghost} onClick={onUnwatch}><b>🔔 알림 설정됨 ✓</b><small>더 할인할 때 알려드려요</small></button>
+            ? <button type="button" className={styles.ghost} onClick={onUnwatch}><b>🔔 알림 설정됨 · {watching}개</b><small>눌러서 1개 줄이기</small></button>
             : <button type="button" className={styles.ghost} onClick={onWatch}><b>🔔 알림받기</b><small>더 할인할 때 구매하기</small></button>}
           <button type="button" className={styles.primary}
             disabled={!canBuy || remaining <= 0 || bid?.status === 'busy' || bid?.status === 'filled'} onClick={onBuy}>
-            {bid?.status === 'busy' ? '예약 중…' : bid?.status === 'filled' ? '예약 완료' : !canBuy ? lockNote : remaining <= 0 ? '오늘 물량 끝' : `${won(offer.price)}원에 구매하기`}
+            {bid?.status === 'busy' ? '예약 중…' : bid?.status === 'filled' ? '예약 완료' : !canBuy ? lockNote : remaining <= 0 ? '오늘 물량 끝'
+              : qty > 1 ? `${qty}개 ${won(offer.price * qty)}원에 구매하기` : `${won(offer.price)}원에 구매하기`}
           </button>
         </div>
         <p className={styles.sheetFine}>알림은 내 관심빵으로 저장됩니다. 실제 발송(푸시·문자)은 준비 중이에요.</p>

@@ -2,7 +2,7 @@
 
 import ProductPhoto from '@/components/ProductPhoto';
 import type { TodayOffer } from '@/lib/offers';
-import { sortHoldings, usePortfolio } from '@/lib/portfolioStore';
+import { usePortfolio } from '@/lib/portfolioStore';
 import styles from './Market.module.css';
 
 /**
@@ -15,8 +15,10 @@ import styles from './Market.module.css';
 
 interface Props {
   offers: TodayOffer[];
-  /** 관심빵 전체를 1개씩 예약한다. Market이 실제 요청을 보낸다 */
-  onBuyAll?: (offers: TodayOffer[]) => void;
+  /** 표시 순서 — Market이 고정해서 넘긴다. 수량을 바꿀 때 줄이 튀지 않게 */
+  entries: { no: number; qty: number; at: number }[];
+  /** 담은 수량만큼 예약한다. Market이 실제 요청을 보낸다 */
+  onBuyAll?: (list: { offer: TodayOffer; qty: number }[]) => void;
   /** 예약 진행·결과 — Market이 들고 있다 */
   bulk?: { busy: boolean; done: number; missed: number } | null;
   /** 한 빵만 보고 싶을 때 */
@@ -25,17 +27,16 @@ interface Props {
 
 const won = (n: number) => n.toLocaleString('ko-KR');
 
-export default function Portfolio({ offers, onBuyAll, bulk, onPick }: Props) {
-  const { portfolio, add, remove } = usePortfolio();
-  /* 수량 많은 순 → 같으면 최근에 담은 순 */
-  const entries = sortHoldings(portfolio);
+export default function Portfolio({ offers, entries, onBuyAll, bulk, onPick }: Props) {
+  const { add, remove } = usePortfolio();
   const total = entries.reduce((a, b) => a + b.qty, 0);
   const rows = entries.map(e => ({ ...e, offer: offers.find(o => o.product.productNo === e.no) }));
   const top = rows[0];
-  /* 오늘 빵장에 있는 관심빵을 1개씩 산다고 치면 — 정가 합, 오늘 가격 합, 아끼는 금액 */
-  const inToday = rows.filter(r => r.offer).map(r => r.offer!);
-  const totalList = inToday.reduce((a, o) => a + o.product.price, 0);
-  const totalToday = inToday.reduce((a, o) => a + o.price, 0);
+  /* 오늘 빵장에 있는 관심빵을 담은 수량만큼 산다고 치면 — 정가 합, 오늘 가격 합, 아끼는 금액 */
+  const inToday = rows.filter(r => r.offer).map(r => ({ offer: r.offer!, qty: r.qty }));
+  const units = inToday.reduce((a, r) => a + r.qty, 0);
+  const totalList = inToday.reduce((a, r) => a + r.offer.product.price * r.qty, 0);
+  const totalToday = inToday.reduce((a, r) => a + r.offer.price * r.qty, 0);
   const totalSaved = totalList - totalToday;
   const soldOutCount = rows.length - inToday.length;
 
@@ -52,7 +53,7 @@ export default function Portfolio({ offers, onBuyAll, bulk, onPick }: Props) {
     <>
       {inToday.length > 0 && (
         <div className={styles.topPick}>
-          <span className="eyebrow">오늘 내 관심빵 할인 총액 · {inToday.length}종 1개씩</span>
+          <span className="eyebrow">오늘 내 관심빵 할인 총액 · {inToday.length}종 {units}개</span>
           <h3>다 사면 <b>−{won(totalSaved)}원</b> 아낍니다</h3>
           <p>정가 {won(totalList)}원 → 오늘 {won(totalToday)}원{soldOutCount > 0 ? ` · 품절 ${soldOutCount}종 제외` : ''}</p>
           {top?.offer && (
@@ -100,12 +101,12 @@ export default function Portfolio({ offers, onBuyAll, bulk, onPick }: Props) {
       {inToday.length > 0 && onBuyAll && (
         <div className={styles.buyAll}>
           <button type="button" className={styles.primary} disabled={bulk?.busy} onClick={() => onBuyAll(inToday)}>
-            {bulk?.busy ? '예약 중…' : `포트폴리오 구매하기 · ${inToday.length}종 ${won(totalToday)}원`}
+            {bulk?.busy ? '예약 중…' : `포트폴리오 구매하기 · ${units}개 ${won(totalToday)}원`}
           </button>
           {bulk && !bulk.busy && (bulk.done > 0 || bulk.missed > 0) && (
             <p className={styles.buyAllNote}>
-              {bulk.done > 0 && <><b>{bulk.done}종 예약됐습니다.</b> 자사몰에서 결제해 주세요. </>}
-              {bulk.missed > 0 && <>{bulk.missed}종은 오늘 물량이 끝났습니다.</>}
+              {bulk.done > 0 && <><b>{bulk.done}개 예약됐습니다.</b> 자사몰에서 결제해 주세요. </>}
+              {bulk.missed > 0 && <>{bulk.missed}개는 오늘 물량이 끝났습니다.</>}
               <br />오늘 가격 적용은 쿠폰이 필요해 기업 확인 중입니다.
             </p>
           )}

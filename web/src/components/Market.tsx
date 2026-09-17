@@ -12,7 +12,7 @@ import ProductPhoto from '@/components/ProductPhoto';
 import type { DiscountTier } from '@/data/indicators';
 import { moodFor, priceAt, type TodayMarket, type TodayOffer } from '@/lib/offers';
 import { depthFor, OPEN_HOUR } from '@/lib/orderbook';
-import { qtyOf, sortHoldings, usePortfolio } from '@/lib/portfolioStore';
+import { qtyOf, usePortfolio, useStableHoldings } from '@/lib/portfolioStore';
 import { useKospiLive, type Point } from '@/lib/useKospiLive';
 import styles from './Market.module.css';
 
@@ -134,14 +134,30 @@ export default function Market({ today, points, kospi, tiers }: Props) {
   }
 
   /* 인기순 = 오늘 많이 산 순, 관심순 = 내가 알림 걸어둔 순. 동률이면 할인 금액 큰 순 */
-  /** 관심빵 전체를 1개씩 예약한다. 성공·실패 수를 세어 한 번에 알린다 */
-  async function buyAll(list: TodayOffer[]) {
+  /**
+   * 관심빵을 담은 수량만큼 예약한다. 성공·실패 개수를 세어 한 번에 알린다.
+   * 순서대로 보낸다 — 같은 칸을 동시에 밀어 넣으면 서버 경합만 늘고, 몇 개라 느리지 않다.
+   * 한 빵에서 물량이 끝나면 남은 수량은 더 시도하지 않고 실패로 센다.
+   */
+  /** 시트에서 한 빵을 산다 — 관심에 담아둔 수량만큼 예약한다(안 담았으면 1개) */
+  async function buyPicked(offer: TodayOffer) {
+    const qty = Math.max(1, qtyOf(portfolio, offer.product.productNo));
+    for (let i = 0; i < qty; i++) {
+      const ok = await buy(offer);
+      if (!ok) break;
+    }
+  }
+
+  async function buyAll(list: { offer: TodayOffer; qty: number }[]) {
     setBulk({ busy: true, done: 0, missed: 0 });
     let done = 0, missed = 0;
-    for (const offer of list) {
-      /* 순서대로 보낸다 — 같은 칸을 동시에 밀어 넣으면 서버 경합이 늘고, 몇 종이라 느리지 않다 */
-      const ok = await buy(offer);
-      if (ok) done += 1; else missed += 1;
+    for (const { offer, qty } of list) {
+      for (let i = 0; i < qty; i++) {
+        const ok = await buy(offer);
+        if (ok) { done += 1; continue; }
+        missed += qty - i;
+        break;
+      }
     }
     setBulk({ busy: false, done, missed });
   }
@@ -153,8 +169,8 @@ export default function Market({ today, points, kospi, tiers }: Props) {
   const selectedOffer = offers.find(o => o.product.productNo === selected) ?? null;
 
   /* ── MY ── */
-  /* 수량 많은 순 → 같으면 최근에 담은 순 */
-  const entries = sortHoldings(portfolio);
+  /* 마운트 시점 순서를 고정한다 — 수량을 바꿀 때 줄·조각이 튀지 않게 */
+  const entries = useStableHoldings(portfolio);
   const pfTotal = entries.reduce((a, b) => a + b.qty, 0);
   /* 하나만 담아도 도넛을 보여준다. '3개부터'는 성급한 판정을 막자는 안이었지만, 담았는데 안 보이는 게 더 이상하다 */
   const actions = pfTotal;
@@ -268,7 +284,7 @@ export default function Market({ today, points, kospi, tiers }: Props) {
             <p className={styles.sub}>내가 관심을 보인 빵으로 만든 포트폴리오</p>
             <Donut slices={slices} onPick={setSelected} />
             <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen}>내 포트폴리오 {pfOpen ? '접기 ▴' : '→'}</button>
-            {pfOpen && <div className={styles.pop}><Portfolio offers={offers} onBuyAll={buyAll} bulk={bulk} onPick={setSelected} /></div>}
+            {pfOpen && <div className={styles.pop}><Portfolio offers={offers} entries={entries} onBuyAll={buyAll} bulk={bulk} onPick={setSelected} /></div>}
           </>
         )}
       </section>
@@ -284,8 +300,9 @@ export default function Market({ today, points, kospi, tiers }: Props) {
       {selectedOffer && (
         <OfferSheet offer={selectedOffer} mood={mood} changePct={k.changePct} rate={rate} estimate={phase === 'live'}
           remaining={remainingOf(selectedOffer)} bid={bids[selectedOffer.product.productNo]} watching={qtyOf(portfolio, selectedOffer.product.productNo)}
+          qty={Math.max(1, qtyOf(portfolio, selectedOffer.product.productNo))}
           canBuy={canBuy} lockNote={lockNote}
-          onBuy={() => buy(selectedOffer)} onWatch={() => add(selectedOffer.product.productNo)} onUnwatch={() => remove(selectedOffer.product.productNo)} onClose={() => setSelected(null)} />
+          onBuy={() => buyPicked(selectedOffer)} onWatch={() => add(selectedOffer.product.productNo)} onUnwatch={() => remove(selectedOffer.product.productNo)} onClose={() => setSelected(null)} />
       )}
     </div>
   );
