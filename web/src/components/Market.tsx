@@ -37,8 +37,6 @@ interface Props {
 
 type Sort = 'popular' | 'watched';
 const MEDAL = ['🥇', '🥈', '🥉'];
-/** 관심빵이 없을 때 차트에 고정으로 보여주는 대표 빵 — 글루텐프리 스콘 */
-const FIXED_BREAD_NO = 25;
 const EMOJI: Record<number, string> = { 29: '🍰', 33: '🥖', 19: '🍮', 23: '🍰', 31: '🍞', 32: '🥐', 28: '🧁', 25: '🥐', 27: '🥪', 30: '🧁' };
 const won = (n: number) => n.toLocaleString('ko-KR');
 const key = (no: number, rate: number) => `${no}:${rate.toFixed(3)}`;
@@ -151,10 +149,9 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   const hit = entries.map(e => offers.find(o => o.product.productNo === e.no)).find((o): o is TodayOffer => Boolean(o));
   const hitShare = hit ? Math.round(((portfolio[hit.product.productNo] ?? 0) / pfTotal) * 100) : 0;
   /* 차트 툴팁에 보여줄 빵들 — 내 관심빵(오늘 빵장에 있는 것, 비중 순, 최대 3).
-     없으면 대표 빵(글루텐프리 스콘) 하나로 고정하고, 관심빵을 담으라는 안내를 붙인다 */
+     없으면 빵을 보여주지 않고 "알림받기로 담아라" 안내만 한다 */
   const watched = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o)).slice(0, 3);
-  const fixed = offers.find(o => o.product.productNo === FIXED_BREAD_NO) ?? sorted[0];
-  const chartBreads = (watched.length ? watched : fixed ? [fixed] : []).map(o => ({ name: o.product.name, emoji: EMOJI[o.product.productNo] ?? '🍞', listPrice: o.product.price }));
+  const chartBreads = watched.map(o => ({ name: o.product.name, emoji: EMOJI[o.product.productNo] ?? '🍞', listPrice: o.product.price }));
   const tierLabel = depthFor(Math.abs(k.changePct), tiers).label;
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -162,7 +159,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   return (
     <div className={styles.page} data-side={mood.side}>
       {/* ══ MARKET ══ */}
-      <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} test={test} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} />
+      <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} />
 
       {/* ══ TODAY ══ */}
       <section id="today" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="오늘의 할인 빵">

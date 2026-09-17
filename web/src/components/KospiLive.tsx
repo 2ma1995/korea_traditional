@@ -27,7 +27,6 @@ interface Props {
   rate: number;
   phase: Phase;
   openAt: string;
-  test: boolean;
   tiers: DiscountTier[];
   /** 차트 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것), 없으면 대표 빵 */
   breads: { name: string; emoji: string; listPrice: number }[];
@@ -71,27 +70,7 @@ function useCountdown(target: (kst: Date) => Date, on: boolean) {
   return on ? left : null;
 }
 
-/** 15:30 장 마감 → 00:00 CLOSE 사이 지금 위치. 30초마다 움직인다 */
-function Timeline() {
-  const [pct, setPct] = useState(0);
-  useEffect(() => {
-    const tick = () => {
-      const kst = kstNow(); const start = atToday(15, 30)(kst).getTime(); const end = atMidnight(kst).getTime();
-      setPct(Math.max(0, Math.min(1, (kst.getTime() - start) / (end - start))));
-    };
-    const t0 = window.setTimeout(tick, 0); const t = window.setInterval(tick, 30000);
-    return () => { clearTimeout(t0); clearInterval(t); };
-  }, []);
-  return (
-    <div className={styles.timeline} aria-hidden="true">
-      <span>15:30 장 마감</span>
-      <div className={styles.tlTrack}><i style={{ width: `${pct * 100}%` }} /><b style={{ left: `${pct * 100}%` }} /></div>
-      <span>00:00 CLOSE</span>
-    </div>
-  );
-}
-
-export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, breads, noWatch, tierLabel }: Props) {
+export default function KospiLive({ k, mood, rate, phase, openAt, tiers, breads, noWatch, tierLabel }: Props) {
   const [oh, om] = openAt.split(':').map(Number);
   const toClose = useCountdown(atToday(15, 30), phase === 'live');
   const toOpen = useCountdown(atToday(oh, om), phase === 'locked');
@@ -150,11 +129,18 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
         </div>
       )}
       {phase !== 'live' && facts.length > 0 && (
-        <ul className={styles.facts} aria-label="오늘의 기록">
-          {facts.map((f, i) => <li key={i} className={styles.fact} data-tone={f.tone}>{f.t}</li>)}
-        </ul>
+        <div className={styles.factsTicker} aria-label="오늘의 기록">
+          <div className={styles.factsTrack}>
+            {[...facts, ...facts].map((f, i) => <span key={i} className={styles.fact} data-tone={f.tone}>{f.t}</span>)}
+          </div>
+        </div>
       )}
-      {(phase === 'open' || phase === 'locked') && <Timeline />}
+
+      {/* 카운트다운 — 그래프 아래 가운데. 라벨 하나, 숫자 하나 */}
+      <div className={styles.countCenter}>
+        <span>{phase === 'live' ? '최종 결정까지 · 15:30 확정' : phase === 'locked' ? `BREAD MARKET OPEN · ${openAt}` : phase === 'open' ? 'BREAD MARKET OPEN' : '다음 거래일 09:00 LIVE까지'}</span>
+        <strong><Flip value={(phase === 'live' ? toClose : phase === 'locked' ? toOpen : phase === 'open' ? toEnd : toLive) ?? '-- : -- : --'} /></strong>
+      </div>
 
       {phase === 'live' ? (
         <div className={styles.verdict} key={mood.side}>
@@ -163,13 +149,6 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
             <h1>모든 빵 <b>{Math.round(rate * 100)}%</b> 할인</h1>
             <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {tierLabel} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
           </div>
-          {toClose && (
-            <div className={styles.count}>
-              <span>최종 결정까지</span>
-              <strong><Flip value={toClose} /></strong>
-              <small>※ 15:30 종가 기준으로 확정</small>
-            </div>
-          )}
         </div>
       ) : (
         <div className={styles.verdict}>
@@ -177,12 +156,6 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
             <span className={styles.eyebrow}>오늘은 {k.changePct > 0 ? '상승' : k.changePct < 0 ? '하락' : '보합'} 마감<span className={styles.stamp}>확정 ✓</span></span>
             <h1>오늘 모든 빵 <b>{Math.round(rate * 100)}%</b> 할인</h1>
             <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {tierLabel} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
-          </div>
-          <div className={styles.count}>
-            <span>BREAD MARKET {phase === 'open' ? 'OPEN' : phase === 'locked' ? `OPEN · ${openAt}` : 'CLOSED'}</span>
-            {phase === 'locked' && <><strong><Flip value={toOpen ?? '-- : -- : --'} /></strong><small>가격 공개까지</small></>}
-            {phase === 'open' && <><strong><Flip value={toEnd ?? '-- : -- : --'} /></strong><small>오늘 빵장 마감까지 · 00:00 CLOSE{test ? ' · 테스트 상시' : ''}</small></>}
-            {phase === 'closed' && <><strong><Flip value={toLive ?? '-- : -- : --'} /></strong><small>다음 거래일 09:00 LIVE까지</small></>}
           </div>
         </div>
       )}

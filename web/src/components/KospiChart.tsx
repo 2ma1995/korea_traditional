@@ -69,7 +69,10 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
   }, [range, hist]);
 
   const prevClose1d = k.value / (1 + k.changePct / 100);
-  const points: Pt[] = range === '1d' ? k.series.map((v, i) => ({ t: i, v })) : (hist[range]?.points ?? []);
+  /* Yahoo 5분봉은 15:00까지만 온다(동시호가 구간 없음). 장이 닫힌 뒤엔 15:30 자리에
+     종가 점을 하나 붙여 선이 끝까지 간다 — 그 값은 실제 마감 지수다 */
+  const closePt: Pt[] = range === '1d' && phase !== 'live' && k.series.length > 0 && k.series.length - 1 < BARS ? [{ t: BARS, v: k.value }] : [];
+  const points: Pt[] = range === '1d' ? [...k.series.map((v, i) => ({ t: i, v })), ...closePt] : (hist[range]?.points ?? []);
   const prevClose = range === '1d' ? prevClose1d : (hist[range]?.prevClose ?? points[0]?.v ?? null);
   const n = points.length;
   const has = n >= 2;
@@ -81,7 +84,8 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
   const hi0 = has ? Math.max(...vals, ...(range === '1d' && prevClose ? [prevClose] : [])) : 1;
   const pad = (hi0 - lo0) * 0.06 || 1;
   const lo = lo0 - pad, hi = hi0 + pad, span = hi - lo;
-  const x = (i: number) => range === '1d' ? PL + (Math.min(i, BARS) / BARS) * (W - PL - PR) : PL + (i / Math.max(1, n - 1)) * (W - PL - PR);
+  /* 1일은 배열 인덱스가 아니라 점의 바 위치(t)로 x를 잡는다 — 종가 점이 15:30에 놓이도록 */
+  const x = (i: number) => range === '1d' ? PL + (Math.min(points[i]?.t ?? i, BARS) / BARS) * (W - PL - PR) : PL + (i / Math.max(1, n - 1)) * (W - PL - PR);
   const y = (v: number) => PT + (1 - (v - lo) / span) * (H - PT - PB);
   const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const area = has ? `M${x(0).toFixed(1)},${(H - PB).toFixed(1)} L${line.replace(/ /g, ' L')} L${x(n - 1).toFixed(1)},${(H - PB).toFixed(1)} Z` : '';
@@ -93,16 +97,21 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
   const active = pinned ?? hover;
   const tip = active !== null && points[active] ? (() => {
     const p = points[active]; const pct = pctAt(active); const mood = moodFor(pct); const rate = depthFor(Math.abs(pct), tiers).rate;
-    const rows = breads.map(b => ({ ...b, ...priceAt(b.listPrice, rate) }));
-    return { p, pct, mood, rate, rows, label: range === '1d' ? intradayLabel(active) : kstDate(p.t), xPct: (x(active) / W) * 100 };
+    const rows = noWatch ? [] : breads.map(b => ({ ...b, ...priceAt(b.listPrice, rate) }));
+    const label = range === '1d' ? (p.t >= BARS ? '15:30 마감' : intradayLabel(p.t)) : kstDate(p.t);
+    return { p, pct, mood, rate, rows, label, xPct: (x(active) / W) * 100 };
   })() : null;
 
   const idxFromEvent = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = svgRef.current?.getBoundingClientRect(); if (!rect || !has) return null;
     const xr = ((e.clientX - rect.left) / rect.width) * W;
     const f = (xr - PL) / (W - PL - PR);
-    const i = range === '1d' ? Math.round(f * BARS) : Math.round(f * (n - 1));
-    return Math.max(0, Math.min(n - 1, i));
+    if (range === '1d') {
+      const bar = Math.round(f * BARS); let best = 0;
+      for (let i = 1; i < n; i++) if (Math.abs(points[i].t - bar) < Math.abs(points[best].t - bar)) best = i;
+      return best;
+    }
+    return Math.max(0, Math.min(n - 1, Math.round(f * (n - 1))));
   };
 
   /* x축 라벨 */
@@ -119,7 +128,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
         </div>
         <span className={styles.chartHint}>
           {noWatch
-            ? <>점을 누르면 그날 <b>{breads[0]?.name ?? '빵'}</b> 가격이 보여요 · 🔔 알림받기로 관심빵을 담으면 <b>내 빵</b>으로 바뀝니다</>
+            ? <>🔔 <b>알림받기</b>로 관심빵을 담으면, 점을 눌렀을 때 그날 <b>내 빵값</b>이 보여요</>
             : <>점을 누르면 그날 <b>내 관심빵 {breads.length}종</b>의 가격이 보여요</>}
         </span>
       </div>
@@ -178,7 +187,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
                 </div>
               )}
               {range !== '1d' && <small className={styles.tipHint}>그날 마감 등락률 기준으로 계산한 값</small>}
-              {noWatch && <small className={styles.tipHint}>🔔 알림받기로 관심빵을 담으면 여기 내 빵이 보여요</small>}
+              {noWatch && <div className={styles.tipBreads}><small>🔔 알림받기로 관심빵을 담으면 여기 그날 내 빵값이 보여요</small></div>}
             </div>
           )}
         </div>
