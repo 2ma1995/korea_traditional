@@ -100,13 +100,17 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
   const has = s.length >= 2;
   const iMax = has ? s.indexOf(Math.max(...s)) : 0, iMin = has ? s.indexOf(Math.min(...s)) : 0;
 
-  /* 마감 뒤 티커 — 오늘의 기록이 흐른다. 전부 실제 값이다 */
-  const facts = has ? [
-    `마감 ${fmt(k.value)}`,
-    `어제보다 ${up ? '+' : ''}${fmt(diff)} (${Math.abs(k.changePct).toFixed(2)}%)`,
-    `최고 ${fmt(s[iMax])}`, `최저 ${fmt(s[iMin])}`,
-    `오늘의 라인 ${mood.theme}`, `모든 빵 ${Math.round(rate * 100)}% 할인`,
-    phase === 'open' ? '00:00 CLOSE' : phase === 'locked' ? `${openAt} OPEN` : '다음 거래일 09:00 LIVE',
+  /* 마감 뒤 티커 — 오늘의 기록이 흐른다. 전부 실제 값이고, 색은 증시 관례대로
+     오르면 빨강·내리면 파랑. 회색 한 톤이면 주식 느낌이 빠진다 */
+  const dirTone = up ? 'up' : 'down';
+  const facts: { t: string; tone: 'up' | 'down' | 'mood' | 'ink' | 'muted' }[] = has ? [
+    { t: `마감 ${fmt(k.value)} ${up ? '▲' : '▼'}`, tone: dirTone },
+    { t: `어제보다 ${up ? '+' : ''}${fmt(diff)} (${Math.abs(k.changePct).toFixed(2)}%)`, tone: dirTone },
+    { t: `최고 ${fmt(s[iMax])} ▲`, tone: 'up' },
+    { t: `최저 ${fmt(s[iMin])} ▼`, tone: 'down' },
+    { t: `오늘의 라인 ${mood.theme}`, tone: 'mood' },
+    { t: `모든 빵 ${Math.round(rate * 100)}% 할인`, tone: 'ink' },
+    { t: phase === 'open' ? '00:00 CLOSE' : phase === 'locked' ? `${openAt} OPEN` : '다음 거래일 09:00 LIVE', tone: 'muted' },
   ] : [];
 
   return (
@@ -143,7 +147,7 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
       {phase !== 'live' && facts.length > 0 && (
         <div className={styles.ticker} aria-hidden="true">
           <div className={styles.tickerTrack}>
-            {[...facts, ...facts].map((f, i) => <span key={i} className={styles.fact}>{f}</span>)}
+            {[...facts, ...facts].map((f, i) => <span key={i} className={styles.fact} data-tone={f.tone}>{f.t}</span>)}
           </div>
         </div>
       )}
