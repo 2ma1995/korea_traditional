@@ -445,3 +445,11 @@ p.callout { cursor: default; }
 .sheetActions { grid-template-columns: 1fr 1fr; align-items: stretch; }
 .sheetActions .ghost, .sheetActions .primary { min-height: 60px; }
 @media (prefers-reduced-motion: reduce) { .factsTrack { animation: none; flex-wrap: wrap; white-space: normal; } }
+
+/* 빵장 점 — KOSPI LIVE 점과 같은 규칙. 열려 있으면 초록으로 뛰고, 아니면 회색으로 멈춘다 */
+.marketTag { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.marketTag i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.marketTag[data-open='true'] { color: #4d8a4a; }
+.marketTag[data-open='true'] i { background: #4d8a4a; animation: pulseGreen 1.8s ease-in-out infinite; }
+@keyframes pulseGreen { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(77, 138, 74, .4); } 50% { opacity: .7; box-shadow: 0 0 0 6px transparent; } }
+@media (prefers-reduced-motion: reduce) { .marketTag i { animation: none; } }

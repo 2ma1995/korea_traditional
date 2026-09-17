@@ -138,7 +138,10 @@ export default function KospiLive({ k, mood, rate, phase, openAt, tiers, breads,
 
       {/* 카운트다운 — 그래프 아래 가운데. 라벨 하나, 숫자 하나 */}
       <div className={styles.countCenter}>
-        <span>{phase === 'live' ? '최종 결정까지 · 15:30 확정' : phase === 'locked' ? `BREAD MARKET OPEN · ${openAt}` : phase === 'open' ? 'BREAD MARKET OPEN' : '다음 거래일 09:00 LIVE까지'}</span>
+        <span className={styles.marketTag} data-open={phase === 'open'}>
+          <i aria-hidden="true" />
+          {phase === 'live' ? `BREAD MARKET · 15:30 확정 후 OPEN` : phase === 'locked' ? `BREAD MARKET OPEN · ${openAt}` : phase === 'open' ? 'BREAD MARKET OPEN' : 'BREAD MARKET CLOSED · 다음 거래일 09:00'}
+        </span>
         <strong><Flip value={(phase === 'live' ? toClose : phase === 'locked' ? toOpen : phase === 'open' ? toEnd : toLive) ?? '-- : -- : --'} /></strong>
       </div>
 
