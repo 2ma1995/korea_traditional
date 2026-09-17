@@ -457,3 +457,8 @@ p.callout { cursor: default; }
 .topSub { font-size: 12px !important; color: var(--muted); margin-top: 8px !important; }
 .saveTotal { color: var(--down); }
 .hitCard dd small { font-size: 11px; color: var(--muted); font-weight: 500; }
+
+/* 보는 대상 — 코스피 / 내 관심빵 */
+.viewTabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.viewTabs button { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--muted); background: var(--paper); border: 1.5px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+.viewTabs button[aria-selected='true'] { color: var(--dir); border-color: var(--dir); background: color-mix(in srgb, var(--dir) 8%, var(--paper)); }

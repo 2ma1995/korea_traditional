@@ -151,7 +151,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   /* 차트 툴팁에 보여줄 빵들 — 내 관심빵(오늘 빵장에 있는 것, 비중 순, 최대 3).
      없으면 빵을 보여주지 않고 "알림받기로 담아라" 안내만 한다 */
   const watched = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o)).slice(0, 3);
-  const chartBreads = watched.map(o => ({ name: o.product.name, emoji: EMOJI[o.product.productNo] ?? '🍞', listPrice: o.product.price }));
+  const chartBreads = watched.map(o => ({ no: o.product.productNo, name: o.product.name, emoji: EMOJI[o.product.productNo] ?? '🍞', listPrice: o.product.price }));
   const tierLabel = depthFor(Math.abs(k.changePct), tiers).label;
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });

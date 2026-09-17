@@ -23,13 +23,15 @@ type Phase = 'live' | 'locked' | 'open' | 'closed';
 interface Pt { t: number; v: number }
 interface Hist { points: Pt[]; prevClose: number | null }
 
+export interface ChartBread { no: number; name: string; emoji: string; listPrice: number }
+
 interface Props {
   k: Live;
   phase: Phase;
   tiers: DiscountTier[];
-  /** 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것), 없으면 오늘 TOP 1 */
-  breads: { name: string; emoji: string; listPrice: number }[];
-  /** 관심빵이 없어 대표 빵(스콘)으로 보여주고 있는가 — 안내를 붙인다 */
+  /** 툴팁·가격 곡선에 쓸 빵들 — 내 관심빵(오늘 빵장에 있는 것) */
+  breads: ChartBread[];
+  /** 관심빵이 없는가 — 안내만 띄운다 */
   noWatch: boolean;
   drawMs: number;
 }
@@ -45,6 +47,9 @@ const intradayLabel = (i: number) => { const m = 9 * 60 + i * 5; return `${Strin
 
 export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }: Props) {
   const [range, setRange] = useState<Range>('1d');
+  /* 보는 대상 — null이면 코스피, 숫자면 그 빵의 가격 곡선 */
+  const [viewNo, setViewNo] = useState<number | null>(null);
+  const view = breads.find(b => b.no === viewNo) ?? null;
   const [hist, setHist] = useState<Partial<Record<Range, Hist>>>({});
   const [hover, setHover] = useState<number | null>(null);
   const [pinned, setPinned] = useState<number | null>(null);
@@ -69,36 +74,54 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
   }, [range, hist]);
 
   const prevClose1d = k.value / (1 + k.changePct / 100);
-  /* Yahoo 5분봉은 15:00까지만 온다(동시호가 구간 없음). 장이 닫힌 뒤엔 15:30 자리에
-     종가 점을 하나 붙여 선이 끝까지 간다 — 그 값은 실제 마감 지수다 */
-  const closePt: Pt[] = range === '1d' && phase !== 'live' && k.series.length > 0 && k.series.length - 1 < BARS ? [{ t: BARS, v: k.value }] : [];
-  const points: Pt[] = range === '1d' ? [...k.series.map((v, i) => ({ t: i, v })), ...closePt] : (hist[range]?.points ?? []);
+  const points: Pt[] = range === '1d' ? k.series.map((v, i) => ({ t: i, v })) : (hist[range]?.points ?? []);
   const prevClose = range === '1d' ? prevClose1d : (hist[range]?.prevClose ?? points[0]?.v ?? null);
   const n = points.length;
   const has = n >= 2;
   const up = range === '1d' ? k.changePct >= 0 : has ? points[n - 1].v >= points[0].v : true;
   const dir = up ? 'up' : 'down';
 
-  const vals = points.map(p => p.v);
-  const lo0 = has ? Math.min(...vals, ...(range === '1d' && prevClose ? [prevClose] : [])) : 0;
-  const hi0 = has ? Math.max(...vals, ...(range === '1d' && prevClose ? [prevClose] : [])) : 1;
+  /* 각 점의 등락률 — 이전 점 대비. 첫 점은 기간 직전 종가 대비 */
+  const pctOf = (i: number) => {
+    const base = i > 0 ? points[i - 1].v : prevClose ?? points[0]?.v;
+    return base ? ((points[i].v / base) - 1) * 100 : 0;
+  };
+  /** 빵을 고르면 지수 대신 그 빵의 그날 가격을 그린다 */
+  const valueAt = (i: number) => view ? priceAt(view.listPrice, depthFor(Math.abs(pctOf(i)), tiers).rate).price : points[i].v;
+  const vals = points.map((_, i) => valueAt(i));
+  const guide = view ? view.listPrice : prevClose;   // 빵이면 정가선, 지수면 어제 종가선
+  const showGuide = Boolean(guide) && (view !== null || range === '1d');
+  const lo0 = has ? Math.min(...vals, ...(showGuide && guide ? [guide] : [])) : 0;
+  const hi0 = has ? Math.max(...vals, ...(showGuide && guide ? [guide] : [])) : 1;
   const pad = (hi0 - lo0) * 0.06 || 1;
   const lo = lo0 - pad, hi = hi0 + pad, span = hi - lo;
   /* 1일은 배열 인덱스가 아니라 점의 바 위치(t)로 x를 잡는다 — 종가 점이 15:30에 놓이도록 */
-  const x = (i: number) => range === '1d' ? PL + (Math.min(points[i]?.t ?? i, BARS) / BARS) * (W - PL - PR) : PL + (i / Math.max(1, n - 1)) * (W - PL - PR);
+  /**
+   * 1일 x축의 분모.
+   *
+   * 장중엔 하루 전체(BARS=78, 09:00~15:30)로 두어 지나온 만큼만 선이 그려진다.
+   * 마감 뒤엔 마지막 봉까지로 줄인다 — Yahoo ^KS11 분봉은 15:00봉이 마지막이고
+   * 그 봉의 종가가 실제 마감가(regularMarketPrice)다. 78로 두면 15:00 이후가 빈
+   * 구간으로 남고, 거기에 종가 점을 억지로 찍으면 15:00 → 15:30 직선이 생긴다.
+   */
+  const span1d = phase === 'live' ? BARS : Math.max(1, n - 1);
+  const x = (i: number) => range === '1d' ? PL + (Math.min(points[i]?.t ?? i, span1d) / span1d) * (W - PL - PR) : PL + (i / Math.max(1, n - 1)) * (W - PL - PR);
   const y = (v: number) => PT + (1 - (v - lo) / span) * (H - PT - PB);
-  const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
+  const line = points.map((_, i) => `${x(i).toFixed(1)},${y(valueAt(i)).toFixed(1)}`).join(' ');
   const area = has ? `M${x(0).toFixed(1)},${(H - PB).toFixed(1)} L${line.replace(/ /g, ' L')} L${x(n - 1).toFixed(1)},${(H - PB).toFixed(1)} Z` : '';
   const iMax = vals.indexOf(Math.max(...vals)), iMin = vals.indexOf(Math.min(...vals));
+  const fmtV = (v: number) => view ? `${won(v)}원` : fmt(v);
   const anchor = (i: number) => (x(i) < W * 0.2 ? 'start' : x(i) > W * 0.8 ? 'end' : 'middle');
 
   /* 점 하나의 등락률 — 이전 점 대비. 첫 점은 기간 직전 종가 대비 */
-  const pctAt = (i: number) => { const base = i > 0 ? points[i - 1].v : prevClose ?? points[0].v; return base ? ((points[i].v / base) - 1) * 100 : 0; };
+  const pctAt = pctOf;
   const active = pinned ?? hover;
   const tip = active !== null && points[active] ? (() => {
     const p = points[active]; const pct = pctAt(active); const mood = moodFor(pct); const rate = depthFor(Math.abs(pct), tiers).rate;
-    const rows = noWatch ? [] : breads.map(b => ({ ...b, ...priceAt(b.listPrice, rate) }));
-    const label = range === '1d' ? (p.t >= BARS ? '15:30 마감' : intradayLabel(p.t)) : kstDate(p.t);
+    const list = view ? [view, ...breads.filter(b => b.no !== view.no)] : breads;
+    const rows = noWatch && !view ? [] : list.map(b => ({ ...b, ...priceAt(b.listPrice, rate) }));
+    /* 마지막 봉은 종가다 — 15:00봉이지만 담고 있는 값은 15:30 마감가 */
+    const label = range === '1d' ? (active === n - 1 && phase !== 'live' ? '15:30 마감' : intradayLabel(p.t)) : kstDate(p.t);
     return { p, pct, mood, rate, rows, label, xPct: (x(active) / W) * 100 };
   })() : null;
 
@@ -107,7 +130,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
     const xr = ((e.clientX - rect.left) / rect.width) * W;
     const f = (xr - PL) / (W - PL - PR);
     if (range === '1d') {
-      const bar = Math.round(f * BARS); let best = 0;
+      const bar = Math.round(f * span1d); let best = 0;
       for (let i = 1; i < n; i++) if (Math.abs(points[i].t - bar) < Math.abs(points[best].t - bar)) best = i;
       return best;
     }
@@ -116,20 +139,31 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
 
   /* x축 라벨 */
   const axis: { i: number; label: string; anchor: 'start' | 'middle' | 'end' }[] = range === '1d'
-    ? [{ i: 0, label: '09:00', anchor: 'start' }, { i: 36, label: '12:00', anchor: 'middle' }, { i: BARS, label: '15:30', anchor: 'end' }]
+    ? [{ i: 0, label: '09:00', anchor: 'start' }, { i: 36, label: '12:00', anchor: 'middle' }, { i: span1d, label: phase === 'live' ? '15:30' : '15:30 마감', anchor: 'end' }]
     : has ? [0, Math.round((n - 1) / 3), Math.round(((n - 1) * 2) / 3), n - 1].map((i, j) => ({ i, label: range === '1y' ? kstMonth(points[i].t) : kstDate(points[i].t).slice(3), anchor: j === 0 ? 'start' : j === 3 ? 'end' : 'middle' as const })) : [];
-  const xAt = (i: number) => range === '1d' ? PL + (i / BARS) * (W - PL - PR) : x(i);
+  const xAt = (i: number) => range === '1d' ? PL + (Math.min(i, span1d) / span1d) * (W - PL - PR) : x(i);
 
   return (
     <div className={styles.chartWrap} data-dir={dir}>
+      {breads.length > 0 && (
+        <div className={styles.viewTabs} role="tablist" aria-label="보는 대상">
+          <button type="button" role="tab" aria-selected={view === null} onClick={() => setViewNo(null)}>📈 코스피</button>
+          {breads.map(b => (
+            <button key={b.no} type="button" role="tab" aria-selected={view?.no === b.no} onClick={() => setViewNo(b.no)}>{b.emoji} {b.name}</button>
+          ))}
+        </div>
+      )}
+
       <div className={styles.rangeRow}>
         <div className={styles.rangeTabs} role="tablist" aria-label="기간">
           {RANGES.map(r => <button key={r.key} type="button" role="tab" aria-selected={range === r.key} onClick={() => { setRange(r.key); setPinned(null); setHover(null); }}>{r.label}</button>)}
         </div>
         <span className={styles.chartHint}>
           {noWatch
-            ? <>🔔 <b>알림받기</b>로 관심빵을 담으면, 점을 눌렀을 때 그날 <b>내 빵값</b>이 보여요</>
-            : <>점을 누르면 그날 <b>내 관심빵 {breads.length}종</b>의 가격이 보여요</>}
+            ? <>🔔 <b>알림받기</b>로 관심빵을 담으면, 그 빵의 <b>가격 곡선</b>을 볼 수 있어요</>
+            : view
+              ? <><b>{view.name}</b>의 가격 곡선 · 점을 누르면 그날 가격이 보여요</>
+              : <>위에서 빵을 고르면 <b>그 빵의 가격 곡선</b>이 보여요</>}
         </span>
       </div>
 
@@ -144,27 +178,27 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
                 <stop offset="100%" stopColor={up ? 'var(--up)' : 'var(--down)'} stopOpacity="0" />
               </linearGradient>
             </defs>
-            {prevClose && range === '1d' && (
+            {showGuide && guide && (
               <>
-                <line x1={PL} x2={W - PR} y1={y(prevClose)} y2={y(prevClose)} className={styles.baseline} />
-                <text x={W - PR} y={y(prevClose) - 5} className={styles.axis} textAnchor="end">어제 종가 {fmt(prevClose)}</text>
+                <line x1={PL} x2={W - PR} y1={y(guide)} y2={y(guide)} className={styles.baseline} />
+                <text x={W - PR} y={y(guide) - 5} className={styles.axis} textAnchor="end">{view ? `정가 ${won(guide)}원` : `어제 종가 ${fmt(guide)}`}</text>
               </>
             )}
             <path d={area} className={styles.area} fill={`url(#fill-${dir})`} data-done={drawn} />
             <polyline points={line} pathLength={1} className={styles.line} data-done={drawn} style={{ animationDuration: `${drawMs}ms` }} />
             {drawn && (
               <>
-                <circle cx={x(iMax)} cy={y(points[iMax].v)} r="2.5" className={styles.extDot} />
-                <text x={x(iMax)} y={y(points[iMax].v) - 9} className={styles.ext} textAnchor={anchor(iMax)}>최고 {fmt(points[iMax].v)}</text>
-                <circle cx={x(iMin)} cy={y(points[iMin].v)} r="2.5" className={styles.extDot} />
-                <text x={x(iMin)} y={y(points[iMin].v) + 15} className={styles.ext} textAnchor={anchor(iMin)}>최저 {fmt(points[iMin].v)}</text>
-                <circle cx={x(n - 1)} cy={y(points[n - 1].v)} r="5" className={styles.dot} data-live={phase === 'live' && range === '1d'} />
+                <circle cx={x(iMax)} cy={y(vals[iMax])} r="2.5" className={styles.extDot} />
+                <text x={x(iMax)} y={y(vals[iMax]) - 9} className={styles.ext} textAnchor={anchor(iMax)}>{view ? '가장 비쌌던' : '최고'} {fmtV(vals[iMax])}</text>
+                <circle cx={x(iMin)} cy={y(vals[iMin])} r="2.5" className={styles.extDot} />
+                <text x={x(iMin)} y={y(vals[iMin]) + 15} className={styles.ext} textAnchor={anchor(iMin)}>{view ? '가장 쌌던' : '최저'} {fmtV(vals[iMin])}</text>
+                <circle cx={x(n - 1)} cy={y(vals[n - 1])} r="5" className={styles.dot} data-live={phase === 'live' && range === '1d'} />
               </>
             )}
             {tip && (
               <>
                 <line x1={x(active!)} x2={x(active!)} y1={PT - 6} y2={H - PB} className={styles.guide} />
-                <circle cx={x(active!)} cy={y(tip.p.v)} r="6" className={styles.hoverDot} />
+                <circle cx={x(active!)} cy={y(valueAt(active!))} r="6" className={styles.hoverDot} />
               </>
             )}
             {axis.map(a => <text key={a.label + a.i} x={xAt(a.i)} y={H - 8} className={styles.axis} textAnchor={a.anchor}>{a.label}</text>)}
@@ -173,7 +207,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
           {tip && (
             <div className={styles.tipBox} style={{ left: `${tip.xPct}%` }} data-flip={tip.xPct > 62} role="status">
               <b>{tip.label}</b>
-              <span>시세 <strong>{fmt(tip.p.v)}</strong> <em className={tip.pct >= 0 ? styles.up : styles.down}>{tip.pct >= 0 ? '▲' : '▼'} {Math.abs(tip.pct).toFixed(2)}%</em></span>
+              <span>{view ? '코스피' : '시세'} <strong>{fmt(tip.p.v)}</strong> <em className={tip.pct >= 0 ? styles.up : styles.down}>{tip.pct >= 0 ? '▲' : '▼'} {Math.abs(tip.pct).toFixed(2)}%</em></span>
               {tip.rows.length > 0 && (
                 <div className={styles.tipBreads}>
                   <small>모든 빵 {Math.round(tip.rate * 100)}% 할인</small>

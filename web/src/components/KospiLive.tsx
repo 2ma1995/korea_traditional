@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Flip from '@/components/Flip';
-import KospiChart from '@/components/KospiChart';
+import KospiChart, { type ChartBread } from '@/components/KospiChart';
 import type { DiscountTier } from '@/data/indicators';
 import type { Mood } from '@/lib/offers';
 import type { KospiLive as Live } from '@/lib/useKospiLive';
@@ -29,7 +29,7 @@ interface Props {
   openAt: string;
   tiers: DiscountTier[];
   /** 차트 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것), 없으면 대표 빵 */
-  breads: { name: string; emoji: string; listPrice: number }[];
+  breads: ChartBread[];
   noWatch: boolean;
   /** 오늘 변동폭 구간 이름 — "작은 움직임" */
   tierLabel: string;
