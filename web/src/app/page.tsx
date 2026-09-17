@@ -1,4 +1,5 @@
 import Market from '@/components/Market';
+import MarketIntro from '@/components/MarketIntro';
 import { PRODUCTS } from '@/data/products';
 import { loadFilled } from '@/lib/fills';
 import { fetchSymbolQuote, getMarketSnapshot } from '@/lib/market';
@@ -22,12 +23,14 @@ export default async function BreadMarketPage() {
 
   return (
     <main id="main-content">
+      <MarketIntro theme={today.mood.theme} changePct={today.changePct}>
       <Market
         today={today}
         tiers={tiers}
         series={intraday?.series ?? []}
         kospi={{ value: market.kospi.value, changePct: market.kospi.changePct, live: market.kospi.live, marketOpen: market.kospiMarketOpen }}
       />
+      </MarketIntro>
     </main>
   );
 }

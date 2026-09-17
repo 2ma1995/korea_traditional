@@ -47,13 +47,15 @@ const key = (no: number, rate: number) => `${no}:${rate.toFixed(3)}`;
  * "BREAD MARKET OPEN 카운트다운처럼 가격도 바뀌는 게 보이면 좋겠다" — 카드가 뜬 뒤
  * 0.9초 동안 10원 단위로 내려온다. 폭이 실시간으로 바뀌면(장중) 다시 굴러간다.
  */
+const ROLL_EVERY_MS = 10_000;
 function RollingPrice({ from, to, delay }: { from: number; to: number; delay: number }) {
   const [v, setV] = useState(from);
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { const t0 = window.setTimeout(() => setV(to), 0); return () => clearTimeout(t0); }
     let raf = 0;
-    const t = window.setTimeout(() => {
-      if (reduce) { setV(to); return; }
+    /* 한 번 굴리고 끝내지 않는다 — 카운트다운처럼 10초마다 정가에서 다시 내려온다 */
+    const roll = () => {
       const start = performance.now();
       const step = (now: number) => {
         const kk = Math.min(1, (now - start) / 900);
@@ -61,8 +63,10 @@ function RollingPrice({ from, to, delay }: { from: number; to: number; delay: nu
         if (kk < 1) raf = requestAnimationFrame(step);
       };
       raf = requestAnimationFrame(step);
-    }, delay);
-    return () => { clearTimeout(t); cancelAnimationFrame(raf); };
+    };
+    const t = window.setTimeout(roll, delay);
+    const loop = window.setInterval(roll, ROLL_EVERY_MS);
+    return () => { clearTimeout(t); clearInterval(loop); cancelAnimationFrame(raf); };
   }, [from, to, delay]);
   return <Flip value={won(v)} />;
 }
@@ -144,8 +148,9 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   });
   const hit = entries.map(e => offers.find(o => o.product.productNo === e.no)).find((o): o is TodayOffer => Boolean(o));
   const hitShare = hit ? Math.round(((portfolio[hit.product.productNo] ?? 0) / pfTotal) * 100) : 0;
-  /* 차트 툴팁에 보여줄 빵 — 내 관심 1위(오늘 빵장에 있는), 없으면 오늘 TOP 1 */
-  const chartBread = entries.map(e => offers.find(o => o.product.productNo === e.no)).find((o): o is TodayOffer => Boolean(o)) ?? sorted[0] ?? null;
+  /* 차트 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것, 비중 순, 최대 4), 없으면 오늘 TOP 1 */
+  const watched = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o)).slice(0, 4);
+  const chartBreads = (watched.length ? watched : sorted.slice(0, 1)).map(o => ({ name: o.product.name, emoji: EMOJI[o.product.productNo] ?? '🍞', listPrice: o.product.price }));
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -157,7 +162,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
         <button type="button" className={styles.row} onClick={() => setSelected(no)}>
           <span className={styles.thumb}><ProductPhoto productNo={no} name={offer.product.name} /></span>
           <span className={styles.rowMain}><b>{offer.product.name}</b><small>{sub}</small></span>
-          <span className={styles.rowPrice}><strong>{won(offer.price)}원</strong><small><del>{won(offer.product.price)}</del><em>−{won(offer.saved)}</em></small></span>
+          <span className={styles.rowPrice}><strong><RollingPrice from={offer.product.price} to={offer.price} delay={200 + idx * 120} />원</strong><small><del>{won(offer.product.price)}</del><em>−{won(offer.saved)}</em></small></span>
           <span className={styles.chev} aria-hidden="true">›</span>
         </button>
       </li>
@@ -167,8 +172,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   return (
     <div className={styles.page} data-side={mood.side}>
       {/* ══ MARKET ══ */}
-      <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} test={test} tiers={tiers}
-        bread={chartBread ? { name: chartBread.product.name, emoji: EMOJI[chartBread.product.productNo] ?? '🍞', listPrice: chartBread.product.price } : null} />
+      <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} test={test} tiers={tiers} breads={chartBreads} />
 
       {/* ══ TODAY ══ */}
       <section id="today" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="오늘의 빵장">

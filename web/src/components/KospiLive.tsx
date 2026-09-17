@@ -29,7 +29,8 @@ interface Props {
   openAt: string;
   test: boolean;
   tiers: DiscountTier[];
-  bread: { name: string; emoji: string; listPrice: number } | null;
+  /** 차트 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것), 없으면 오늘 TOP 1 */
+  breads: { name: string; emoji: string; listPrice: number }[];
 }
 
 export const DRAW_MS = 1600;
@@ -55,12 +56,12 @@ function useCountdown(target: (kst: Date) => Date, on: boolean) {
       const kst = kstNow();
       const ms = target(kst).getTime() - kst.getTime();
       if (ms <= 0) { setLeft(null); return; }
-      /* 시:분만. 초까지 매초 굴리면 정신없다 — 30초마다 다시 센다 */
-      const h = Math.floor(ms / 3.6e6), m = Math.ceil((ms % 3.6e6) / 6e4) % 60;
-      setLeft(`${String(h).padStart(2, '0')} : ${String(m).padStart(2, '0')}`);
+      /* 초까지, 매초. 시간이 내려가는 게 보여야 한다 — 코스피·수량 폴링만 30초다 */
+      const h = Math.floor(ms / 3.6e6), m = Math.floor((ms % 3.6e6) / 6e4), s = Math.floor((ms % 6e4) / 1000);
+      setLeft(`${String(h).padStart(2, '0')} : ${String(m).padStart(2, '0')} : ${String(s).padStart(2, '0')}`);
     };
     const t0 = window.setTimeout(tick, 0);
-    const t = window.setInterval(tick, 30_000);
+    const t = window.setInterval(tick, 1000);
     return () => { clearTimeout(t0); clearInterval(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- target은 모듈 상수 계산기라 안정적이다
   }, [on]);
@@ -87,7 +88,7 @@ function Timeline() {
   );
 }
 
-export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, bread }: Props) {
+export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, breads }: Props) {
   const [oh, om] = openAt.split(':').map(Number);
   const toClose = useCountdown(atToday(15, 30), phase === 'live');
   const toOpen = useCountdown(atToday(oh, om), phase === 'locked');
@@ -134,7 +135,7 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
         <span className={`${styles.pct} ${up ? styles.up : styles.down}`}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</span>
       </div>
 
-      <KospiChart k={k} phase={phase} tiers={tiers} bread={bread} drawMs={DRAW_MS} />
+      <KospiChart k={k} phase={phase} tiers={tiers} breads={breads} drawMs={DRAW_MS} />
 
       {phase === 'live' && k.ticks.length > 0 && (
         <div className={styles.ticker} aria-hidden="true">
@@ -176,9 +177,9 @@ export default function KospiLive({ k, mood, rate, phase, openAt, test, tiers, b
           </div>
           <div className={styles.count}>
             <span>BREAD MARKET {phase === 'open' ? 'OPEN' : phase === 'locked' ? `OPEN · ${openAt}` : 'CLOSED'}</span>
-            {phase === 'locked' && <><strong><Flip value={toOpen ?? '-- : --'} /></strong><small>가격 공개까지</small></>}
-            {phase === 'open' && <><strong><Flip value={toEnd ?? '-- : --'} /></strong><small>오늘 빵장 마감까지 · 00:00 CLOSE{test ? ' · 테스트 상시' : ''}</small></>}
-            {phase === 'closed' && <><strong><Flip value={toLive ?? '-- : --'} /></strong><small>다음 거래일 09:00 LIVE까지</small></>}
+            {phase === 'locked' && <><strong><Flip value={toOpen ?? '-- : -- : --'} /></strong><small>가격 공개까지</small></>}
+            {phase === 'open' && <><strong><Flip value={toEnd ?? '-- : -- : --'} /></strong><small>오늘 빵장 마감까지 · 00:00 CLOSE{test ? ' · 테스트 상시' : ''}</small></>}
+            {phase === 'closed' && <><strong><Flip value={toLive ?? '-- : -- : --'} /></strong><small>다음 거래일 09:00 LIVE까지</small></>}
           </div>
         </div>
       )}

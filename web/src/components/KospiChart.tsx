@@ -27,8 +27,8 @@ interface Props {
   k: Live;
   phase: Phase;
   tiers: DiscountTier[];
-  /** 툴팁에 보여줄 빵 — 내 관심 1위, 없으면 오늘 TOP 1 */
-  bread: { name: string; emoji: string; listPrice: number } | null;
+  /** 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것), 없으면 오늘 TOP 1 */
+  breads: { name: string; emoji: string; listPrice: number }[];
   drawMs: number;
 }
 
@@ -41,7 +41,7 @@ const kstDate = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', { 
 const kstMonth = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric' }).replace(' ', '');
 const intradayLabel = (i: number) => { const m = 9 * 60 + i * 5; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 
-export default function KospiChart({ k, phase, tiers, bread, drawMs }: Props) {
+export default function KospiChart({ k, phase, tiers, breads, drawMs }: Props) {
   const [range, setRange] = useState<Range>('1d');
   const [hist, setHist] = useState<Partial<Record<Range, Hist>>>({});
   const [hover, setHover] = useState<number | null>(null);
@@ -91,8 +91,8 @@ export default function KospiChart({ k, phase, tiers, bread, drawMs }: Props) {
   const active = pinned ?? hover;
   const tip = active !== null && points[active] ? (() => {
     const p = points[active]; const pct = pctAt(active); const mood = moodFor(pct); const rate = depthFor(Math.abs(pct), tiers).rate;
-    const price = bread ? priceAt(bread.listPrice, rate) : null;
-    return { p, pct, mood, rate, price, label: range === '1d' ? intradayLabel(active) : kstDate(p.t), xPct: (x(active) / W) * 100 };
+    const rows = breads.map(b => ({ ...b, ...priceAt(b.listPrice, rate) }));
+    return { p, pct, mood, rate, rows, label: range === '1d' ? intradayLabel(active) : kstDate(p.t), xPct: (x(active) / W) * 100 };
   })() : null;
 
   const idxFromEvent = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -156,11 +156,17 @@ export default function KospiChart({ k, phase, tiers, bread, drawMs }: Props) {
             <div className={styles.tipBox} style={{ left: `${tip.xPct}%` }} data-flip={tip.xPct > 62} role="status">
               <b>{tip.label}</b>
               <span>시세 <strong>{fmt(tip.p.v)}</strong> <em className={tip.pct >= 0 ? styles.up : styles.down}>{tip.pct >= 0 ? '▲' : '▼'} {Math.abs(tip.pct).toFixed(2)}%</em></span>
-              {bread && tip.price && (
-                <span className={styles.tipBread}>
-                  {bread.emoji} {bread.name} <strong>{won(tip.price.price)}원</strong>
-                  <small>{tip.mood.title} · 정가 {won(bread.listPrice)} · −{won(tip.price.saved)}</small>
-                </span>
+              {tip.rows.length > 0 && (
+                <div className={styles.tipBreads}>
+                  <small>{tip.mood.title} · 모든 빵 {Math.round(tip.rate * 100)}%</small>
+                  {tip.rows.map(r => (
+                    <span key={r.name} className={styles.tipBread}>
+                      <span>{r.emoji} {r.name}</span>
+                      <strong>{won(r.price)}원</strong>
+                      <small>−{won(r.saved)}</small>
+                    </span>
+                  ))}
+                </div>
               )}
               {range !== '1d' && <small className={styles.tipHint}>그날 마감 등락률 기준으로 계산한 값</small>}
             </div>
