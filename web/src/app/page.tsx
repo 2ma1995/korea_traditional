@@ -1,7 +1,6 @@
 import Market from '@/components/Market';
 import { PRODUCTS } from '@/data/products';
 import { loadFilled } from '@/lib/fills';
-import { currentRound, loadIpoCounts } from '@/lib/ipo';
 import { fetchSymbolQuote, getMarketSnapshot } from '@/lib/market';
 import { buildToday } from '@/lib/offers';
 import { loadTiers } from '@/lib/settings';
@@ -13,12 +12,10 @@ import { loadTiers } from '@/lib/settings';
  */
 export default async function BreadMarketPage() {
   const now = new Date();
-  const round = currentRound(now);
-  const [market, tiers, filled, ipoCounts, intraday] = await Promise.all([
+  const [market, tiers, filled, intraday] = await Promise.all([
     getMarketSnapshot(now),
     loadTiers(),
     loadFilled(now),
-    loadIpoCounts(round),
     fetchSymbolQuote('^KS11'),
   ]);
   const today = buildToday(market, tiers, filled, now, PRODUCTS);
@@ -30,7 +27,6 @@ export default async function BreadMarketPage() {
         tiers={tiers}
         series={intraday?.series ?? []}
         kospi={{ value: market.kospi.value, changePct: market.kospi.changePct, live: market.kospi.live, marketOpen: market.kospiMarketOpen }}
-        ipo={{ round, counts: ipoCounts }}
       />
     </main>
   );

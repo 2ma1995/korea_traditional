@@ -4,15 +4,12 @@ import { useEffect, useState } from 'react';
 import Donut, { type Slice } from '@/components/Donut';
 import Flip from '@/components/Flip';
 import InfoTab from '@/components/InfoTab';
-import IpoTab from '@/components/IpoTab';
 import KospiLive, { DRAW_MS, type Phase } from '@/components/KospiLive';
 import type { KospiView } from '@/components/KospiQuote';
 import OfferSheet, { type Bid } from '@/components/OfferSheet';
 import Portfolio from '@/components/Portfolio';
 import ProductPhoto from '@/components/ProductPhoto';
 import type { DiscountTier } from '@/data/indicators';
-import type { IpoCounts, IpoRound } from '@/lib/ipo';
-import { useIpoPick } from '@/lib/ipoPickStore';
 import { moodFor, priceAt, type TodayMarket, type TodayOffer } from '@/lib/offers';
 import { depthFor, OPEN_HOUR } from '@/lib/orderbook';
 import { usePortfolio } from '@/lib/portfolioStore';
@@ -25,7 +22,7 @@ import styles from './Market.module.css';
  *   MARKET   지금 시장은 어떻게 움직이지?     KOSPI LIVE 히어로
  *   TODAY    그래서 오늘 뭐가 싸지?           할인 TOP 3 카드 → 시트
  *   MY       그중 내가 좋아하는 것도 싸지?    도넛 포트폴리오 + 적중 카드
- *   NEXT     다음엔 어떤 빵을 노리지?         BREAD IPO
+ *   (NEXT · BREAD IPO는 화면에서 뺐다. 코드는 IpoTab·lib/ipo에 남아 있다)
  *
  * KOSPI의 상태 변화가 아래로 전파된다. 장중엔 방향이 뒤집히면 "지금 마감한다면"
  * 라인·TOP 3 가격·적중 카드가 같이 바뀌고, 마감하면 CLOSED로, 20시 전엔 🔒로.
@@ -36,7 +33,6 @@ interface Props {
   series: number[];
   kospi: KospiView;
   tiers: DiscountTier[];
-  ipo: { round: IpoRound; counts: IpoCounts };
 }
 
 type Sort = 'saved' | 'popular';
@@ -71,7 +67,7 @@ function RollingPrice({ from, to, delay }: { from: number; to: number; delay: nu
   return <Flip value={won(v)} />;
 }
 
-export default function Market({ today, series, kospi, tiers, ipo }: Props) {
+export default function Market({ today, series, kospi, tiers }: Props) {
   const k = useKospiLive({ value: kospi.value, changePct: kospi.changePct, marketOpen: kospi.marketOpen, live: kospi.live, series });
   const [filled, setFilled] = useState<Record<string, number>>({});
   const [bids, setBids] = useState<Record<number, Bid>>({});
@@ -80,12 +76,9 @@ export default function Market({ today, series, kospi, tiers, ipo }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [showSoldOut, setShowSoldOut] = useState(false);
   const [pfOpen, setPfOpen] = useState(false);
-  const [ipoOpen, setIpoOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [alarm, setAlarm] = useState(false);
-  const [ipoCounts, setIpoCounts] = useState<IpoCounts>(ipo.counts);
   const { portfolio, add, remove } = usePortfolio();
-  const myIpo = useIpoPick(ipo.round.id);
 
   /* ── KOSPI 상태 → 아래로 전파 ── */
   const liveOn = k.marketOpen === true;
@@ -114,24 +107,9 @@ export default function Market({ today, series, kospi, tiers, ipo }: Props) {
         if (alive && json?.ok && json.filled) setFilled(json.filled);
       } catch { /* */ }
     };
-    const timer = setInterval(pull, 10000);
+    const timer = setInterval(pull, 30_000);
     return () => { alive = false; clearInterval(timer); };
   }, [today.hours.open]);
-
-  /* 공모 경쟁률은 15초마다 — 마감 뒤에도 움직이는 숫자 중 하나다 */
-  useEffect(() => {
-    let alive = true;
-    const pull = async () => {
-      if (document.hidden) return;
-      try {
-        const res = await fetch('/api/ipo', { cache: 'no-store', signal: AbortSignal.timeout(6000) });
-        const json = await res.json();
-        if (alive && json?.ok) setIpoCounts({ counts: json.counts, demo: json.demo, live: json.live });
-      } catch { /* */ }
-    };
-    const timer = setInterval(pull, 15000);
-    return () => { alive = false; clearInterval(timer); };
-  }, []);
 
   const filledOf = (o: TodayOffer) => filled[key(o.product.productNo, today.rate)] ?? o.filled;
   const remainingOf = (o: TodayOffer) => Math.max(0, o.allotment - filledOf(o));
@@ -158,7 +136,7 @@ export default function Market({ today, series, kospi, tiers, ipo }: Props) {
   /* ── MY ── */
   const entries = Object.entries(portfolio).map(([no, qty]) => ({ no: Number(no), qty })).sort((a, b) => b.qty - a.qty);
   const pfTotal = entries.reduce((a, b) => a + b.qty, 0);
-  const actions = pfTotal + (myIpo ? 1 : 0);
+  const actions = pfTotal;
   const nameOf = (no: number) => offers.find(o => o.product.productNo === no)?.product.name ?? today.soldOut.find(p => p.productNo === no)?.name ?? `#${no}`;
   const slices: Slice[] = entries.map(e => {
     const o = offers.find(x => x.product.productNo === e.no);
@@ -166,14 +144,8 @@ export default function Market({ today, series, kospi, tiers, ipo }: Props) {
   });
   const hit = entries.map(e => offers.find(o => o.product.productNo === e.no)).find((o): o is TodayOffer => Boolean(o));
   const hitShare = hit ? Math.round(((portfolio[hit.product.productNo] ?? 0) / pfTotal) * 100) : 0;
-  const myIpoName = ipo.round.candidates.find(c => c.id === myIpo)?.name;
   /* 차트 툴팁에 보여줄 빵 — 내 관심 1위(오늘 빵장에 있는), 없으면 오늘 TOP 1 */
   const chartBread = entries.map(e => offers.find(o => o.product.productNo === e.no)).find((o): o is TodayOffer => Boolean(o)) ?? sorted[0] ?? null;
-
-  /* ── NEXT ── */
-  const ipoTotal = Object.values(ipoCounts.counts).reduce((a, b) => a + b, 0);
-  const ipoSorted = [...ipo.round.candidates].sort((a, b) => (ipoCounts.counts[b.id] ?? 0) - (ipoCounts.counts[a.id] ?? 0));
-  const ipoMax = Math.max(1, ...ipoSorted.map(c => ipoCounts.counts[c.id] ?? 0));
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -277,12 +249,11 @@ export default function Market({ today, series, kospi, tiers, ipo }: Props) {
           <div className={styles.emptyBox}>
             <p className={styles.emptyLead}>아직</p>
             <h2>나의 빵 취향을 알아가는 중</h2>
-            <div className={styles.paths}><span>♡ 관심</span><span>🛒 장바구니</span><span>🔔 청약</span></div>
+            <div className={styles.paths}><span>♡ 관심</span><span>🛒 장바구니</span></div>
             <p className={styles.arrowDown}>↓<br /><b>MY PORTFOLIO</b></p>
             <p>마음에 드는 빵을 고르면 나만의 포트폴리오가 만들어집니다.</p>
-            <div className={styles.emptyBtns}>
+            <div className={styles.emptyBtns} data-single="true">
               <button type="button" className={styles.ghost} onClick={() => scrollTo('today')}>♡ 빵 둘러보기</button>
-              <button type="button" className={styles.ghost} onClick={() => { setIpoOpen(true); scrollTo('next'); }}>🔔 공모 참여하기</button>
             </div>
           </div>
         ) : actions < 3 ? (
@@ -290,11 +261,10 @@ export default function Market({ today, series, kospi, tiers, ipo }: Props) {
             <div className={styles.buildRing} style={{ ['--p' as string]: actions / 3 }}><span>생성 중</span><b>{actions} / 3</b></div>
             <div>
               <span className={styles.eyebrow}>첫 관심 데이터</span>
-              <h3>{entries[0] ? `${EMOJI[entries[0].no] ?? '🍞'} ${nameOf(entries[0].no)}` : `🔔 ${myIpoName}`}</h3>
+              <h3>{EMOJI[entries[0].no] ?? '🍞'} {nameOf(entries[0].no)}</h3>
               <p>조금만 더 관심을 남기면 나의 구성비가 공개됩니다.</p>
-              <div className={styles.emptyBtns}>
+              <div className={styles.emptyBtns} data-single="true">
                 <button type="button" className={styles.ghost} onClick={() => scrollTo('today')}>♡ 빵 둘러보기</button>
-                {!myIpo && <button type="button" className={styles.ghost} onClick={() => { setIpoOpen(true); scrollTo('next'); }}>🔔 공모 참여하기</button>}
               </div>
             </div>
           </div>
@@ -327,24 +297,6 @@ export default function Market({ today, series, kospi, tiers, ipo }: Props) {
             {pfOpen && <div className={styles.pop}><Portfolio offers={offers} /></div>}
           </>
         )}
-      </section>
-
-      {/* ══ NEXT ══ */}
-      <section id="next" className={`${styles.card} ${styles.reveal}`} style={reveal(7)} aria-label="다음 절기빵 공모">
-        <div className={styles.eyebrowRow}><span className={styles.eyebrow}>🔔 BREAD IPO</span><span className={styles.theme}>D-{ipo.round.daysLeft}</span></div>
-        <header className={styles.cardHead}><h2>다음 절기빵, 미리 청약하세요 <small>{ipo.round.termKo} · {ipo.round.month}/{ipo.round.day}</small></h2></header>
-        <ul className={styles.ipoMini}>
-          {ipoSorted.map((c, i) => { const n = ipoCounts.counts[c.id] ?? 0; return (
-            <li key={c.id} data-mine={myIpo === c.id} data-lead={i === 0 && n > 0}>
-              <span className={styles.pfLabel}>{c.name}{myIpo === c.id && <em> · 내 청약</em>}</span>
-              <span className={styles.pfTrack}><i style={{ width: `${Math.round((n / ipoMax) * 100)}%` }} /></span>
-              <b>경쟁률 {(n / c.allotment).toFixed(1)} : 1</b>
-            </li>
-          ); })}
-        </ul>
-        <p className={styles.miniNote}>{ipoTotal}명 참여 · 절기 당일 마감 · 1위 출시 · 청약자에게 출시 쿠폰 · <span className={styles.liveDot}>15초마다 갱신</span>{ipoCounts.demo > 0 && <> · <span className={styles.demoWarn}>샘플 {ipoCounts.demo}건 포함</span></>}</p>
-        <button type="button" className={styles.expand} onClick={() => setIpoOpen(v => !v)} aria-expanded={ipoOpen}>{ipoOpen ? '접기 ▴' : myIpo ? '내 청약 보기 →' : '오늘의 공모 참여 →'}</button>
-        {ipoOpen && <div className={styles.pop}><IpoTab round={ipo.round} counts={ipoCounts} onChange={setIpoCounts} /></div>}
       </section>
 
       <p className={`${styles.fine} ${styles.reveal}`} style={reveal(8)}>

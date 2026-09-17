@@ -403,3 +403,5 @@ p.callout { cursor: default; }
 .fact[data-tone='mood'] { color: var(--mood); }
 .fact[data-tone='ink'] { color: var(--ink); }
 .fact[data-tone='muted'] { color: var(--muted); }
+
+.emptyBtns[data-single='true'] { grid-template-columns: 1fr; }
