@@ -142,17 +142,19 @@ export default function KospiLive({ k, mood, rate, phase, openAt, tiers, breads,
         </div>
       )}
 
-      {/* 카운트다운 — 그래프 아래 가운데. 라벨 하나, 숫자 하나 */}
+      {/* 카운트다운 — 그래프 아래 가운데. 상태는 위, 무엇까지 남은 시간인지는 숫자 왼쪽에 */}
       <div className={styles.countCenter}>
         <span className={styles.marketTag} data-open={phase === 'open'}>
           <i aria-hidden="true" />
-          {/* 숫자가 무엇까지 남은 시간인지 앞에 붙인다 — 라벨만 보고도 읽히게 */}
-          {phase === 'live' ? '확정까지 · BREAD MARKET 15:30 OPEN'
-            : phase === 'locked' ? `개장까지 · BREAD MARKET OPEN ${openAt}`
-            : phase === 'open' ? '마감까지 · BREAD MARKET OPEN'
-            : '다음 LIVE까지 · BREAD MARKET CLOSED'}
+          {phase === 'live' ? 'BREAD MARKET · 15:30 OPEN'
+            : phase === 'locked' ? `BREAD MARKET OPEN · ${openAt}`
+            : phase === 'open' ? 'BREAD MARKET OPEN'
+            : 'BREAD MARKET CLOSED'}
         </span>
-        <strong><Flip value={(phase === 'live' ? toClose : phase === 'locked' ? toOpen : phase === 'open' ? toEnd : toLive) ?? '-- : -- : --'} /></strong>
+        <span className={styles.countRow}>
+          <small>{phase === 'live' ? '확정까지' : phase === 'locked' ? '개장까지' : phase === 'open' ? '마감까지' : '다음 LIVE까지'}</small>
+          <strong><Flip value={(phase === 'live' ? toClose : phase === 'locked' ? toOpen : phase === 'open' ? toEnd : toLive) ?? '-- : -- : --'} /></strong>
+        </span>
       </div>
 
       {phase === 'live' ? (

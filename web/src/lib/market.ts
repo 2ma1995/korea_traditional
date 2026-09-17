@@ -383,12 +383,16 @@ export function seoulDateString(at: Date = new Date()): string {
 /* 코스피 기간 차트 — 1일 · 1개월 · 1년                                 */
 /* ------------------------------------------------------------------ */
 
-export type KospiRange = '1d' | '1mo' | '1y';
+export type KospiRange = '1d' | '5d' | '1mo' | '3mo' | '1y';
 export interface HistoryPoint { t: number; v: number }
 export interface KospiHistory { points: HistoryPoint[]; prevClose: number | null }
 
-const HIST_TTL_MS: Record<KospiRange, number> = { '1d': 5_000, '1mo': 60_000, '1y': 300_000 };
-const HIST_ARGS: Record<KospiRange, [string, string]> = { '1d': ['1d', '5m'], '1mo': ['1mo', '1d'], '1y': ['1y', '1d'] };
+/* 짧은 기간은 자주, 긴 기간은 드물게 다시 받는다 */
+const HIST_TTL_MS: Record<KospiRange, number> = { '1d': 5_000, '5d': 60_000, '1mo': 60_000, '3mo': 300_000, '1y': 300_000 };
+/* [range, interval] — 1주는 30분봉이라 하루 안 흐름도 남는다 */
+const HIST_ARGS: Record<KospiRange, [string, string]> = {
+  '1d': ['1d', '5m'], '5d': ['5d', '30m'], '1mo': ['1mo', '1d'], '3mo': ['3mo', '1d'], '1y': ['1y', '1d'],
+};
 const histCache = new Map<KospiRange, { at: number; data: KospiHistory | null }>();
 
 /**

@@ -481,3 +481,11 @@ p.callout { cursor: default; }
 .legendPick em, .pfNameBtn em { font-style: normal; color: #b8b5a6; }
 .legendPick:hover, .pfNameBtn:hover { color: var(--dancheong); }
 .pfNameBtn b { font-size: 14px; font-weight: 600; }
+
+/* 종목 / 기간 라벨 + 버튼 줄 */
+.tabLine { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tabLabel { font-size: 11px; font-weight: 700; letter-spacing: .1em; color: var(--muted); min-width: 24px; }
+
+/* 카운트다운 — "마감까지" 를 숫자 왼쪽 같은 줄에 */
+.countRow { display: inline-flex; align-items: baseline; justify-content: center; gap: 10px; }
+.countRow small { font-size: 13px; font-weight: 700; color: var(--muted); }

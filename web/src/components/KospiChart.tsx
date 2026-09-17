@@ -18,7 +18,7 @@ import styles from './Market.module.css';
  * 그래서 차트가 구경거리가 아니라 "내 빵값이 시장을 어떻게 따라왔나"를 훑는 도구가 된다.
  */
 
-export type Range = '1d' | '1mo' | '1y';
+export type Range = '1d' | '5d' | '1mo' | '3mo' | '1y';
 type Phase = 'live' | 'locked' | 'open' | 'closed';
 interface Pt { t: number; v: number }
 interface Hist { points: Pt[]; prevClose: number | null }
@@ -38,11 +38,17 @@ interface Props {
 
 const W = 640, H = 210, PL = 10, PR = 10, PT = 30, PB = 30;
 const BARS = 78;
-const RANGES: { key: Range; label: string }[] = [{ key: '1d', label: '1일' }, { key: '1mo', label: '1개월' }, { key: '1y', label: '1년' }];
+const RANGES: { key: Range; label: string }[] = [
+  { key: '1d', label: '1일' }, { key: '5d', label: '1주' }, { key: '1mo', label: '1달' },
+  { key: '3mo', label: '3달' }, { key: '1y', label: '1년' },
+];
 const fmt = (n: number) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const won = (n: number) => n.toLocaleString('ko-KR');
 const kstDate = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, '');
 const kstMonth = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric' }).replace(' ', '');
+/** 1주(30분봉)는 날짜 + 시각이 같이 있어야 어느 날 어느 때인지 읽힌다 */
+const kstDayTime = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\s+/g, ' ');
+const kstDay = (sec: number) => new Date(sec * 1000).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' }).replace(/\s+/g, '');
 const intradayLabel = (i: number) => { const m = 9 * 60 + i * 5; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 
 export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }: Props) {
@@ -121,7 +127,9 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
     const list = view ? [view, ...breads.filter(b => b.no !== view.no)] : breads;
     const rows = noWatch && !view ? [] : list.map(b => ({ ...b, ...priceAt(b.listPrice, rate) }));
     /* 마지막 봉은 종가다 — 15:00봉이지만 담고 있는 값은 15:30 마감가 */
-    const label = range === '1d' ? (active === n - 1 && phase !== 'live' ? '15:30 마감' : intradayLabel(p.t)) : kstDate(p.t);
+    const label = range === '1d'
+      ? (active === n - 1 && phase !== 'live' ? '15:30 마감' : intradayLabel(p.t))
+      : range === '5d' ? kstDayTime(p.t) : kstDate(p.t);
     return { p, pct, mood, rate, rows, label, xPct: (x(active) / W) * 100 };
   })() : null;
 
@@ -140,23 +148,33 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
   /* x축 라벨 */
   const axis: { i: number; label: string; anchor: 'start' | 'middle' | 'end' }[] = range === '1d'
     ? [{ i: 0, label: '09:00', anchor: 'start' }, { i: 36, label: '12:00', anchor: 'middle' }, { i: span1d, label: phase === 'live' ? '15:30' : '15:30 마감', anchor: 'end' }]
-    : has ? [0, Math.round((n - 1) / 3), Math.round(((n - 1) * 2) / 3), n - 1].map((i, j) => ({ i, label: range === '1y' ? kstMonth(points[i].t) : kstDate(points[i].t).slice(3), anchor: j === 0 ? 'start' : j === 3 ? 'end' : 'middle' as const })) : [];
+    : has ? [0, Math.round((n - 1) / 3), Math.round(((n - 1) * 2) / 3), n - 1].map((i, j) => ({
+        i,
+        label: range === '1y' || range === '3mo' ? kstMonth(points[i].t) : kstDay(points[i].t),
+        anchor: j === 0 ? 'start' : j === 3 ? 'end' : 'middle' as const,
+      })) : [];
   const xAt = (i: number) => range === '1d' ? PL + (Math.min(i, span1d) / span1d) * (W - PL - PR) : x(i);
 
   return (
     <div className={styles.chartWrap} data-dir={dir}>
       {breads.length > 0 && (
-        <div className={styles.viewTabs} role="tablist" aria-label="보는 대상">
-          <button type="button" role="tab" aria-selected={view === null} onClick={() => setViewNo(null)}>📈 코스피</button>
-          {breads.map(b => (
-            <button key={b.no} type="button" role="tab" aria-selected={view?.no === b.no} onClick={() => setViewNo(b.no)}>{b.emoji} {b.name}</button>
-          ))}
+        <div className={styles.tabLine}>
+          <span className={styles.tabLabel}>종목</span>
+          <div className={styles.viewTabs} role="tablist" aria-label="보는 대상">
+            <button type="button" role="tab" aria-selected={view === null} onClick={() => setViewNo(null)}>📈 코스피</button>
+            {breads.map(b => (
+              <button key={b.no} type="button" role="tab" aria-selected={view?.no === b.no} onClick={() => setViewNo(b.no)}>{b.emoji} {b.name}</button>
+            ))}
+          </div>
         </div>
       )}
 
       <div className={styles.rangeRow}>
-        <div className={styles.rangeTabs} role="tablist" aria-label="기간">
-          {RANGES.map(r => <button key={r.key} type="button" role="tab" aria-selected={range === r.key} onClick={() => { setRange(r.key); setPinned(null); setHover(null); }}>{r.label}</button>)}
+        <div className={styles.tabLine}>
+          <span className={styles.tabLabel}>기간</span>
+          <div className={styles.rangeTabs} role="tablist" aria-label="기간">
+            {RANGES.map(r => <button key={r.key} type="button" role="tab" aria-selected={range === r.key} onClick={() => { setRange(r.key); setPinned(null); setHover(null); }}>{r.label}</button>)}
+          </div>
         </div>
         <span className={styles.chartHint}>
           {noWatch
