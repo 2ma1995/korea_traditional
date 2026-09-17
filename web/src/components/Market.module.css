@@ -453,3 +453,7 @@ p.callout { cursor: default; }
 .marketTag[data-open='true'] i { background: #4d8a4a; animation: pulseGreen 1.8s ease-in-out infinite; }
 @keyframes pulseGreen { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(77, 138, 74, .4); } 50% { opacity: .7; box-shadow: 0 0 0 6px transparent; } }
 @media (prefers-reduced-motion: reduce) { .marketTag i { animation: none; } }
+
+.topSub { font-size: 12px !important; color: var(--muted); margin-top: 8px !important; }
+.saveTotal { color: var(--down); }
+.hitCard dd small { font-size: 11px; color: var(--muted); font-weight: 500; }

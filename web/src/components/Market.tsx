@@ -147,7 +147,9 @@ export default function Market({ today, series, kospi, tiers }: Props) {
     const o = offers.find(x => x.product.productNo === e.no);
     return { no: e.no, name: nameOf(e.no), emoji: EMOJI[e.no] ?? '🍞', share: Math.round((e.qty / pfTotal) * 100), today: Boolean(o), price: o?.price };
   });
-  const hit = entries.map(e => offers.find(o => o.product.productNo === e.no)).find((o): o is TodayOffer => Boolean(o));
+  const hits = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o));
+  const hit = hits[0];
+  const hitTotal = hits.reduce((a, o) => a + o.saved, 0);
   const hitShare = hit ? Math.round(((portfolio[hit.product.productNo] ?? 0) / pfTotal) * 100) : 0;
   /* 차트 툴팁에 보여줄 빵들 — 내 관심빵(오늘 빵장에 있는 것, 비중 순, 최대 3).
      없으면 빵을 보여주지 않고 "알림받기로 담아라" 안내만 한다 */
@@ -255,11 +257,11 @@ export default function Market({ today, series, kospi, tiers }: Props) {
             {hit ? (
               <div className={styles.hitCard} data-side={mood.side}>
                 <span className={styles.eyebrow}>🎯 TODAY</span>
-                <h3>회원님 관심빵 중 「{hit.product.name}」이 오늘 할인 라인에 들어왔어요</h3>
+                <h3>{hits.length > 1 ? `관심빵 ${hits.length}종이 오늘 할인 라인에 들어왔어요` : `회원님 관심빵 「${hit.product.name}」이 오늘 할인 라인에 들어왔어요`}</h3>
                 <dl>
-                  <div><dt>내 관심 비중</dt><dd>{hitShare}%</dd></div>
-                  <div><dt>정상가</dt><dd>{won(hit.product.price)}원</dd></div>
-                  <div><dt>{phase === 'live' ? '지금 예상' : '오늘 가격'}</dt><dd>{won(hit.price)}원</dd></div>
+                  <div><dt>{hits.length}종 다 사면</dt><dd className={styles.saveTotal}>−{won(hitTotal)}원</dd></div>
+                  <div><dt>비중 1위 · {hitShare}%</dt><dd>{hit.product.name}</dd></div>
+                  <div><dt>{phase === 'live' ? '지금 예상' : '오늘 가격'}</dt><dd>{won(hit.price)}원 <small>({won(hit.product.price)})</small></dd></div>
                 </dl>
                 {phase === 'locked' ? (
                   <div className={styles.hitLock}>

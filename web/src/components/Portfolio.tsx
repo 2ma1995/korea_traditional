@@ -27,6 +27,12 @@ export default function Portfolio({ offers }: Props) {
     .map(e => ({ ...e, offer: offers.find(o => o.product.productNo === e.no) }))
     .sort((a, b) => b.qty - a.qty);
   const top = rows[0];
+  /* 오늘 빵장에 있는 관심빵을 1개씩 산다고 치면 — 정가 합, 오늘 가격 합, 아끼는 금액 */
+  const inToday = rows.filter(r => r.offer).map(r => r.offer!);
+  const totalList = inToday.reduce((a, o) => a + o.product.price, 0);
+  const totalToday = inToday.reduce((a, o) => a + o.price, 0);
+  const totalSaved = totalList - totalToday;
+  const soldOutCount = rows.length - inToday.length;
 
   if (!rows.length) {
     return (
@@ -39,14 +45,17 @@ export default function Portfolio({ offers }: Props) {
 
   return (
     <>
-      {top?.offer && (
+      {inToday.length > 0 && (
         <div className={styles.topPick}>
-          <span className="eyebrow">비중 1위</span>
-          <h3>{top.offer.product.name}이(가) 오늘 <b>−{won(top.offer.saved)}원</b></h3>
-          <p>비중 {Math.round((top.qty / total) * 100)}% · 오늘 {won(top.offer.price)}원 · 남음 {Math.max(0, top.offer.allotment - top.offer.filled)}</p>
+          <span className="eyebrow">오늘 내 관심빵 할인 총액 · {inToday.length}종 1개씩</span>
+          <h3>다 사면 <b>−{won(totalSaved)}원</b> 아낍니다</h3>
+          <p>정가 {won(totalList)}원 → 오늘 {won(totalToday)}원{soldOutCount > 0 ? ` · 품절 ${soldOutCount}종 제외` : ''}</p>
+          {top?.offer && (
+            <p className={styles.topSub}>비중 1위 {top.offer.product.name} · 비중 {Math.round((top.qty / total) * 100)}% · 오늘 {won(top.offer.price)}원 (−{won(top.offer.saved)}) · 남음 {Math.max(0, top.offer.allotment - top.offer.filled)}</p>
+          )}
         </div>
       )}
-      {top && !top.offer && (
+      {inToday.length === 0 && top && (
         <div className={styles.topPick}>
           <span className="eyebrow">비중 1위</span>
           <h3>오늘은 품절이라 빵장에 없습니다</h3>
