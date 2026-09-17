@@ -469,3 +469,15 @@ p.callout { cursor: default; }
 .viewTabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .viewTabs button { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--muted); background: var(--paper); border: 1.5px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
 .viewTabs button[aria-selected='true'] { color: var(--dir); border-color: var(--dir); background: color-mix(in srgb, var(--dir) 8%, var(--paper)); }
+
+/* 포트폴리오 구매하기 */
+.buyAll { margin-top: 14px; display: grid; gap: 8px; }
+.buyAll .primary { min-height: 54px; font-size: 15px; }
+.buyAllNote { font-size: 12px; color: var(--muted); line-height: 1.8; padding: 10px 12px; background: var(--background); border-radius: 12px; word-break: keep-all; }
+.buyAllNote b { color: var(--ink); font-weight: 700; }
+/* 도넛·범례·행에서 빵 고르기 */
+.donutSeg[data-clickable='true'] { cursor: pointer; }
+.legendPick, .pfNameBtn { font: inherit; background: none; border: 0; padding: 0; text-align: left; color: var(--ink); cursor: pointer; }
+.legendPick em, .pfNameBtn em { font-style: normal; color: #b8b5a6; }
+.legendPick:hover, .pfNameBtn:hover { color: var(--dancheong); }
+.pfNameBtn b { font-size: 14px; font-weight: 600; }

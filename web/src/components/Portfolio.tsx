@@ -15,11 +15,17 @@ import styles from './Market.module.css';
 
 interface Props {
   offers: TodayOffer[];
+  /** 관심빵 전체를 1개씩 예약한다. Market이 실제 요청을 보낸다 */
+  onBuyAll?: (offers: TodayOffer[]) => void;
+  /** 예약 진행·결과 — Market이 들고 있다 */
+  bulk?: { busy: boolean; done: number; missed: number } | null;
+  /** 한 빵만 보고 싶을 때 */
+  onPick?: (productNo: number) => void;
 }
 
 const won = (n: number) => n.toLocaleString('ko-KR');
 
-export default function Portfolio({ offers }: Props) {
+export default function Portfolio({ offers, onBuyAll, bulk, onPick }: Props) {
   const { portfolio, add, remove } = usePortfolio();
   /* 수량 많은 순 → 같으면 최근에 담은 순 */
   const entries = sortHoldings(portfolio);
@@ -72,7 +78,9 @@ export default function Portfolio({ offers }: Props) {
                 <ProductPhoto productNo={row.no} name={name} />
               </span>
               <span className={styles.pfName}>
-                <b>{name}</b>
+                {row.offer && onPick
+                  ? <button type="button" className={styles.pfNameBtn} onClick={() => onPick(row.no)}><b>{name}</b> <em aria-hidden="true">›</em></button>
+                  : <b>{name}</b>}
                 <span>{row.offer ? `오늘 ${won(row.offer.price)}원 · −${won(row.offer.saved)}원` : '오늘 품절'}</span>
               </span>
               <span className={styles.pfShare}>
@@ -88,6 +96,21 @@ export default function Portfolio({ offers }: Props) {
           );
         })}
       </ul>
+
+      {inToday.length > 0 && onBuyAll && (
+        <div className={styles.buyAll}>
+          <button type="button" className={styles.primary} disabled={bulk?.busy} onClick={() => onBuyAll(inToday)}>
+            {bulk?.busy ? '예약 중…' : `포트폴리오 구매하기 · ${inToday.length}종 ${won(totalToday)}원`}
+          </button>
+          {bulk && !bulk.busy && (bulk.done > 0 || bulk.missed > 0) && (
+            <p className={styles.buyAllNote}>
+              {bulk.done > 0 && <><b>{bulk.done}종 예약됐습니다.</b> 자사몰에서 결제해 주세요. </>}
+              {bulk.missed > 0 && <>{bulk.missed}종은 오늘 물량이 끝났습니다.</>}
+              <br />오늘 가격 적용은 쿠폰이 필요해 기업 확인 중입니다.
+            </p>
+          )}
+        </div>
+      )}
 
       <p className={styles.hint}>
         비중은 담은 수로 정합니다. 브라우저에만 저장되고 서버로 가지 않습니다.

@@ -76,6 +76,7 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   const [bids, setBids] = useState<Record<number, Bid>>({});
   const [sort, setSort] = useState<Sort>('popular');
   const [selected, setSelected] = useState<number | null>(null);
+  const [bulk, setBulk] = useState<{ busy: boolean; done: number; missed: number } | null>(null);
   const [showSoldOut, setShowSoldOut] = useState(false);
   const [pfOpen, setPfOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -115,7 +116,8 @@ export default function Market({ today, series, kospi, tiers }: Props) {
   const filledOf = (o: TodayOffer) => filled[key(o.product.productNo, today.rate)] ?? o.filled;
   const remainingOf = (o: TodayOffer) => Math.max(0, o.allotment - filledOf(o));
 
-  async function buy(offer: TodayOffer) {
+  /** 한 종을 예약한다. 성공 여부를 돌려준다 — 포트폴리오 일괄 구매가 결과를 센다 */
+  async function buy(offer: TodayOffer): Promise<boolean> {
     const no = offer.product.productNo;
     setBids(prev => ({ ...prev, [no]: { status: 'busy', slot: null } }));
     try {
@@ -124,12 +126,26 @@ export default function Market({ today, series, kospi, tiers }: Props) {
       if (!json?.ok) throw new Error(json?.error ?? '실패');
       setBids(prev => ({ ...prev, [no]: { status: json.filled ? 'filled' : 'missed', slot: json.slot ?? null } }));
       setFilled(prev => ({ ...prev, [key(no, today.rate)]: (json.quantity ?? offer.allotment) - (json.remaining ?? 0) }));
+      return Boolean(json.filled);
     } catch {
       setBids(prev => ({ ...prev, [no]: { status: 'missed', slot: null } }));
+      return false;
     }
   }
 
   /* 인기순 = 오늘 많이 산 순, 관심순 = 내가 알림 걸어둔 순. 동률이면 할인 금액 큰 순 */
+  /** 관심빵 전체를 1개씩 예약한다. 성공·실패 수를 세어 한 번에 알린다 */
+  async function buyAll(list: TodayOffer[]) {
+    setBulk({ busy: true, done: 0, missed: 0 });
+    let done = 0, missed = 0;
+    for (const offer of list) {
+      /* 순서대로 보낸다 — 같은 칸을 동시에 밀어 넣으면 서버 경합이 늘고, 몇 종이라 느리지 않다 */
+      const ok = await buy(offer);
+      if (ok) done += 1; else missed += 1;
+    }
+    setBulk({ busy: false, done, missed });
+  }
+
   const sorted = [...offers].sort((a, b) => sort === 'watched'
     ? qtyOf(portfolio, b.product.productNo) - qtyOf(portfolio, a.product.productNo) || b.saved - a.saved
     : filledOf(b) - filledOf(a) || b.saved - a.saved);
@@ -250,9 +266,9 @@ export default function Market({ today, series, kospi, tiers }: Props) {
         ) : (
           <>
             <p className={styles.sub}>내가 관심을 보인 빵으로 만든 포트폴리오</p>
-            <Donut slices={slices} />
+            <Donut slices={slices} onPick={setSelected} />
             <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen}>내 포트폴리오 {pfOpen ? '접기 ▴' : '→'}</button>
-            {pfOpen && <div className={styles.pop}><Portfolio offers={offers} /></div>}
+            {pfOpen && <div className={styles.pop}><Portfolio offers={offers} onBuyAll={buyAll} bulk={bulk} onPick={setSelected} /></div>}
           </>
         )}
       </section>
