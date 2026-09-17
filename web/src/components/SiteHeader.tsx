@@ -16,6 +16,7 @@ const links = [
   { href: '/', label: '빵장' },
   { href: '/season', label: '절기' },
   { href: '/archive', label: '스물네 절기' },
+  { href: '/#foryou', label: 'MY' },
 ];
 
 export default function SiteHeader() {

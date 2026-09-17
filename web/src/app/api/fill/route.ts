@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { PRODUCTS } from '@/data/products';
 import { getMarketSnapshot } from '@/lib/market';
-import { depthFor, marketHours, quantityForDepth } from '@/lib/orderbook';
+import { depthFor, marketHours } from '@/lib/orderbook';
+import { DAILY_ALLOTMENT } from '@/lib/offers';
 import { loadTiers } from '@/lib/settings';
 import { loadFilledCounts, tryFill } from '@/lib/fills';
 
@@ -41,11 +42,11 @@ export async function POST(request: Request) {
   if (!marketHours(now).open) return bad('지금은 빵장이 닫혀 있습니다.', 409);
 
   const [market, tiers] = await Promise.all([getMarketSnapshot(now), loadTiers()]);
+  /* 오늘 폭 하나만 받는다. 호가 사다리는 접었다 — 폭이 다르면 오늘 것이 아니다 */
   const today = depthFor(Math.abs(market.kospi.changePct), tiers);
-  if (depth > today.rate + 1e-9) return bad('오늘 열리지 않은 호가입니다.', 409);
+  if (Math.abs(depth - today.rate) > 1e-9) return bad('오늘 폭이 아닙니다.', 409);
 
-  const quantity = quantityForDepth(product, depth, tiers);
-  if (quantity === null) return bad('이 칸은 걸기 대상이 아닙니다. 바로 구매하세요.');
+  const quantity = DAILY_ALLOTMENT;
 
   try {
     const result = await tryFill(productNo, depth, quantity, now);

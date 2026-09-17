@@ -1,0 +1,94 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+
+/**
+ * KOSPI LIVE — 히어로가 쓰는 단일 폴러.
+ *
+ * 장중엔 다섯이 같이 움직여야 '라이브'로 읽힌다: 점이 뛰고, 숫자가 굴러가고,
+ * 선 끝이 이어지고, 아래 틱이 흐르고, 방향이 바뀌면 "지금 마감한다면" 라인이 바뀐다.
+ * 그 재료를 한 곳에서 만든다. KospiQuote가 따로 폴링하던 것을 여기로 모았다 —
+ * 같은 화면에서 둘이 각각 부르면 네이버 호출이 두 배다.
+ *
+ *   /api/kospi         1초 (장중·탭 보일 때). 값이 바뀔 때만 틱을 남긴다
+ *   /api/kospi/series  60초. 5분봉이 새로 생기면 선이 한 칸 늘어난다
+ *
+ * 장이 닫히면(marketOpen === false) 둘 다 멈춘다. 탭으로 돌아올 때 한 번 다시 확인한다.
+ */
+
+export interface Tick { t: string; v: number; dir: 'up' | 'down' }
+
+export interface KospiLive {
+  value: number;
+  changePct: number;
+  marketOpen: boolean | null;
+  live: boolean;
+  series: number[];
+  ticks: Tick[];
+  /** 값이 바뀔 때마다 +1. 숫자 롤링 애니메이션 키 */
+  seq: number;
+  dir: 'up' | 'down' | null;
+}
+
+const TICK_MS = 1000, SERIES_MS = 60_000, TIMEOUT_MS = 5000, KEEP = 10;
+const clock = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+export function useKospiLive(initial: Omit<KospiLive, 'ticks' | 'seq' | 'dir'>): KospiLive {
+  const [state, setState] = useState<KospiLive>({ ...initial, ticks: [], seq: 0, dir: null });
+  const last = useRef(initial.value);
+
+  useEffect(() => {
+    let alive = true, inFlight = false;
+    let tickTimer: ReturnType<typeof setInterval> | null = null;
+    let seriesTimer: ReturnType<typeof setInterval> | null = null;
+
+    const tick = async () => {
+      if (inFlight || !alive || document.hidden) return;
+      inFlight = true;
+      try {
+        const res = await fetch('/api/kospi', { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) });
+        if (!res.ok) return;
+        const next = await res.json();
+        if (!alive || next?.ok !== true || typeof next.value !== 'number') return;
+        const changed = next.value !== last.current;
+        const dir: 'up' | 'down' | null = changed ? (next.value > last.current ? 'up' : 'down') : null;
+        last.current = next.value;
+        setState(prev => {
+          const series = prev.series.length ? [...prev.series.slice(0, -1), next.value] : prev.series;
+          const ticks = changed && dir ? [{ t: clock.format(new Date()), v: next.value, dir }, ...prev.ticks].slice(0, KEEP) : prev.ticks;
+          return {
+            ...prev, value: next.value, changePct: next.changePct, live: next.live,
+            marketOpen: typeof next.marketOpen === 'boolean' ? next.marketOpen : null,
+            series, ticks, seq: changed ? prev.seq + 1 : prev.seq, dir: dir ?? prev.dir,
+          };
+        });
+        if (next.marketOpen === false) stop();
+      } catch { /* 마지막 값 유지 */ } finally { inFlight = false; }
+    };
+
+    const pullSeries = async () => {
+      if (!alive || document.hidden) return;
+      try {
+        const res = await fetch('/api/kospi/series', { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) });
+        const json = await res.json();
+        if (alive && json?.ok && Array.isArray(json.series) && json.series.length) setState(prev => ({ ...prev, series: json.series }));
+      } catch { /* */ }
+    };
+
+    const start = () => {
+      if (!tickTimer) tickTimer = setInterval(tick, TICK_MS);
+      if (!seriesTimer) seriesTimer = setInterval(pullSeries, SERIES_MS);
+    };
+    const stop = () => {
+      if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+      if (seriesTimer) { clearInterval(seriesTimer); seriesTimer = null; }
+    };
+
+    tick(); start();
+    const onVisible = () => { if (!document.hidden) { start(); tick(); } };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { alive = false; stop(); document.removeEventListener('visibilitychange', onVisible); };
+  }, []);
+
+  return state;
+}

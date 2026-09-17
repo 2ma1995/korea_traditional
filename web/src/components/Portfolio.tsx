@@ -1,0 +1,90 @@
+'use client';
+
+import ProductPhoto from '@/components/ProductPhoto';
+import type { TodayOffer } from '@/lib/offers';
+import { usePortfolio } from '@/lib/portfolioStore';
+import styles from './Market.module.css';
+
+/**
+ * 내 관심 빵 — 포트폴리오 탭.
+ *
+ * 담은 수가 비중이 된다. 비중 1위 빵의 오늘 가격을 맨 위에서 말해준다 —
+ * "네 포트폴리오에서 비중이 가장 큰 스콘이 오늘 −570원".
+ * 알림 발송은 다음 단계라 지금은 여기서 확인한다.
+ */
+
+interface Props {
+  offers: TodayOffer[];
+}
+
+const won = (n: number) => n.toLocaleString('ko-KR');
+
+export default function Portfolio({ offers }: Props) {
+  const { portfolio, add, remove } = usePortfolio();
+  const entries = Object.entries(portfolio).map(([no, qty]) => ({ no: Number(no), qty }));
+  const total = entries.reduce((a, b) => a + b.qty, 0);
+  const rows = entries
+    .map(e => ({ ...e, offer: offers.find(o => o.product.productNo === e.no) }))
+    .sort((a, b) => b.qty - a.qty);
+  const top = rows[0];
+
+  if (!rows.length) {
+    return (
+      <p className={styles.empty}>
+        아직 담은 빵이 없습니다. 오늘의 빵에서 <b>관심</b>을 누르면 여기에 비중으로 쌓입니다.
+        <br />비중 1위 빵이 오늘 얼마인지, 내일 여기서 바로 보입니다.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      {top?.offer && (
+        <div className={styles.topPick}>
+          <span className="eyebrow">비중 1위</span>
+          <h3>{top.offer.product.name}이(가) 오늘 <b>−{won(top.offer.saved)}원</b></h3>
+          <p>비중 {Math.round((top.qty / total) * 100)}% · 오늘 {won(top.offer.price)}원 · 남음 {Math.max(0, top.offer.allotment - top.offer.filled)}</p>
+        </div>
+      )}
+      {top && !top.offer && (
+        <div className={styles.topPick}>
+          <span className="eyebrow">비중 1위</span>
+          <h3>오늘은 품절이라 빵장에 없습니다</h3>
+          <p>들어오면 여기서 먼저 보입니다.</p>
+        </div>
+      )}
+
+      <ul className={styles.pfList}>
+        {rows.map(row => {
+          const share = Math.round((row.qty / total) * 100);
+          const name = row.offer?.product.name ?? `상품 #${row.no}`;
+          return (
+            <li key={row.no} className={styles.pfRow}>
+              <span className={styles.thumb}>
+                <ProductPhoto productNo={row.no} name={name} />
+              </span>
+              <span className={styles.pfName}>
+                <b>{name}</b>
+                <span>{row.offer ? `오늘 ${won(row.offer.price)}원 · −${won(row.offer.saved)}원` : '오늘 품절'}</span>
+              </span>
+              <span className={styles.pfShare}>
+                <i style={{ width: `${share}%` }} />
+                <b>{share}%</b>
+              </span>
+              <span className={styles.pfCtl}>
+                <button type="button" onClick={() => remove(row.no)} aria-label="비중 줄이기">−</button>
+                <b>{row.qty}</b>
+                <button type="button" onClick={() => add(row.no)} aria-label="비중 늘리기">+</button>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className={styles.hint}>
+        비중은 담은 수로 정합니다. 브라우저에만 저장되고 서버로 가지 않습니다.
+        <b> 알림 발송은 다음 단계</b> — 지금은 여기서 확인합니다.
+      </p>
+    </>
+  );
+}

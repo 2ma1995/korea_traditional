@@ -94,6 +94,10 @@ function cacheOption(tick: boolean) {
 interface YahooQuote extends Quote {
   /** 기간 내 종가. 빈 값(휴장)은 걸러낸다 */
   series: number[];
+  /** series와 같은 길이의 epoch(초). 차트 툴팁의 날짜에 쓴다 */
+  timestamps: number[];
+  /** Yahoo가 주는 기간 직전 종가. 첫 점의 등락률 계산에 쓴다 */
+  chartPreviousClose: number | null;
 }
 
 async function fetchYahoo(symbol: string, tick = false, range = '5d', interval = '1d'): Promise<YahooQuote | null> {
@@ -113,10 +117,14 @@ async function fetchYahoo(symbol: string, tick = false, range = '5d', interval =
     const changePct = meta?.regularMarketChangePercent;
     if (typeof value !== 'number' || typeof changePct !== 'number') return null;
 
-    const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-    const series = Array.isArray(closes)
-      ? closes.filter((n: unknown): n is number => typeof n === 'number' && Number.isFinite(n))
-      : [];
+    const closes: unknown[] = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? [];
+    const stamps: unknown[] = json?.chart?.result?.[0]?.timestamp ?? [];
+    /* 종가와 시각을 짝으로 걸러야 한다 — 따로 걸러내면 휴장·결측에서 어긋난다 */
+    const series: number[] = [], timestamps: number[] = [];
+    closes.forEach((c, i) => {
+      if (typeof c === 'number' && Number.isFinite(c)) { series.push(c); timestamps.push(Number(stamps[i]) || 0); }
+    });
+    const cpc = meta?.chartPreviousClose;
 
     const t = meta?.regularMarketTime;
     return {
@@ -125,6 +133,8 @@ async function fetchYahoo(symbol: string, tick = false, range = '5d', interval =
       live: true,
       updatedAt: typeof t === 'number' ? t * 1000 : null,
       series,
+      timestamps,
+      chartPreviousClose: typeof cpc === 'number' ? cpc : null,
     };
   } catch {
     return null;
@@ -367,4 +377,32 @@ export function seoulDateString(at: Date = new Date()): string {
     day: '2-digit',
   }).format(at);
   return parts; // en-CA는 YYYY-MM-DD로 준다
+}
+
+/* ------------------------------------------------------------------ */
+/* 코스피 기간 차트 — 1일 · 1개월 · 1년                                 */
+/* ------------------------------------------------------------------ */
+
+export type KospiRange = '1d' | '1mo' | '1y';
+export interface HistoryPoint { t: number; v: number }
+export interface KospiHistory { points: HistoryPoint[]; prevClose: number | null }
+
+const HIST_TTL_MS: Record<KospiRange, number> = { '1d': 5_000, '1mo': 60_000, '1y': 300_000 };
+const HIST_ARGS: Record<KospiRange, [string, string]> = { '1d': ['1d', '5m'], '1mo': ['1mo', '1d'], '1y': ['1y', '1d'] };
+const histCache = new Map<KospiRange, { at: number; data: KospiHistory | null }>();
+
+/**
+ * 기간별 코스피 종가 + 시각. 차트의 1일/1개월/1년 탭이 쓴다.
+ * 점을 누르면 그날 등락률로 "그날이었다면 내 관심빵이 얼마였을지"를 보여주는 데 쓴다.
+ */
+export async function fetchKospiHistory(range: KospiRange): Promise<KospiHistory | null> {
+  const hit = histCache.get(range);
+  if (hit && Date.now() - hit.at < HIST_TTL_MS[range]) return hit.data;
+  const [r, interval] = HIST_ARGS[range];
+  const raw = await fetchYahoo('^KS11', true, r, interval);
+  const data: KospiHistory | null = raw
+    ? { points: raw.series.map((v, i) => ({ t: raw.timestamps[i], v })), prevClose: raw.chartPreviousClose }
+    : null;
+  histCache.set(range, { at: Date.now(), data });
+  return data;
 }

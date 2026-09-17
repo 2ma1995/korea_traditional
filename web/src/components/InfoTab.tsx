@@ -1,63 +1,54 @@
 'use client';
 
-import type { DiscountTier } from '@/data/indicators';
-import { CLOSE_HOUR, OPEN_HOUR, type MarketHours } from '@/lib/orderbook';
-import styles from './Terminal.module.css';
+import type { TodayMarket } from '@/lib/offers';
+import { CLOSE_HOUR, OPEN_HOUR } from '@/lib/orderbook';
+import styles from './Tabs.module.css';
 
 /**
- * 정보 탭 — 증권 앱의 종목정보 자리.
- * 오늘 가격이 어떻게 정해졌는지, 코스피 기준값, 규칙, 공식몰 링크.
+ * 정보 탭 — 오늘 가격이 어떻게 정해졌는지, 그리고 양쪽이 얻는 것.
+ *
+ * 현직자: "이 프로젝트는 구매 유저 + 사업자 둘 다가 유저다. 1팀은 사업자 베네핏
+ * 설득이 없었다 — '우리가 왜 할인을 줘야 하나'에 답이 없었다." 그 답을 화면에 둔다.
  */
-
-interface Props {
-  kospi: number;
-  kospiLive: boolean;
-  changePct: number;
-  absChangePct: number;
-  tier: DiscountTier;
-  hours: MarketHours;
-}
-
-export default function InfoTab({ kospi, kospiLive, changePct, absChangePct, tier, hours }: Props) {
+export default function InfoTab({ today }: { today: TodayMarket }) {
+  const pct = Math.round(today.rate * 100);
   return (
     <>
       <div className={styles.gauge}>
         <div>
           <span>오늘의 코스피</span>
-          <strong>{kospi.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-          <small>{changePct >= 0 ? `+${changePct.toFixed(2)}%` : `${changePct.toFixed(2)}%`} 전일 대비{kospiLive ? '' : ' · 샘플 값'}</small>
+          <strong>{today.kospi.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+          <small>{today.changePct >= 0 ? `+${today.changePct.toFixed(2)}%` : `${today.changePct.toFixed(2)}%`} 전일 대비{today.kospiLive ? '' : ' · 샘플 값'}</small>
         </div>
         <div>
           <span>오늘 변동폭</span>
-          <strong>{absChangePct.toFixed(2)}%</strong>
-          <small>{tier.label} · 방향 아닌 크기</small>
+          <strong>{today.absChangePct.toFixed(2)}%</strong>
+          <small>{today.tier.label} · 크기가 폭을 정합니다</small>
         </div>
         <div>
-          <span>오늘 정산 한도</span>
-          <strong data-down="true">−{Math.round(tier.rate * 100)}%</strong>
-          <small>변동폭 {tier.minAbsChange}% 이상 구간</small>
+          <span>오늘의 기분</span>
+          <strong data-down={today.mood.side === 'loss'}>{today.mood.title}</strong>
+          <small>{today.mood.en} · 방향이 기분을 정합니다</small>
         </div>
       </div>
 
       <ol className={styles.rules}>
-        <li><b>15:30</b> 주식장 마감 — 오늘 KOSPI가 <b>{absChangePct.toFixed(2)}%</b> 움직였습니다</li>
-        <li>움직인 크기가 <b>{tier.label}</b> 구간이라 정산 한도가 <b>정가 −{Math.round(tier.rate * 100)}%</b>까지 열렸습니다</li>
-        <li>그 한도 안에서 <b>오늘 내 종목</b>이 내 자리를 정합니다 — 내렸으면 위로가, 올랐으면 자축가. 종목은 <b>09:00 전에</b> 고르고 바꿀 수 없습니다</li>
-        <li><b>{OPEN_HOUR}:00</b> 개장 — 싼데 적은 <b>내 자리</b>와 덜 싼데 많은 <b>위 칸</b> 중 어디서 살지는 내가 고릅니다. 못 잡으면 다음날 우선권</li>
+        <li><b>15:30</b> 국장 마감 — 오늘 KOSPI가 <b>{today.absChangePct.toFixed(2)}%</b> 움직였습니다</li>
+        <li>움직인 크기가 <b>{today.tier.label}</b> 구간이라 오늘 폭은 <b>−{pct}%</b>. 크게 움직인 날일수록 폭이 큽니다</li>
+        <li>오르면 <b>자축가</b>(Celebrate), 내리면 <b>위로가</b>(Comfort). 시장이 어떻게 움직여도 빵장에선 즐거운 일이 생깁니다</li>
+        <li><b>{OPEN_HOUR}:00</b> 개장 — 오늘의 빵을 한정 수량으로. 오늘 살지, 관심에 담고 다음에 살지는 내가 정합니다</li>
       </ol>
 
-      <p className={styles.note}>
-        시장은 오르든 내리든 같은 규칙입니다. 시장이 정하는 것은 <b>오늘 얼마나 크게 정산할 수 있는지</b>까지이고,
-        그 안에서 어디에 앉을지는 내 종목이, 어디서 살지는 내 선택이 정합니다.
-        빵장은 {OPEN_HOUR}:00–{CLOSE_HOUR}:00에 열리고, 주식시장이 쉬는 날은 빵장도 쉽니다.
-      </p>
+      <dl className={styles.ipoRules}>
+        <div><dt>손님이 얻는 것</dt><dd>매일 다른 폭·다른 기분. 내 관심 빵이 언제 가장 싼지 보입니다. 공모주로 다음 빵을 내가 정합니다</dd></div>
+        <div><dt>기업이 얻는 것</dt><dd>변동성 큰 날은 소비가 위축되는 날(한국은행·KCI) — <b>안 팔릴 날 재고를 돕니다.</b> 한정 수량으로 할인 총액에 상한. 공모주로 출시 전 수요를 봅니다</dd></div>
+        <div><dt>요구사항</dt><dd>금융시장 데이터(KOSPI)가 가격 변경 기준 ✓ · 최대 할인 38% 상한 ✓ · 카페24 판매가 변경 연동 ✓</dd></div>
+      </dl>
 
-      {hours.reason === 'test' && (
-        <p className={styles.warn}>
-          지금은 <b>테스트를 위해 24시간 열어두었습니다.</b> 원래는 {OPEN_HOUR}:00–{CLOSE_HOUR}:00에만 열립니다.
-          가격별 한정 수량은 아직 코드 기본값이며, 체결가 적용(쿠폰)은 기업 확인 중입니다.
-        </p>
-      )}
+      <p className={styles.note}>
+        빵장은 {OPEN_HOUR}:00–{CLOSE_HOUR}:00에 열리고, 주식시장이 쉬는 날은 빵장도 쉽니다.
+        {today.hours.reason === 'test' && <> 지금은 <b>테스트를 위해 24시간</b> 열어두었습니다.</>}
+      </p>
 
       <a className={styles.shopLink} href="https://makji.kr/product/list.html?cate_no=24" target="_blank" rel="noopener noreferrer">
         정가로 바로 사기 — 막지 공식몰 <span aria-hidden="true">↗</span>
