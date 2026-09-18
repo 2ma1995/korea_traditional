@@ -17,7 +17,10 @@ import { PRODUCTS } from '@/data/products';
  */
 
 /** 원 단위 절사 — 화면에 쓰는 규칙과 같아야 한다. */
-const floorTo10 = (won: number) => Math.floor(won / 10) * 10;
+/* 10원 단위 절사. Math.round를 먼저 거치는 이유 — 21000 * (1 - 0.3)이 IEEE754에서
+   14699.999999999998이 되어 그냥 내리면 14,690원이 된다. 30% 할인인데 10원이 더
+   깎인 값이다. 90개 조합 중 8개에서 이렇게 어긋났다. */
+const floorTo10 = (won: number) => Math.floor(Math.round(won) / 10) * 10;
 
 interface Item { productNo: number; rate: number }
 

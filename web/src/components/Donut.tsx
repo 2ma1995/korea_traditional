@@ -21,8 +21,10 @@ const R = 44, C = 2 * Math.PI * R;
 export const PALETTE = ['#2d493d', '#a34835', '#8d7955', '#2b5f8a', '#6b8f71', '#c98b5e'];
 
 export default function Donut({ slices, onPick }: { slices: Slice[]; onPick?: (productNo: number) => void }) {
-  const [hover, setHover] = useState<number | null>(null);
-  const active = slices.find(s => s.no === hover) ?? null;
+  /* 어디에 올렸는지까지 기억한다 — 조각을 밝히는 건 범례에서도 하지만,
+     말풍선은 도넛 위에 올렸을 때만 띄운다. 범례 옆에 뜨면 목록을 가린다 */
+  const [hover, setHover] = useState<{ no: number; arc: boolean } | null>(null);
+  const active = hover ? slices.find(s => s.no === hover.no) ?? null : null;
   /* 각 조각의 시작 위치를 미리 계산한다 — 렌더 중 변수 재할당은 React가 막는다 */
   const arcs = slices.reduce<{ s: Slice; len: number; offset: number }[]>((acc, s) => {
     const len = (s.share / 100) * C;
@@ -36,10 +38,10 @@ export default function Donut({ slices, onPick }: { slices: Slice[]; onPick?: (p
         <svg viewBox="0 0 120 120" className={styles.donut} role="img" aria-label="내 관심빵 구성비">
           <circle cx="60" cy="60" r={R} className={styles.donutTrack} />
           {arcs.map(({ s, len, offset }, i) => (
-            <circle key={s.no} cx="60" cy="60" r={R} className={styles.donutSeg} data-today={s.today} data-hover={hover === s.no}
+            <circle key={s.no} cx="60" cy="60" r={R} className={styles.donutSeg} data-today={s.today} data-hover={hover?.no === s.no}
               data-clickable={Boolean(onPick) && s.today}
               strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-offset} style={{ stroke: PALETTE[i % PALETTE.length] }}
-              onMouseEnter={() => setHover(s.no)} onMouseLeave={() => setHover(null)}
+              onMouseEnter={() => setHover({ no: s.no, arc: true })} onMouseLeave={() => setHover(null)}
               onClick={() => { if (s.today) onPick?.(s.no); }} />
           ))}
         </svg>
@@ -47,7 +49,7 @@ export default function Donut({ slices, onPick }: { slices: Slice[]; onPick?: (p
           <span>MY<br />PORTFOLIO</span>
           <b>관심빵 {slices.length}종</b>
         </div>
-        {active && (
+        {active && hover?.arc && (
           <div className={styles.tip} role="tooltip">
             <b>{active.emoji} {active.name}</b>
             <span>내 관심 비중 {active.share}%</span>
@@ -57,7 +59,7 @@ export default function Donut({ slices, onPick }: { slices: Slice[]; onPick?: (p
       </div>
       <ul className={styles.legend}>
         {slices.map((s, i) => (
-          <li key={s.no} data-today={s.today} onMouseEnter={() => setHover(s.no)} onMouseLeave={() => setHover(null)}>
+          <li key={s.no} data-today={s.today} onMouseEnter={() => setHover({ no: s.no, arc: false })} onMouseLeave={() => setHover(null)}>
             <i style={{ background: PALETTE[i % PALETTE.length] }} />
             {onPick && s.today
               ? <button type="button" className={styles.legendPick} onClick={() => onPick(s.no)}>{s.emoji} {s.name}</button>

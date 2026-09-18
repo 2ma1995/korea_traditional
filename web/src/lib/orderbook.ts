@@ -67,7 +67,10 @@ export interface MarketHours {
 }
 
 /** 10원 단위 절사 — 카페24에 반영하는 금액과 화면 금액을 맞춘다. */
-const floorTo10 = (won: number) => Math.floor(won / 10) * 10;
+/* 10원 단위 절사. Math.round를 먼저 거치는 이유 — 21000 * (1 - 0.3)이 IEEE754에서
+   14699.999999999998이 되어 그냥 내리면 14,690원이 된다. 30% 할인인데 10원이 더
+   깎인 값이다. 90개 조합 중 8개에서 이렇게 어긋났다. */
+const floorTo10 = (won: number) => Math.floor(Math.round(won) / 10) * 10;
 
 /** KST 기준 시/분/요일. 서버가 UTC라 직접 환산한다. */
 function seoulParts(at: Date) {
