@@ -255,6 +255,11 @@ p.callout { cursor: default; }
 .count small { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; }
 .openNow { font-size: 18px !important; color: var(--dancheong); }
 
+/* 규칙 한 줄 — 결과(오늘 몇 %) 아래에 규칙을 못 박는다.
+   첫 방문자가 세 초 안에 "무슨 서비스인지" 알아야 하는 자리다 */
+.rule { margin-top: 14px; padding: 9px 12px; border: 1px dashed var(--line); border-radius: 10px; background: var(--paper); font-size: 12.5px; line-height: 1.5; color: var(--muted); word-break: keep-all; }
+.rule b { color: var(--ink); font-weight: 700; }
+
 /* ══ TODAY — TOP 3 카드 ═════════════════════════════════════ */
 .top3 { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .topCard { display: grid; gap: 4px; width: 100%; text-align: left; font: inherit; color: var(--ink); background: var(--background); border: 0; border-radius: 14px; padding: 14px; cursor: pointer; position: relative; transition: transform .15s ease, background .15s ease; }

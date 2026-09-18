@@ -6,6 +6,7 @@ import { fetchKospiHistory, getMarketSnapshot } from '@/lib/market';
 import { buildToday } from '@/lib/offers';
 import { OPEN_AT } from '@/lib/orderbook';
 import { loadTiers } from '@/lib/settings';
+import { loadSkuSignals } from '@/lib/skuSignals';
 import { applyStock, fetchStock } from '@/lib/stock';
 
 /**
@@ -15,16 +16,17 @@ import { applyStock, fetchStock } from '@/lib/stock';
  */
 export default async function BreadMarketPage() {
   const now = new Date();
-  const [market, tiers, filled, intraday, stock] = await Promise.all([
+  const [market, tiers, filled, intraday, stock, signals] = await Promise.all([
     getMarketSnapshot(now),
     loadTiers(),
     loadFilled(now),
     fetchKospiHistory('1d'),
     fetchStock(),
+    loadSkuSignals(now),
   ]);
   /* 재고는 자사몰에서 받아온다 — products.ts의 값은 마지막 안전망이다.
      손으로 적어둔 값이 열흘 묵어 생지를 품절로 걸러낸 적이 있다. */
-  const today = buildToday(market, tiers, filled, now, applyStock(PRODUCTS, stock));
+  const today = buildToday(market, tiers, filled, now, applyStock(PRODUCTS, stock), signals);
 
   /* 대문이 뭐라고 말할지 — Market.tsx의 phase와 같은 규칙이다.
      거기는 폴링한 marketOpen을, 여기는 서버 스냅샷을 쓴다. 문이 열려 있는

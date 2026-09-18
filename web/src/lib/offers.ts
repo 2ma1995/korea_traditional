@@ -1,4 +1,5 @@
 import { DOWN_MARKET_BONUS, MAX_DISCOUNT_RATE, type DiscountTier } from '@/data/indicators';
+import { demandBonusFor, inventoryBonusFor, skuRateFor, type SkuSignals } from '@/lib/skuAdjust';
 import { PRODUCTS, type Product } from '@/data/products';
 import type { MarketSnapshot } from '@/lib/market';
 import { depthFor, marketHours, type FilledLookup, type MarketHours } from '@/lib/orderbook';
@@ -19,14 +20,17 @@ import { depthFor, marketHours, type FilledLookup, type MarketHours } from '@/li
  *   20:00  빵장 개장 — 오늘의 빵을 한정 수량으로. 산다 / 다음에 산다(관심)
  *
  * 폭은 전 상품 동일이다. 현직자: "모든 상품 할인율이 동일하다면 할인율 대신
- * 할인 금액을 보여라." 라인(국내산 쌀 / 달콤)으로 가르는 건 LINE_MODE 하나로 켠다 —
- * 지금은 재고 있는 상품이 5종뿐이라 라인으로 가르면 하루에 2~3종만 남는다.
+ * 할인 금액을 보여라." 라인(글루텐프리 / 달콤)으로 가르는 건 LINE_MODE 하나로 켠다 —
+ * 지금은 재고 있는 상품이 6종뿐이라 라인으로 가르면 하루에 2~4종만 남는다.
+ * 원산지("국내산 쌀")로는 가르지 않는다 — 쌀가루가 국내산이 아니다(products.ts 주석).
  */
 
 /** 오늘 각 빵의 한정 수량. 기업 협의 값 — 관리자 입력 화면은 다음 단계 */
 export const DAILY_ALLOTMENT = 30;
 
-/** 'all' = 전 상품 같은 폭 · 'line' = 오르면 글루텐프리(쌀) 라인, 내리면 달콤 라인 */
+/** 'all' = 전 상품 같은 폭 · 'line' = 오르면 글루텐프리(담백) 라인, 내리면 달콤 라인.
+ *  라인 분기의 근거는 Garg·Wansink·Inman (2007) — 슬플 때 hedonic food 섭취가 늘고
+ *  기쁠 때 덜 hedonic한 것이 늘어난다. 원산지가 아니라 감정이 기준이다. */
 export const LINE_MODE: 'all' | 'line' = 'all';
 
 /** 이 안쪽은 보합으로 본다 */
@@ -48,6 +52,12 @@ export interface Mood {
 
 export interface TodayOffer {
   product: Product;
+  /** 이 빵의 오늘 폭 — 시장 기본 + 하락장 + 수요 + 재고 */
+  rate: number;
+  /** 수요 보정분 (0 · 0.02 · 0.03) */
+  demandBonus: number;
+  /** 재고 보정분 (0 · 0.01 · 0.02) */
+  inventoryBonus: number;
   /** 오늘 가격 (10원 절사) */
   price: number;
   /** 정가 − 오늘 가격 */
@@ -113,8 +123,8 @@ export function rateFor(changePct: number, tiers: DiscountTier[]) {
 /**
  * 상품 배지 — "왜 이 빵인가"를 상품 자체가 말한다.
  *
- * 현직자가 "국내산 쌀 사용" 배지를 말했지만, products.ts 주석대로 쌀가루 사용은
- * 제품별 원재료 확인이 먼저다. 확인된 것만 쓴다 — 글루텐프리 표기와 설탕 무첨가.
+ * 현직자가 "국내산 쌀 사용" 배지를 말했지만 달지 않는다 — 2026-09-18 원재료 표기
+ * 전수 확인 결과 쌀가루가 국내산이 아니다. 확인된 것만 쓴다 — 글루텐프리 표기와 설탕 무첨가.
  */
 export function badgesFor(product: Product): string[] {
   const badges: string[] = [];
@@ -137,6 +147,7 @@ export function buildToday(
   filledFor: FilledLookup = () => 0,
   at: Date = new Date(),
   products: Product[] = PRODUCTS,
+  signals: SkuSignals = {},
 ): TodayMarket {
   const absChangePct = Math.abs(market.kospi.changePct);
   const mood = moodFor(market.kospi.changePct);
@@ -145,13 +156,22 @@ export function buildToday(
   const offers = products
     .filter(product => product.inStock && inTodayLine(product, mood.side))
     .map<TodayOffer>(product => {
-      const { price, saved } = priceAt(product.price, rate);
+      /* 여기서 빵마다 폭이 갈린다. 신호가 없으면 보정이 0이라 전 상품 같은 폭이다 */
+      const signal = signals[product.productNo];
+      const demandBonus = demandBonusFor(signal);
+      const inventoryBonus = inventoryBonusFor(signal);
+      const skuRate = skuRateFor({ base, down: bonus, demand: demandBonus, inventory: inventoryBonus });
+      const { price, saved } = priceAt(product.price, skuRate);
       return {
         product,
+        rate: skuRate,
+        demandBonus,
+        inventoryBonus,
         price,
         saved,
         allotment: DAILY_ALLOTMENT,
-        filled: filledFor(product.productNo, rate),
+        /* 체결은 폭으로 구분된다 — 그 빵의 폭으로 세야 잔량이 맞는다 */
+        filled: filledFor(product.productNo, skuRate),
         badges: badgesFor(product),
       };
     })

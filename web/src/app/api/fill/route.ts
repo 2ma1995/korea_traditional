@@ -3,6 +3,8 @@ import { PRODUCTS } from '@/data/products';
 import { getMarketSnapshot } from '@/lib/market';
 import { marketHours } from '@/lib/orderbook';
 import { DAILY_ALLOTMENT, rateFor } from '@/lib/offers';
+import { demandBonusFor, inventoryBonusFor, skuRateFor } from '@/lib/skuAdjust';
+import { loadSkuSignals } from '@/lib/skuSignals';
 import { loadTiers } from '@/lib/settings';
 import { fetchStock } from '@/lib/stock';
 import { loadFilledCounts, tryFill } from '@/lib/fills';
@@ -45,12 +47,21 @@ export async function POST(request: Request) {
   const stock = await fetchStock();
   if (!(stock.map[productNo] ?? product.inStock)) return bad('품절 상품입니다.', 409);
 
-  const [market, tiers] = await Promise.all([getMarketSnapshot(now), loadTiers()]);
+  const [market, tiers, signals] = await Promise.all([getMarketSnapshot(now), loadTiers(), loadSkuSignals(now)]);
   /* 오늘 폭 하나만 받는다. 호가 사다리는 접었다 — 폭이 다르면 오늘 것이 아니다.
      하락장 보정까지 포함한 최종 폭이어야 한다. 화면은 rateFor로 그리는데 여기서
      구간 기본값만 비교하면, 내린 날 화면 가격으로 누른 예약이 전부 튕긴다. */
   const today = rateFor(market.kospi.changePct, tiers);
-  if (Math.abs(depth - today.rate) > 1e-9) return bad('오늘 폭이 아닙니다.', 409);
+  /* 폭은 이제 빵마다 다르다. 전체 공통값으로 비교하면 수요·재고 보정이 붙은
+     빵을 화면 가격으로 누른 예약이 전부 튕긴다 */
+  const signal = signals[productNo];
+  const skuRate = skuRateFor({
+    base: today.base,
+    down: today.bonus,
+    demand: demandBonusFor(signal),
+    inventory: inventoryBonusFor(signal),
+  });
+  if (Math.abs(depth - skuRate) > 1e-9) return bad('오늘 폭이 아닙니다.', 409);
 
   const quantity = DAILY_ALLOTMENT;
 

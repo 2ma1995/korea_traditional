@@ -11,6 +11,7 @@ import Portfolio from '@/components/Portfolio';
 import ProductPhoto from '@/components/ProductPhoto';
 import type { DiscountTier } from '@/data/indicators';
 import { moodFor, priceAt, rateFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
+import { withSkuBonus } from '@/lib/skuAdjust';
 import { OPEN_AT } from '@/lib/orderbook';
 import { qtyOf, usePortfolio, useStableHoldings } from '@/lib/portfolioStore';
 import { useKospiLive, type Point } from '@/lib/useKospiLive';
@@ -94,7 +95,12 @@ export default function Market({ today, points, kospi, tiers }: Props) {
   const openAt = OPEN_AT;
 
   /* 표시 가격은 실시간 폭으로. 실제 예약은 서버 확정 폭(today.rate)으로 간다 */
-  const offers: TodayOffer[] = today.offers.map(o => ({ ...o, ...priceAt(o.product.price, rate) }));
+  /* 장중 '지금 기준 예상'도 빵마다 갈린다 — 서버가 계산한 SKU 보정을 실시간 폭 위에 얹는다.
+     o.rate(서버 확정 폭)는 그대로 둔다. 예약과 잔량 조회가 그 값을 키로 쓴다 */
+  const offers: TodayOffer[] = today.offers.map(o => ({
+    ...o,
+    ...priceAt(o.product.price, withSkuBonus(rate, o.demandBonus, o.inventoryBonus)),
+  }));
 
   const base = points.length < 2 ? 0 : DRAW_MS + 150;
   const reveal = (step: number) => ({ ['--d' as string]: `${base + step * 90}ms` });
@@ -114,7 +120,7 @@ export default function Market({ today, points, kospi, tiers }: Props) {
     return () => { alive = false; clearInterval(timer); };
   }, [today.hours.open]);
 
-  const filledOf = (o: TodayOffer) => filled[key(o.product.productNo, today.rate)] ?? o.filled;
+  const filledOf = (o: TodayOffer) => filled[key(o.product.productNo, o.rate)] ?? o.filled;
   const remainingOf = (o: TodayOffer) => Math.max(0, o.allotment - filledOf(o));
 
   /** 한 종을 예약한다. 성공 여부를 돌려준다 — 포트폴리오 일괄 구매가 결과를 센다 */
@@ -122,11 +128,11 @@ export default function Market({ today, points, kospi, tiers }: Props) {
     const no = offer.product.productNo;
     setBids(prev => ({ ...prev, [no]: { status: 'busy', slot: null } }));
     try {
-      const res = await fetch('/api/fill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productNo: no, depth: today.rate }) });
+      const res = await fetch('/api/fill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productNo: no, depth: offer.rate }) });
       const json = await res.json();
       if (!json?.ok) throw new Error(json?.error ?? '실패');
       setBids(prev => ({ ...prev, [no]: { status: json.filled ? 'filled' : 'missed', slot: json.slot ?? null } }));
-      setFilled(prev => ({ ...prev, [key(no, today.rate)]: (json.quantity ?? offer.allotment) - (json.remaining ?? 0) }));
+      setFilled(prev => ({ ...prev, [key(no, offer.rate)]: (json.quantity ?? offer.allotment) - (json.remaining ?? 0) }));
       return Boolean(json.filled);
     } catch {
       setBids(prev => ({ ...prev, [no]: { status: 'missed', slot: null } }));

@@ -39,7 +39,7 @@ function tierFor(changePct: number, tiers: DiscountTier[]) {
  * 상승 → 글루텐프리 라인 (밀가루를 쓰지 않은 6종)
  * 하락 → 그 외 라인 (글루텐프리 표기가 없는 4종)
  *
- * 코스피는 원가 지표가 아니라 응원 지표다. 양방향 모두 할인이므로
+ * 코스피는 원가 지표가 아니라 수요 지표다. 양방향 모두 할인이므로
  * 소비자가 손해 보는 경우가 구조적으로 없다.
  */
 export function buildDailyPlan(
