@@ -4,6 +4,7 @@ import { PRODUCTS } from '@/data/products';
 import { loadFilled } from '@/lib/fills';
 import { fetchKospiHistory, getMarketSnapshot } from '@/lib/market';
 import { buildToday } from '@/lib/offers';
+import { OPEN_HOUR } from '@/lib/orderbook';
 import { loadTiers } from '@/lib/settings';
 
 /**
@@ -21,9 +22,24 @@ export default async function BreadMarketPage() {
   ]);
   const today = buildToday(market, tiers, filled, now, PRODUCTS);
 
+  /* 대문이 뭐라고 말할지 — Market.tsx의 phase와 같은 규칙이다.
+     거기는 폴링한 marketOpen을, 여기는 서버 스냅샷을 쓴다. 문이 열려 있는
+     3.4초 사이에 장이 닫히는 경계는 무시해도 되는 오차다. */
+  const introPhase = market.kospiMarketOpen
+    ? 'live'
+    : today.hours.open ? 'open'
+    : today.hours.reason === 'before' ? 'locked'
+    : 'closed';
+
   return (
     <main id="main-content">
-      <MarketIntro theme={today.mood.theme} changePct={today.changePct}>
+      <MarketIntro
+        phase={introPhase}
+        theme={today.mood.theme}
+        changePct={today.changePct}
+        rate={today.rate}
+        openAt={`${String(OPEN_HOUR).padStart(2, '0')}:00`}
+      >
       <Market
         today={today}
         tiers={tiers}
