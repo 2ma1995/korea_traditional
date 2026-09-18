@@ -297,15 +297,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         </section>
       )}
 
-      {/* ══ NEXT — 다음에 나올 빵 ══
-           탭이 아니라 여기다. 오늘 살 것을 다 본 사람에게 다음 질문이 이어진다:
-           MARKET(지금 국장) → TODAY(오늘 살 빵) → NEXT(다음에 나올 빵) → MY(내 것) */}
-      <section id="next" className={`${styles.card} ${styles.reveal}`} style={reveal(6)} aria-label="다음 절기빵 공모">
-        <IpoTab round={round} view={ipo} onChange={setIpo} />
-      </section>
-
       {/* ══ MY ══ */}
-      <section id="foryou" className={`${styles.card} ${styles.reveal}`} style={reveal(7)} aria-label="내 빵 포트폴리오">
+      <section id="foryou" className={`${styles.card} ${styles.reveal}`} style={reveal(6)} aria-label="내 빵 포트폴리오">
         <div className={styles.eyebrowRow}><span className={styles.eyebrow}>♡ MY BREAD PORTFOLIO</span>{pfTotal > 0 && <span className={styles.theme}>관심빵 {entries.length}종{hits.length > 0 && ` · 오늘 ${hits.length}종 할인`}</span>}</div>
 
         {actions === 0 ? (
@@ -327,6 +320,14 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
             {pfOpen && <div className={styles.pop}><Portfolio offers={offers} entries={entries} onBuyAll={buyAll} bulk={bulk} onPick={openFromPortfolio} /></div>}
           </>
         )}
+      </section>
+
+      {/* ══ NEXT — 다음에 나올 빵 ══
+           내 것을 다 본 사람에게 마지막 질문이 이어진다:
+           MARKET(지금 국장) → TODAY(오늘 살 빵) → MY(내 것) → NEXT(다음에 나올 빵)
+           탭이 아니라 스크롤 순서 안에 둔다 — 탭으로 빼면 처음 온 사람은 영영 못 본다. */}
+      <section id="next" className={`${styles.card} ${styles.reveal}`} style={reveal(7)} aria-label="다음 절기빵 공모">
+        <IpoTab round={round} view={ipo} onChange={setIpo} />
       </section>
 
       <p className={`${styles.fine} ${styles.reveal}`} style={reveal(8)}>
