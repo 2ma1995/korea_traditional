@@ -10,8 +10,8 @@ import OfferSheet, { type Bid } from '@/components/OfferSheet';
 import Portfolio from '@/components/Portfolio';
 import ProductPhoto from '@/components/ProductPhoto';
 import type { DiscountTier } from '@/data/indicators';
-import { moodFor, priceAt, type TodayMarket, type TodayOffer } from '@/lib/offers';
-import { depthFor, OPEN_HOUR } from '@/lib/orderbook';
+import { moodFor, priceAt, rateFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
+import { OPEN_HOUR } from '@/lib/orderbook';
 import { qtyOf, usePortfolio, useStableHoldings } from '@/lib/portfolioStore';
 import { useKospiLive, type Point } from '@/lib/useKospiLive';
 import styles from './Market.module.css';
@@ -85,7 +85,8 @@ export default function Market({ today, points, kospi, tiers }: Props) {
   /* ── KOSPI 상태 → 아래로 전파 ── */
   const liveOn = k.marketOpen === true;
   const mood = moodFor(k.changePct);
-  const rate = depthFor(Math.abs(k.changePct), tiers).rate;         // 장중엔 '지금 기준 예상'
+  const live = rateFor(k.changePct, tiers);                         // 장중엔 '지금 기준 예상'
+  const rate = live.rate;
   const test = today.hours.reason === 'test';
   const phase: Phase = liveOn ? 'live' : today.hours.open ? 'open' : today.hours.reason === 'before' ? 'locked' : 'closed';
   const canBuy = today.hours.open && (phase !== 'live' || test);
@@ -184,14 +185,14 @@ export default function Market({ today, points, kospi, tiers }: Props) {
      없으면 빵을 보여주지 않고 "알림받기로 담아라" 안내만 한다 */
   const watched = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o)).slice(0, 3);
   const chartBreads = watched.map(o => ({ no: o.product.productNo, name: o.product.name, emoji: EMOJI[o.product.productNo] ?? '🍞', listPrice: o.product.price }));
-  const tierLabel = depthFor(Math.abs(k.changePct), tiers).label;
+  const tierLabel = live.tier.label;
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
     <div className={styles.page} data-side={mood.side}>
       {/* ══ MARKET ══ */}
-      <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} />
+      <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} base={live.base} bonus={live.bonus} />
 
       {/* ══ TODAY ══ */}
       <section id="today" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="오늘의 할인 빵">

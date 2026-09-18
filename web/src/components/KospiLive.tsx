@@ -25,6 +25,10 @@ interface Props {
   k: Live;
   mood: Mood;
   rate: number;
+  /** 구간 기본 폭 — 하락장 보정 전 */
+  base: number;
+  /** 하락 마감이라 얹은 폭. 0이면 이유 줄에 안 쓴다 */
+  bonus: number;
   phase: Phase;
   openAt: string;
   tiers: DiscountTier[];
@@ -70,7 +74,11 @@ function useCountdown(target: (kst: Date) => Date, on: boolean) {
   return on ? left : null;
 }
 
-export default function KospiLive({ k, mood, rate, phase, openAt, tiers, breads, noWatch, tierLabel }: Props) {
+export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, tiers, breads, noWatch, tierLabel }: Props) {
+  /* 내린 날은 "구간 20% + 하락장 3%p"로 쪼개 보여준다 — 23%가 어디서 왔는지 */
+  const why = bonus > 0
+    ? <>{tierLabel} {Math.round(base * 100)}% <b className={styles.down}>+ 하락장 {Math.round(bonus * 100)}%p</b></>
+    : <>{tierLabel}</>;
   const [oh, om] = openAt.split(':').map(Number);
   const toClose = useCountdown(atToday(15, 30), phase === 'live');
   const toOpen = useCountdown(atToday(oh, om), phase === 'locked');
@@ -162,7 +170,7 @@ export default function KospiLive({ k, mood, rate, phase, openAt, tiers, breads,
           <div className={styles.verdictPop}>
             <span className={styles.eyebrow}>지금 마감한다면</span>
             <h1>모든 빵 <b>{Math.round(rate * 100)}%</b> 할인</h1>
-            <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {tierLabel} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
+            <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {why} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
           </div>
         </div>
       ) : (
@@ -170,7 +178,7 @@ export default function KospiLive({ k, mood, rate, phase, openAt, tiers, breads,
           <div>
             <span className={styles.eyebrow}>오늘은 {k.changePct > 0 ? '상승' : k.changePct < 0 ? '하락' : '보합'} 마감<span className={styles.stamp}>확정 ✓</span></span>
             <h1>오늘 모든 빵 <b>{Math.round(rate * 100)}%</b> 할인</h1>
-            <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {tierLabel} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
+            <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {why} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
           </div>
         </div>
       )}

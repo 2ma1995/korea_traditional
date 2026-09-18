@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { DiscountTier } from '@/data/indicators';
-import { moodFor, priceAt } from '@/lib/offers';
-import { depthFor } from '@/lib/orderbook';
+import { moodFor, priceAt, rateFor } from '@/lib/offers';
 import type { KospiLive as Live } from '@/lib/useKospiLive';
 import styles from './Market.module.css';
 
@@ -98,7 +97,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
     return base ? ((points[i].v / base) - 1) * 100 : 0;
   };
   /** 빵을 고르면 지수 대신 그 빵의 그날 가격을 그린다 */
-  const valueAt = (i: number) => view ? priceAt(view.listPrice, depthFor(Math.abs(pctOf(i)), tiers).rate).price : points[i].v;
+  const valueAt = (i: number) => view ? priceAt(view.listPrice, rateFor(pctOf(i), tiers).rate).price : points[i].v;
   const vals = points.map((_, i) => valueAt(i));
   const guide = view ? view.listPrice : prevClose;   // 빵이면 정가선, 지수면 어제 종가선
   const showGuide = Boolean(guide) && (view !== null || range === '1d');
@@ -124,7 +123,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
   const pctAt = pctOf;
   const active = pinned ?? hover;
   const tip = active !== null && points[active] ? (() => {
-    const p = points[active]; const pct = pctAt(active); const mood = moodFor(pct); const rate = depthFor(Math.abs(pct), tiers).rate;
+    const p = points[active]; const pct = pctAt(active); const mood = moodFor(pct); const rate = rateFor(pct, tiers).rate;
     const list = view ? [view, ...breads.filter(b => b.no !== view.no)] : breads;
     const rows = noWatch && !view ? [] : list.map(b => ({ ...b, ...priceAt(b.listPrice, rate) }));
     /* 마지막 봉은 종가다 — 15:00봉이지만 담고 있는 값은 15:30 마감가 */

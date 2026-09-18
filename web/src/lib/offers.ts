@@ -1,4 +1,4 @@
-import type { DiscountTier } from '@/data/indicators';
+import { DOWN_MARKET_BONUS, MAX_DISCOUNT_RATE, type DiscountTier } from '@/data/indicators';
 import { PRODUCTS, type Product } from '@/data/products';
 import type { MarketSnapshot } from '@/lib/market';
 import { depthFor, marketHours, type FilledLookup, type MarketHours } from '@/lib/orderbook';
@@ -66,8 +66,12 @@ export interface TodayMarket {
   changePct: number;
   absChangePct: number;
   tier: DiscountTier;
-  /** 오늘 폭 (0.1 = 10%) */
+  /** 오늘 폭 (0.1 = 10%) — 구간 기본 + 하락장 보정을 합친 최종값 */
   rate: number;
+  /** 구간 기본 폭 (보정 전) */
+  baseRate: number;
+  /** 하락 마감이라 더 얹은 폭. 0이면 보정 없음 */
+  bonusRate: number;
   mood: Mood;
   hours: MarketHours;
   /** 재고 있는 빵, 할인 금액 큰 순 */
@@ -90,6 +94,20 @@ export function moodFor(changePct: number): Mood {
   return changePct > 0
     ? { side: 'gain', title: '자축가', en: 'Celebrate', copy: '오르는 날엔 빵값도 내립니다. 함께 축하해요.', theme: '🌾 함께 축하하기' }
     : { side: 'loss', title: '위로가', en: 'Comfort', copy: '쓸쓸한 마감, 달콤하게 마무리해요. 주식이 우울해도 빵은 살 수 있어요.', theme: '🍰 달달하게 녹이기' };
+}
+
+/**
+ * 오늘 폭 = 구간 기본 + 하락장 보정.
+ *
+ * 히어로·카드·차트·서버 체결 검증이 전부 이 함수 하나를 쓴다. 한쪽만 보정을 넣으면
+ * 화면 가격으로 누른 예약이 서버에서 "오늘 폭이 아닙니다"로 튕긴다.
+ */
+export function rateFor(changePct: number, tiers: DiscountTier[]) {
+  const tier = depthFor(Math.abs(changePct), tiers);
+  const wanted = tier.rate + (moodFor(changePct).side === 'loss' ? DOWN_MARKET_BONUS : 0);
+  const rate = Math.min(MAX_DISCOUNT_RATE, wanted);
+  /* 상한에 걸려 깎였으면 실제로 얹힌 만큼만 보정으로 표시한다 */
+  return { tier, base: tier.rate, bonus: rate - tier.rate, rate };
 }
 
 /**
@@ -121,9 +139,8 @@ export function buildToday(
   products: Product[] = PRODUCTS,
 ): TodayMarket {
   const absChangePct = Math.abs(market.kospi.changePct);
-  const tier = depthFor(absChangePct, tiers);
   const mood = moodFor(market.kospi.changePct);
-  const rate = tier.rate;
+  const { tier, base, bonus, rate } = rateFor(market.kospi.changePct, tiers);
 
   const offers = products
     .filter(product => product.inStock && inTodayLine(product, mood.side))
@@ -148,6 +165,8 @@ export function buildToday(
     absChangePct,
     tier,
     rate,
+    baseRate: base,
+    bonusRate: bonus,
     mood,
     hours: marketHours(at),
     offers,

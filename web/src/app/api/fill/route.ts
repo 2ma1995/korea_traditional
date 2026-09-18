@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { PRODUCTS } from '@/data/products';
 import { getMarketSnapshot } from '@/lib/market';
-import { depthFor, marketHours } from '@/lib/orderbook';
-import { DAILY_ALLOTMENT } from '@/lib/offers';
+import { marketHours } from '@/lib/orderbook';
+import { DAILY_ALLOTMENT, rateFor } from '@/lib/offers';
 import { loadTiers } from '@/lib/settings';
 import { loadFilledCounts, tryFill } from '@/lib/fills';
 
@@ -42,8 +42,10 @@ export async function POST(request: Request) {
   if (!marketHours(now).open) return bad('지금은 빵장이 닫혀 있습니다.', 409);
 
   const [market, tiers] = await Promise.all([getMarketSnapshot(now), loadTiers()]);
-  /* 오늘 폭 하나만 받는다. 호가 사다리는 접었다 — 폭이 다르면 오늘 것이 아니다 */
-  const today = depthFor(Math.abs(market.kospi.changePct), tiers);
+  /* 오늘 폭 하나만 받는다. 호가 사다리는 접었다 — 폭이 다르면 오늘 것이 아니다.
+     하락장 보정까지 포함한 최종 폭이어야 한다. 화면은 rateFor로 그리는데 여기서
+     구간 기본값만 비교하면, 내린 날 화면 가격으로 누른 예약이 전부 튕긴다. */
+  const today = rateFor(market.kospi.changePct, tiers);
   if (Math.abs(depth - today.rate) > 1e-9) return bad('오늘 폭이 아닙니다.', 409);
 
   const quantity = DAILY_ALLOTMENT;

@@ -28,13 +28,16 @@ export default function InfoTab({ today }: { today: TodayMarket }) {
         <div>
           <span>오늘의 기분</span>
           <strong data-down={today.mood.side === 'loss'}>{today.mood.title}</strong>
-          <small>{today.mood.en} · 방향이 기분을 정합니다</small>
+          <small>{today.mood.en} · 방향이 기분을 정합니다{today.bonusRate > 0 && <> · 하락 +{Math.round(today.bonusRate * 100)}%p</>}</small>
         </div>
       </div>
 
       <ol className={styles.rules}>
         <li><b>15:30</b> 국장 마감 — 오늘 KOSPI가 <b>{today.absChangePct.toFixed(2)}%</b> 움직였습니다</li>
         <li>움직인 크기가 <b>{today.tier.label}</b> 구간이라 오늘 폭은 <b>−{pct}%</b>. 크게 움직인 날일수록 폭이 큽니다</li>
+        {today.bonusRate > 0 && (
+          <li><b>하락 마감</b>이라 위로 몫을 더 얹습니다 — 기본 <b>{Math.round(today.baseRate * 100)}%</b> + 하락장 <b>{Math.round(today.bonusRate * 100)}%p</b> = <b>−{pct}%</b> (상한 38%)</li>
+        )}
         <li>오르면 <b>자축가</b>(Celebrate), 내리면 <b>위로가</b>(Comfort). 시장이 어떻게 움직여도 빵장에선 즐거운 일이 생깁니다</li>
         <li><b>{OPEN_HOUR}:00</b> 개장 — 오늘의 빵을 한정 수량으로. 오늘 살지, 관심에 담고 다음에 살지는 내가 정합니다</li>
       </ol>
