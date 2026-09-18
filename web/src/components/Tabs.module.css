@@ -248,6 +248,12 @@ button.buy:disabled { background: #cfd2c3; border-color: #cfd2c3; opacity: 1; cu
 .ipoClose strong { display: block; font-size: 26px; font-weight: 600; margin-top: 6px; color: var(--up); }
 .ipoClose small { display: block; font-size: 11px; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
 
+/* 청약권 상태 한 줄. 잠겨 있을 때(왜 못 하는지)와 열렸을 때(지금 할 수 있다)를
+   같은 자리에서 말한다 — 버튼에만 적어두면 왜 잠겼는지 모른다 */
+.ipoGate { font-size: 12.5px; line-height: 1.7; margin-top: 12px; padding: 9px 13px; border-radius: 10px; background: var(--paper); border: 1px dashed var(--line); color: var(--muted); word-break: keep-all; }
+.ipoGate b { color: var(--ink); font-weight: 700; }
+.ipoGate[data-open='true'] { background: #f4efe0; border-style: solid; border-color: var(--dancheong); color: var(--ink); }
+
 .ipoList { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 8px; }
 .ipoCard { background: var(--background); border-radius: 14px; padding: 16px 18px; display: grid; gap: 12px; }
 .ipoCard[data-leader='true'] { background: #f4efe0; }

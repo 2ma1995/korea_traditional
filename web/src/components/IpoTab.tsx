@@ -9,9 +9,12 @@ import styles from './Tabs.module.css';
 /**
  * NEXT — 다음에 나올 빵 공모.
  *
- * 탭이 아니라 스크롤 순서 안의 한 섹션이다. MARKET → TODAY → NEXT → MY 로
+ * 탭이 아니라 스크롤 순서 안의 한 섹션이다. MARKET → TODAY → MY → NEXT 로
  * 시간 순서가 곧 화면 순서가 된다. 별도 탭으로 빼면 처음 온 사람은 영영 못 본다 —
  * 지난번에 화면에서 뺀 이유가 그것이었다.
+ *
+ * 구매 체결 순간이 여기로 오는 유일한 전환 시점이다. 그 자리(OfferSheet)에서
+ * "청약권 1장이 생겼어요"로 데려오고, 헤더에도 NEXT를 두었다.
  *
  * 회차는 두 모드다(lib/ipo).
  *   재상장 공모   품절 상품 중 무엇을 먼저 다시 들여올지   연 20회
@@ -86,6 +89,14 @@ export default function IpoTab({ round, view, onChange }: Props) {
               ? '지금 품절인 빵 중에서 고릅니다. 1위가 먼저 다시 들어옵니다.'
               : <>{round.month}월 {round.day}일 · {round.termKo} 무렵 <b>{round.ingredients.join(' · ')}</b>이 제맛입니다.</>}
             <br />셋 중 하나에 청약하세요. 절기 당일 경쟁률 1위가 상장됩니다.
+          </p>
+          {/* 구매 전에도 규칙을 먼저 알려준다 — 버튼에만 적어두면 왜 잠겼는지 모른다 */}
+          <p className={styles.ipoGate} data-open={view.canBid || Boolean(mine)}>
+            {mine
+              ? <><b>오늘 청약 완료.</b> 다음 절기에 또 한 장 받습니다.</>
+              : view.canBid
+                ? <><b>청약권 1장 있어요.</b> 지금 한 후보에 걸 수 있습니다.</>
+                : <><b>오늘 빵을 사면 청약권 1장</b>이 생깁니다. 사는 사람이 다음 빵을 정합니다.</>}
           </p>
         </div>
         <div className={styles.ipoClose}>

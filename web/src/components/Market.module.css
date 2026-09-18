@@ -134,6 +134,13 @@
 .why dd i { color: var(--muted); font-style: normal; }
 .sheetStock { font-size: 13px; color: var(--muted); margin-top: 14px; }
 .sheetStock b { color: var(--ink); font-weight: 600; }
+/* 구매 체결 → 공모로 넘기는 전환 버튼.
+   체결된 그 순간이 유일한 전환 시점이라, 안내가 아니라 누를 것으로 둔다 */
+.toNext { display: grid; gap: 3px; width: 100%; text-align: left; font: inherit; margin-top: 10px; padding: 13px 16px; border: 0; border-radius: 12px; background: var(--dancheong); color: #fdfbf6; cursor: pointer; transition: transform .15s ease, filter .15s ease; }
+.toNext:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.toNext b { font-size: 14px; font-weight: 700; }
+.toNext small { font-size: 11.5px; opacity: .85; word-break: keep-all; }
+
 .sheetNote { font-size: 13px; line-height: 1.8; margin-top: 12px; padding: 10px 14px; background: var(--background); border-radius: 12px; word-break: keep-all; }
 .sheetNote b { font-weight: 700; }
 .sheetNote a { color: var(--down); border-bottom: 1px solid currentColor; }

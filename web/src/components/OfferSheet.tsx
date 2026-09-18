@@ -34,6 +34,15 @@ interface Props {
    *   'qty'   — 내 포트폴리오에서 열었을 때. 이미 담은 빵이니 개수를 조절한다
    */
   left: 'watch' | 'qty';
+  /**
+   * 공모 청약권을 아직 쓰지 않았는가.
+   *
+   * 구매가 체결된 그 순간이 공모로 넘어가는 유일한 전환 시점이다. 그 자리에서
+   * 안내하지 않으면 청약권을 얻은 사실을 아무도 모른 채 자사몰로 나가버린다.
+   */
+  canBid: boolean;
+  /** 시트를 닫고 NEXT 섹션으로 데려간다 */
+  onNext: () => void;
   onBuy: () => void;
   /** 스테퍼 — 목표 수량으로 맞춘다 */
   onQty: (qty: number) => void;
@@ -43,7 +52,7 @@ interface Props {
 const won = (n: number) => n.toLocaleString('ko-KR');
 const shopUrl = (no: number) => `https://makji.kr/product/detail.html?product_no=${no}`;
 
-export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, left, onBuy, onQty, onClose }: Props) {
+export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, left, canBid, onNext, onBuy, onQty, onClose }: Props) {
   const pct = Math.round(rate * 100);
   const up = changePct >= 0;
 
@@ -90,11 +99,19 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
         </p>
 
         {bid?.status === 'filled' && (
-          <p className={styles.sheetNote}>
-            <b>예약됐습니다 · {bid.slot}번째.</b>{' '}
-            <a href={shopUrl(offer.product.productNo)} target="_blank" rel="noopener noreferrer">자사몰에서 결제하기 ↗</a>
-            <br />오늘 가격 적용은 쿠폰이 필요해 기업 확인 중입니다.
-          </p>
+          <>
+            <p className={styles.sheetNote}>
+              <b>예약됐습니다 · {bid.slot}번째.</b>{' '}
+              <a href={shopUrl(offer.product.productNo)} target="_blank" rel="noopener noreferrer">자사몰에서 결제하기 ↗</a>
+              <br />오늘 가격 적용은 쿠폰이 필요해 기업 확인 중입니다.
+            </p>
+            {canBid && (
+              <button type="button" className={styles.toNext} onClick={onNext}>
+                <b>🗳 청약권 1장이 생겼어요</b>
+                <small>다음에 나올 빵을 내가 고를 수 있습니다 <span aria-hidden="true">→</span></small>
+              </button>
+            )}
+          </>
         )}
         {bid?.status === 'missed' && (
           <p className={styles.sheetNote}><b>한발 늦었어요.</b> 오늘 이 빵은 다 나갔습니다. ♡에 담아두면 내일 먼저 보입니다.</p>

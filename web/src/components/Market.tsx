@@ -344,6 +344,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           qty={Math.max(1, qtyOf(portfolio, selectedOffer.product.productNo))}
           canBuy={canBuy} lockNote={lockNote}
           left={sheetFrom === 'portfolio' ? 'qty' : 'watch'}
+          canBid={ipo.canBid && !ipo.bidFor}
+          onNext={() => { setSelected(null); scrollTo('next'); }}
           onBuy={() => buyPicked(selectedOffer)} onQty={next => setQty(selectedOffer.product.productNo, next)} onClose={() => setSelected(null)} />
       )}
     </div>

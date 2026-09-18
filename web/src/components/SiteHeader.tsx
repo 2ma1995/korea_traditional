@@ -17,6 +17,7 @@ const links = [
   { href: '/season', label: '절기' },
   { href: '/archive', label: '스물네 절기' },
   { href: '/#foryou', label: 'MY' },
+  { href: '/#next', label: 'NEXT' },
 ];
 
 export default function SiteHeader() {
