@@ -145,7 +145,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       const res = await fetch('/api/fill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productNo: no, depth: offer.rate }) });
       const json = await res.json();
       if (!json?.ok) throw new Error(json?.error ?? '실패');
-      setBids(prev => ({ ...prev, [no]: { status: json.filled ? 'filled' : 'missed', slot: json.slot ?? null } }));
+      setBids(prev => ({ ...prev, [no]: { status: json.filled ? 'filled' : 'missed', slot: json.slot ?? null, stored: json.stored } }));
       setFilled(prev => ({ ...prev, [key(no, offer.rate)]: (json.quantity ?? offer.allotment) - (json.remaining ?? 0) }));
       /* 구매가 체결되면 서버가 공모 청약권을 발급한다(lib/bidRight).
          아직 오늘 청약하지 않았다면 NEXT의 버튼이 지금 열린다 */

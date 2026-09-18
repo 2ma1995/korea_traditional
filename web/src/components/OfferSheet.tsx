@@ -12,7 +12,12 @@ import styles from './Market.module.css';
  * 관심(알림)에 담아둔 수량이 곧 살 개수다 — 버튼에 개수와 그만큼의 총액을 적고,
  * 구매를 누르면 그 수량만큼 예약한다. 담아두지 않았으면 1개로 본다.
  */
-export interface Bid { status: 'busy' | 'filled' | 'missed'; slot: number | null }
+export interface Bid {
+  status: 'busy' | 'filled' | 'missed';
+  slot: number | null;
+  /** 저장소에 남았는가. false면 이번 서버 세션 메모리에만 있다 — 화면에 밝힌다 */
+  stored?: boolean;
+}
 
 interface Props {
   offer: TodayOffer;
@@ -104,6 +109,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
               <b>예약됐습니다 · {bid.slot}번째.</b>{' '}
               <a href={shopUrl(offer.product.productNo)} target="_blank" rel="noopener noreferrer">자사몰에서 결제하기 ↗</a>
               <br />오늘 가격 적용은 쿠폰이 필요해 기업 확인 중입니다.
+              {bid.stored === false && <><br />⚠️ 저장소가 연결되지 않아 이번 서버 세션의 메모리에만 기록됩니다.</>}
             </p>
             {canBid && (
               <button type="button" className={styles.toNext} onClick={onNext}>
