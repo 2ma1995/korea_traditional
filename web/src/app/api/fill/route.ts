@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { grantBidRight } from '@/lib/bidRight';
 import { PRODUCTS } from '@/data/products';
 import { getMarketSnapshot } from '@/lib/market';
 import { marketHours } from '@/lib/orderbook';
@@ -67,6 +68,8 @@ export async function POST(request: Request) {
 
   try {
     const result = await tryFill(productNo, depth, quantity, now);
+    /* 오늘 산 사람에게 공모 청약권 한 장. 구매가 증거금 역할을 한다 (lib/bidRight) */
+    await grantBidRight(now);
     return NextResponse.json({ ok: true as const, ...result, quantity }, { headers: NO_STORE });
   } catch (err) {
     return bad(err instanceof Error ? err.message : '체결 처리에 실패했습니다.', 500);

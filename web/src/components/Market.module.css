@@ -95,7 +95,9 @@
 .pfList { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .pfRow { display: grid; grid-template-columns: 44px 1fr 120px auto; gap: 12px; align-items: center; padding: 8px 4px; }
 .pfRow .thumb { width: 44px; height: 44px; border-radius: 10px; }
-.pfName b { display: block; font-size: 14px; font-weight: 600; }
+/* 이름 칸(1fr)이 grid 기본 min-width:auto라 긴 이름이 행을 밀어내 오른쪽 수량 조절이 잘렸다 */
+.pfName { min-width: 0; }
+.pfName b { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pfName span { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
 .pfShare { position: relative; height: 18px; background: var(--background); border-radius: 999px; overflow: hidden; }
 .pfShare i { position: absolute; inset: 0 auto 0 0; background: var(--dancheong); opacity: .5; }
@@ -278,7 +280,10 @@ p.callout { cursor: default; }
 /* ══ MY — 도넛 · 빈 상태 · 생성 중 · 적중 카드 ═══════════════ */
 .sub { font-size: 13px; color: var(--muted); margin: -4px 0 12px; }
 .donutWrap { display: grid; grid-template-columns: 200px 1fr; gap: 20px; align-items: center; }
-.donutBox { position: relative; width: 200px; height: 200px; }
+/* z-index가 있어야 한다. 아래 .pop이 animation(transform)으로 쌓임 맥락을 만들어
+   z-index:0으로 잡히는데, 도넛이 z-index:auto면 DOM 순서상 .pop이 위에 그려져
+   도넛 밖으로 내려온 말풍선의 아랫부분을 덮었다 */
+.donutBox { position: relative; z-index: 2; width: 200px; height: 200px; }
 .donut { width: 100%; height: 100%; transform: rotate(-90deg); }
 .donutTrack { fill: none; stroke: var(--background); stroke-width: 16; }
 .donutSeg { fill: none; stroke-width: 16; opacity: .45; transition: opacity .2s ease, stroke-width .2s ease; cursor: pointer; }
@@ -287,7 +292,7 @@ p.callout { cursor: default; }
 .donutCenter { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
 .donutCenter span { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--muted); line-height: 1.5; }
 .donutCenter b { font-size: 14px; font-weight: 700; margin-top: 6px; }
-.tip { position: absolute; left: 50%; bottom: -8px; transform: translate(-50%, 100%); background: var(--ink); color: var(--paper); border-radius: 10px; padding: 8px 12px; font-size: 12px; display: grid; gap: 2px; white-space: nowrap; z-index: 2; }
+.tip { position: absolute; left: 50%; bottom: -8px; transform: translate(-50%, 100%); background: var(--ink); color: var(--paper); border-radius: 10px; padding: 8px 12px; font-size: 12px; display: grid; gap: 2px; white-space: nowrap; z-index: 3; }
 .tip b { font-size: 13px; }
 .legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .legend li { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: center; font-size: 14px; cursor: default; }
@@ -508,7 +513,8 @@ p.callout { cursor: default; }
 .legendPick, .pfNameBtn { font: inherit; background: none; border: 0; padding: 0; text-align: left; color: var(--ink); cursor: pointer; }
 .legendPick em, .pfNameBtn em { font-style: normal; color: #b8b5a6; }
 .legendPick:hover, .pfNameBtn:hover { color: var(--dancheong); }
-.pfNameBtn b { font-size: 14px; font-weight: 600; }
+.pfNameBtn { min-width: 0; max-width: 100%; }
+.pfNameBtn b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 종목 / 기간 라벨 + 버튼 줄 */
 .tabLine { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

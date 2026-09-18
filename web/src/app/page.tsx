@@ -6,6 +6,8 @@ import { fetchKospiHistory, getMarketSnapshot } from '@/lib/market';
 import { buildToday } from '@/lib/offers';
 import { OPEN_AT } from '@/lib/orderbook';
 import { loadTiers } from '@/lib/settings';
+import { bidState } from '@/lib/bidRight';
+import { currentRound, loadIpoCounts } from '@/lib/ipo';
 import { loadSkuSignals } from '@/lib/skuSignals';
 import { applyStock, fetchStock } from '@/lib/stock';
 
@@ -26,7 +28,13 @@ export default async function BreadMarketPage() {
   ]);
   /* 재고는 자사몰에서 받아온다 — products.ts의 값은 마지막 안전망이다.
      손으로 적어둔 값이 열흘 묵어 생지를 품절로 걸러낸 적이 있다. */
-  const today = buildToday(market, tiers, filled, now, applyStock(PRODUCTS, stock), signals);
+  const products = applyStock(PRODUCTS, stock);
+  const today = buildToday(market, tiers, filled, now, products, signals);
+
+  /* 이번 공모 회차. 평소엔 품절 상품 재입고 공모, 이분이지엔 절기 신제품 공모다.
+     후보가 재고에서 나오므로 재고를 받은 뒤에 세운다 (lib/ipo) */
+  const round = currentRound(now, products.filter(product => !product.inStock));
+  const [ipoCounts, mine] = await Promise.all([loadIpoCounts(round), bidState(now)]);
 
   /* 대문이 뭐라고 말할지 — Market.tsx의 phase와 같은 규칙이다.
      거기는 폴링한 marketOpen을, 여기는 서버 스냅샷을 쓴다. 문이 열려 있는
@@ -49,6 +57,8 @@ export default async function BreadMarketPage() {
       <Market
         today={today}
         tiers={tiers}
+        round={round}
+        ipo={{ ...ipoCounts, ...mine }}
         points={intraday?.points ?? []}
         kospi={{ value: market.kospi.value, changePct: market.kospi.changePct, live: market.kospi.live, marketOpen: market.kospiMarketOpen }}
       />

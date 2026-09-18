@@ -28,6 +28,12 @@ interface Props {
   qty: number;
   canBuy: boolean;
   lockNote: string;
+  /**
+   * 왼쪽 버튼이 무엇이 되는가.
+   *   'watch' — 오늘의 할인 빵에서 열었을 때. 아직 안 담은 빵이니 먼저 담게 한다
+   *   'qty'   — 내 포트폴리오에서 열었을 때. 이미 담은 빵이니 개수를 조절한다
+   */
+  left: 'watch' | 'qty';
   onBuy: () => void;
   /** 스테퍼 — 목표 수량으로 맞춘다 */
   onQty: (qty: number) => void;
@@ -37,7 +43,7 @@ interface Props {
 const won = (n: number) => n.toLocaleString('ko-KR');
 const shopUrl = (no: number) => `https://makji.kr/product/detail.html?product_no=${no}`;
 
-export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, onBuy, onQty, onClose }: Props) {
+export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, left, onBuy, onQty, onClose }: Props) {
   const pct = Math.round(rate * 100);
   const up = changePct >= 0;
 
@@ -95,11 +101,18 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
         )}
 
         <div className={styles.sheetActions}>
-          <div className={styles.stepper}>
-            <button type="button" onClick={() => onQty(qty - 1)} disabled={qty <= 1} aria-label="개수 줄이기">−</button>
-            <b aria-live="polite">{qty}개</b>
-            <button type="button" onClick={() => onQty(qty + 1)} disabled={qty >= remaining} aria-label="개수 늘리기">+</button>
-          </div>
+          {left === 'qty' ? (
+            <div className={styles.stepper}>
+              <button type="button" onClick={() => onQty(qty - 1)} disabled={qty <= 1} aria-label="개수 줄이기">−</button>
+              <b aria-live="polite">{qty}개</b>
+              <button type="button" onClick={() => onQty(qty + 1)} disabled={qty >= remaining} aria-label="개수 늘리기">+</button>
+            </div>
+          ) : (
+            <button type="button" className={styles.ghost} aria-pressed={watching > 0}
+              onClick={() => onQty(watching > 0 ? 0 : 1)}>
+              {watching > 0 ? '♥ 관심 담김' : '♡ 관심 담기'}
+            </button>
+          )}
           <button type="button" className={styles.primary}
             disabled={!canBuy || remaining <= 0 || bid?.status === 'busy' || bid?.status === 'filled'} onClick={onBuy}>
             {bid?.status === 'busy' ? '예약 중…' : bid?.status === 'filled' ? '예약 완료' : !canBuy ? lockNote : remaining <= 0 ? '오늘 물량 끝'

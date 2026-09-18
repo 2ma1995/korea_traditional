@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import Donut, { type Slice } from '@/components/Donut';
 import Flip from '@/components/Flip';
 import InfoTab from '@/components/InfoTab';
+import IpoTab, { type IpoView } from '@/components/IpoTab';
 import KospiLive, { DRAW_MS, type Phase } from '@/components/KospiLive';
 import type { KospiView } from '@/components/KospiQuote';
 import OfferSheet, { type Bid } from '@/components/OfferSheet';
 import Portfolio from '@/components/Portfolio';
 import ProductPhoto from '@/components/ProductPhoto';
 import type { DiscountTier } from '@/data/indicators';
+import type { IpoRound } from '@/lib/ipo';
 import { moodFor, priceAt, rateFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
 import { withSkuBonus } from '@/lib/skuAdjust';
 import { OPEN_AT } from '@/lib/orderbook';
@@ -34,6 +36,9 @@ interface Props {
   points: Point[];
   kospi: KospiView;
   tiers: DiscountTier[];
+  /** 이번 공모 회차 — 서버가 오늘 날짜와 품절 목록으로 정한다 */
+  round: IpoRound;
+  ipo: IpoView;
 }
 
 type Sort = 'popular' | 'watched';
@@ -71,17 +76,22 @@ function RollingPrice({ from, to, delay }: { from: number; to: number; delay: nu
   return <Flip value={won(v)} />;
 }
 
-export default function Market({ today, points, kospi, tiers }: Props) {
+export default function Market({ today, points, kospi, tiers, round, ipo: initialIpo }: Props) {
   const k = useKospiLive({ value: kospi.value, changePct: kospi.changePct, marketOpen: kospi.marketOpen, live: kospi.live, points });
   const [filled, setFilled] = useState<Record<string, number>>({});
   const [bids, setBids] = useState<Record<number, Bid>>({});
   const [sort, setSort] = useState<Sort>('popular');
   const [selected, setSelected] = useState<number | null>(null);
+  /* 시트 왼쪽 버튼이 갈린다 — 할인 목록에서 열면 '관심 담기', 포트폴리오에서 열면 개수 조절 */
+  const [sheetFrom, setSheetFrom] = useState<'list' | 'portfolio'>('list');
+  const openFromList = (no: number) => { setSheetFrom('list'); setSelected(no); };
+  const openFromPortfolio = (no: number) => { setSheetFrom('portfolio'); setSelected(no); };
   const [bulk, setBulk] = useState<{ busy: boolean; done: number; missed: number } | null>(null);
   const [showSoldOut, setShowSoldOut] = useState(false);
   const [pfOpen, setPfOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const { portfolio, setQty } = usePortfolio();
+  const [ipo, setIpo] = useState(initialIpo);
 
   /* ── KOSPI 상태 → 아래로 전파 ── */
   const liveOn = k.marketOpen === true;
@@ -104,6 +114,10 @@ export default function Market({ today, points, kospi, tiers }: Props) {
 
   const base = points.length < 2 ? 0 : DRAW_MS + 150;
   const reveal = (step: number) => ({ ['--d' as string]: `${base + step * 90}ms` });
+  /* 등장 애니메이션 지연은 상품마다 고정한다.
+     정렬 순서(i)로 주면 인기순↔관심순을 오갈 때 --d가 바뀌고, .reveal의 기본값이
+     opacity:0이라 이미 끝난 애니메이션이 '시작 전'으로 되돌아가 카드가 깜빡였다. */
+  const revealOrder = new Map(today.offers.map((o, idx) => [o.product.productNo, idx]));
 
   useEffect(() => {
     if (!today.hours.open) return;
@@ -133,6 +147,9 @@ export default function Market({ today, points, kospi, tiers }: Props) {
       if (!json?.ok) throw new Error(json?.error ?? '실패');
       setBids(prev => ({ ...prev, [no]: { status: json.filled ? 'filled' : 'missed', slot: json.slot ?? null } }));
       setFilled(prev => ({ ...prev, [key(no, offer.rate)]: (json.quantity ?? offer.allotment) - (json.remaining ?? 0) }));
+      /* 구매가 체결되면 서버가 공모 청약권을 발급한다(lib/bidRight).
+         아직 오늘 청약하지 않았다면 NEXT의 버튼이 지금 열린다 */
+      if (json.filled) setIpo(prev => (prev.bidFor ? prev : { ...prev, canBid: true }));
       return Boolean(json.filled);
     } catch {
       setBids(prev => ({ ...prev, [no]: { status: 'missed', slot: null } }));
@@ -216,8 +233,8 @@ export default function Market({ today, points, kospi, tiers }: Props) {
             const no = o.product.productNo, remaining = remainingOf(o), n = qtyOf(portfolio, no);
             const ranked = sort === 'popular' ? filledOf(o) > 0 : n > 0;
             return (
-              <li key={no} className={`${styles.reveal} ${styles.cell}`} style={reveal(1 + i)}>
-                <button type="button" className={styles.topCard} style={{ ['--ph' as string]: `${i * 5}s` }} onClick={() => setSelected(no)}>
+              <li key={no} className={`${styles.reveal} ${styles.cell}`} style={reveal(1 + (revealOrder.get(no) ?? i))}>
+                <button type="button" className={styles.topCard} style={{ ['--ph' as string]: `${i * 5}s` }} onClick={() => openFromList(no)}>
                   {ranked && i < 3 && <span className={styles.medal}>{MEDAL[i]}</span>}
                   <span className={styles.topPhoto}><ProductPhoto productNo={no} name={o.product.name} /></span>
                   <b>{o.product.name}</b>
@@ -280,8 +297,15 @@ export default function Market({ today, points, kospi, tiers }: Props) {
         </section>
       )}
 
+      {/* ══ NEXT — 다음에 나올 빵 ══
+           탭이 아니라 여기다. 오늘 살 것을 다 본 사람에게 다음 질문이 이어진다:
+           MARKET(지금 국장) → TODAY(오늘 살 빵) → NEXT(다음에 나올 빵) → MY(내 것) */}
+      <section id="next" className={`${styles.card} ${styles.reveal}`} style={reveal(6)} aria-label="다음 절기빵 공모">
+        <IpoTab round={round} view={ipo} onChange={setIpo} />
+      </section>
+
       {/* ══ MY ══ */}
-      <section id="foryou" className={`${styles.card} ${styles.reveal}`} style={reveal(6)} aria-label="내 빵 포트폴리오">
+      <section id="foryou" className={`${styles.card} ${styles.reveal}`} style={reveal(7)} aria-label="내 빵 포트폴리오">
         <div className={styles.eyebrowRow}><span className={styles.eyebrow}>♡ MY BREAD PORTFOLIO</span>{pfTotal > 0 && <span className={styles.theme}>관심빵 {entries.length}종{hits.length > 0 && ` · 오늘 ${hits.length}종 할인`}</span>}</div>
 
         {actions === 0 ? (
@@ -298,9 +322,9 @@ export default function Market({ today, points, kospi, tiers }: Props) {
         ) : (
           <>
             <p className={styles.sub}>내가 관심을 보인 빵으로 만든 포트폴리오</p>
-            <Donut slices={slices} onPick={setSelected} />
+            <Donut slices={slices} onPick={openFromPortfolio} />
             <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen}>내 포트폴리오 {pfOpen ? '접기 ▴' : '→'}</button>
-            {pfOpen && <div className={styles.pop}><Portfolio offers={offers} entries={entries} onBuyAll={buyAll} bulk={bulk} onPick={setSelected} /></div>}
+            {pfOpen && <div className={styles.pop}><Portfolio offers={offers} entries={entries} onBuyAll={buyAll} bulk={bulk} onPick={openFromPortfolio} /></div>}
           </>
         )}
       </section>
@@ -318,6 +342,7 @@ export default function Market({ today, points, kospi, tiers }: Props) {
           remaining={remainingOf(selectedOffer)} bid={bids[selectedOffer.product.productNo]} watching={qtyOf(portfolio, selectedOffer.product.productNo)}
           qty={Math.max(1, qtyOf(portfolio, selectedOffer.product.productNo))}
           canBuy={canBuy} lockNote={lockNote}
+          left={sheetFrom === 'portfolio' ? 'qty' : 'watch'}
           onBuy={() => buyPicked(selectedOffer)} onQty={next => setQty(selectedOffer.product.productNo, next)} onClose={() => setSelected(null)} />
       )}
     </div>

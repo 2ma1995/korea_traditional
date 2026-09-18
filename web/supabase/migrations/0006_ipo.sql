@@ -26,3 +26,8 @@ grant all privileges on all tables in schema public to service_role;
 grant all privileges on all sequences in schema public to service_role;
 
 alter table ipo_bids enable row level security;
+
+-- 2026-09-18 재설계 — 회차 모드를 남긴다.
+-- 'restock'(품절 상품 재입고 공모) / 'new'(절기 신제품 공모).
+-- 나중에 "어느 쪽 참여가 높았나"를 답할 수 있어야 다음 회차 구성의 근거가 된다.
+alter table ipo_bids add column if not exists mode text;

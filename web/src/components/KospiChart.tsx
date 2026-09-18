@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import type { DiscountTier } from '@/data/indicators';
 import { moodFor, priceAt, rateFor } from '@/lib/offers';
 import type { KospiLive as Live } from '@/lib/useKospiLive';
@@ -133,6 +133,21 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
     return { p, pct, mood, rate, rows, label, xPct: (x(active) / W) * 100 };
   })() : null;
 
+  /* 툴팁이 차트 밖으로 나가면 화면 끝에서 잘린다. 그려진 뒤 실제 크기를 재서
+     차트 안으로 밀어 넣는다 — nowrap이라 관심빵이 많을수록 가로로 길어진다 */
+  const tipRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const box = tipRef.current, wrap = boxRef.current;
+    if (!box || !wrap) return;
+    box.style.marginLeft = '0px';
+    const b = box.getBoundingClientRect(), w = wrap.getBoundingClientRect();
+    let dx = 0;
+    if (b.right > w.right - 4) dx = w.right - 4 - b.right;
+    if (b.left + dx < w.left + 4) dx = w.left + 4 - b.left;
+    if (dx) box.style.marginLeft = `${dx}px`;
+  });
+
   const idxFromEvent = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = svgRef.current?.getBoundingClientRect(); if (!rect || !has) return null;
     const xr = ((e.clientX - rect.left) / rect.width) * W;
@@ -189,7 +204,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
       </div>
 
       {has ? (
-        <div className={styles.chartBox}>
+        <div ref={boxRef} className={styles.chartBox}>
           <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className={styles.chart} aria-hidden="true"
             onPointerMove={e => setHover(idxFromEvent(e))} onPointerLeave={() => setHover(null)}
             onClick={e => { const i = idxFromEvent(e as unknown as React.PointerEvent<SVGSVGElement>); setPinned(prev => (prev === i ? null : i)); }}>
@@ -226,7 +241,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
           </svg>
 
           {tip && (
-            <div className={styles.tipBox} style={{ left: `${tip.xPct}%` }} data-flip={tip.xPct > 62} role="status">
+            <div ref={tipRef} className={styles.tipBox} style={{ left: `${tip.xPct}%` }} data-flip={tip.xPct > 62} role="status">
               <b>{tip.label}</b>
               <span>{view ? '코스피' : '시세'} <strong>{fmt(tip.p.v)}</strong> <em className={tip.pct >= 0 ? styles.up : styles.down}>{tip.pct >= 0 ? '▲' : '▼'} {Math.abs(tip.pct).toFixed(2)}%</em></span>
               {tip.rows.length > 0 && (

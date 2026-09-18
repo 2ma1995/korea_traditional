@@ -2,45 +2,62 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import ProductPhoto from '@/components/ProductPhoto';
 import type { IpoCounts, IpoRound } from '@/lib/ipo';
-import { useIpoPick, writeIpoPick } from '@/lib/ipoPickStore';
 import styles from './Tabs.module.css';
 
 /**
- * 공모주 탭 — 다음 절기빵 청약.
+ * NEXT — 다음에 나올 빵 공모.
  *
- * 증권 앱의 공모주 청약 탭 자리다. 후보 셋, 경쟁률, 마감(절기 당일), 청약 버튼.
- * 절기는 여기서 산다 — "다음 상품을 정하는 자리"로. 상품 없는 절기 화면은
- * 버릴 데이터라는 현직자 기준에 대한 답이다.
+ * 탭이 아니라 스크롤 순서 안의 한 섹션이다. MARKET → TODAY → NEXT → MY 로
+ * 시간 순서가 곧 화면 순서가 된다. 별도 탭으로 빼면 처음 온 사람은 영영 못 본다 —
+ * 지난번에 화면에서 뺀 이유가 그것이었다.
  *
- * 1인 1청약은 브라우저에만 남긴다(localStorage). 회원 체계가 없어 서버는 못 막는다.
+ * 회차는 두 모드다(lib/ipo).
+ *   재상장 공모   품절 상품 중 무엇을 먼저 다시 들여올지   연 20회
+ *   신규 상장 공모 절기 제철 재료로 만든 새 빵            연 4회 (이분이지)
+ *
+ * 청약은 오늘 빵을 산 사람만 할 수 있다(lib/bidRight). 구매가 증거금 역할이라
+ * "공모주"라는 은유가 성립한다. 오늘 안 산 사람에게도 후보와 경쟁률은 보인다 —
+ * 그게 구매 동기를 만드는 자리라서 가리면 안 된다.
  */
+
+export interface IpoView extends IpoCounts {
+  canBid: boolean;
+  bidFor: string | null;
+}
 
 interface Props {
   round: IpoRound;
-  counts: IpoCounts;
+  view: IpoView;
   /** 청약 결과로 바뀐 집계를 부모에 올린다. 부모가 폴링으로도 갱신하므로 상태는 부모가 든다 */
-  onChange: (next: IpoCounts) => void;
+  onChange: (next: IpoView) => void;
 }
 
-export default function IpoTab({ round, counts: state, onChange }: Props) {
+export default function IpoTab({ round, view, onChange }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const mine = useIpoPick(round.id);
 
-  const total = Object.values(state.counts).reduce((a, b) => a + b, 0);
-  const top = Math.max(1, ...Object.values(state.counts));
-  const leader = round.candidates.reduce((best, c) => (state.counts[c.id] ?? 0) > (state.counts[best.id] ?? 0) ? c : best, round.candidates[0]);
+  const mine = view.bidFor;
+  const total = Object.values(view.counts).reduce((a, b) => a + b, 0);
+  const top = Math.max(1, ...Object.values(view.counts));
+  const leader = round.candidates.reduce(
+    (best, c) => ((view.counts[c.id] ?? 0) > (view.counts[best.id] ?? 0) ? c : best),
+    round.candidates[0],
+  );
 
   async function bid(candidate: string) {
-    if (mine || busy) return;
+    if (mine || busy || !view.canBid) return;
     setBusy(true); setError(null);
     try {
-      const res = await fetch('/api/ipo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ candidate }) });
+      const res = await fetch('/api/ipo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidate }),
+      });
       const json = await res.json();
       if (!json?.ok) throw new Error(json?.error ?? '청약에 실패했습니다.');
-      onChange({ counts: json.counts, demo: json.demo, live: json.live });
-      writeIpoPick(round.id, candidate);
+      onChange({ counts: json.counts, demo: json.demo, live: json.live, canBid: json.canBid, bidFor: json.bidFor });
     } catch (err) {
       setError(err instanceof Error ? err.message : '청약에 실패했습니다.');
     } finally {
@@ -48,13 +65,28 @@ export default function IpoTab({ round, counts: state, onChange }: Props) {
     }
   }
 
+  /** 버튼이 말할 것 — 오늘 안 산 사람에게는 이 자리가 구매 안내다 */
+  const buttonText = (id: string) => {
+    if (mine === id) return '내 청약 ✓';
+    if (mine) return '청약 완료';
+    if (busy) return '청약 중…';
+    if (!view.canBid) return '오늘 빵을 사면 청약';
+    return '청약하기';
+  };
+
   return (
     <>
       <div className={styles.ipoHead}>
         <div>
-          <span className="eyebrow">다음 절기빵 공모</span>
+          <span className="eyebrow">🗳 NEXT · {round.label}</span>
           <h3>{round.termKo} <small>{round.termHanja}</small></h3>
-          <p>{round.month}월 {round.day}일 · {round.termKo} 무렵 <b>{round.ingredients.join(' · ')}</b>이 제맛입니다.<br />셋 중 하나에 청약하세요. 절기 당일 경쟁률 1위가 출시됩니다.</p>
+          <p>
+            <b>{round.ask}</b><br />
+            {round.mode === 'restock'
+              ? '지금 품절인 빵 중에서 고릅니다. 1위가 먼저 다시 들어옵니다.'
+              : <>{round.month}월 {round.day}일 · {round.termKo} 무렵 <b>{round.ingredients.join(' · ')}</b>이 제맛입니다.</>}
+            <br />셋 중 하나에 청약하세요. 절기 당일 경쟁률 1위가 상장됩니다.
+          </p>
         </div>
         <div className={styles.ipoClose}>
           <span>청약 마감</span>
@@ -65,27 +97,38 @@ export default function IpoTab({ round, counts: state, onChange }: Props) {
 
       <ul className={styles.ipoList}>
         {round.candidates.map(c => {
-          const n = state.counts[c.id] ?? 0;
-          const ratio = n / c.allotment;
+          const n = view.counts[c.id] ?? 0;
           const isMine = mine === c.id;
-          const isLeader = leader.id === c.id && n > 0;
           return (
-            <li key={c.id} className={styles.ipoCard} data-mine={isMine} data-leader={isLeader}>
+            <li key={c.id} className={styles.ipoCard} data-mine={isMine} data-leader={leader.id === c.id && n > 0}>
               <div className={styles.ipoTop}>
-                <div>
-                  <b>{c.name}</b>
-                  <span>{c.basis}</span>
+                <div className={styles.ipoName}>
+                  {c.productNo !== null && (
+                    <span className={styles.ipoThumb} aria-hidden="true">
+                      <ProductPhoto productNo={c.productNo} name={c.name} />
+                    </span>
+                  )}
+                  <span>
+                    <b>{c.name}</b>
+                    <span>{c.basis}</span>
+                  </span>
                 </div>
                 <div className={styles.ipoRatio}>
-                  <strong>{ratio.toFixed(2)} : 1</strong>
+                  <strong>{(n / c.allotment).toFixed(2)} : 1</strong>
                   <small>{n} 청약 / {c.allotment} 배정</small>
                 </div>
               </div>
               <div className={styles.ipoBar} aria-hidden="true"><i style={{ width: `${Math.round((n / top) * 100)}%` }} /></div>
               <div className={styles.ipoAct}>
-                {isLeader && <span className={styles.ipoTag}>현재 1위</span>}
-                <button type="button" className={styles.bid} data-state={isMine ? 'filled' : undefined} disabled={busy || (mine !== null && !isMine)} onClick={() => bid(c.id)}>
-                  {isMine ? '내 청약 ✓' : mine ? '청약 완료' : busy ? '청약 중…' : '청약하기'}
+                {leader.id === c.id && n > 0 && <span className={styles.ipoTag}>현재 1위</span>}
+                <button
+                  type="button"
+                  className={styles.bid}
+                  data-state={isMine ? 'filled' : undefined}
+                  disabled={busy || Boolean(mine) || !view.canBid}
+                  onClick={() => bid(c.id)}
+                >
+                  {buttonText(c.id)}
                 </button>
               </div>
             </li>
@@ -96,15 +139,18 @@ export default function IpoTab({ round, counts: state, onChange }: Props) {
       {error && <p className={styles.error} role="alert">{error}</p>}
 
       <dl className={styles.ipoRules}>
-        <div><dt>손님</dt><dd>내가 고른 빵이 실제로 나옵니다. 청약자에게 <b>출시 쿠폰</b>. 경쟁률은 매일 바뀝니다</dd></div>
-        <div><dt>기업</dt><dd>만들기 전에 <b>수요를 봅니다</b>. 어느 재료·형태에 표가 몰리는지가 다음 상품 근거가 됩니다</dd></div>
-        <div><dt>규칙</dt><dd>1인 1청약 · 절기 당일 마감 · 1위 출시. 쿠폰 발급은 기업 확인 후</dd></div>
+        <div><dt>손님</dt><dd>내가 고른 빵이 <b>실제로 나옵니다</b>. 경쟁률은 매일 바뀝니다</dd></div>
+        <div><dt>기업</dt><dd>만들기 전에 <b>수요를 봅니다</b>. 오늘 산 사람의 표라 허수가 없습니다</dd></div>
+        <div><dt>규칙</dt><dd><b>오늘 빵을 사면 청약권 1장</b> · 절기 당일 마감 · 1위 상장</dd></div>
       </dl>
 
       <p className={styles.hint}>
-        {!state.live && '저장소가 연결되지 않아 이번 서버 세션의 메모리에만 기록됩니다. '}
-        {state.demo > 0 && <span className={styles.demoWarn}>⚠️ 이 중 {state.demo}건은 화면 확인용 샘플입니다. </span>}
-        후보는 절기 데이터의 제철 재료로 자동으로 세웠습니다 — 기업이 후보를 직접 넣는 화면은 다음 단계입니다.
+        {!view.live && '저장소가 연결되지 않아 이번 서버 세션의 메모리에만 기록됩니다. '}
+        {view.demo > 0 && <span className={styles.demoWarn}>⚠️ 이 중 {view.demo}건은 화면 확인용 샘플입니다. </span>}
+        {round.mode === 'restock'
+          ? '후보는 자사몰에서 지금 품절인 상품을 정가 높은 순으로 세웠습니다.'
+          : '후보는 절기 데이터의 제철 재료로 세웠습니다 — 기업이 후보를 직접 넣는 화면은 다음 단계입니다.'}
+        {' '}청약권은 구매할 때 서버가 발급합니다(회원 기반 1인 1청약은 다음 단계).
         {' '}<Link href="/archive" className={styles.relink}>스물네 절기 보기 →</Link>
       </p>
     </>
