@@ -28,7 +28,7 @@ interface Props {
 const won = (n: number) => n.toLocaleString('ko-KR');
 
 export default function Portfolio({ offers, entries, onBuyAll, bulk, onPick }: Props) {
-  const { add, remove } = usePortfolio();
+  const { setQty } = usePortfolio();
   const total = entries.reduce((a, b) => a + b.qty, 0);
   const rows = entries.map(e => ({ ...e, offer: offers.find(o => o.product.productNo === e.no) }));
   const top = rows[0];
@@ -89,9 +89,9 @@ export default function Portfolio({ offers, entries, onBuyAll, bulk, onPick }: P
                 <b>{share}%</b>
               </span>
               <span className={styles.pfCtl}>
-                <button type="button" onClick={() => remove(row.no)} aria-label="비중 줄이기">−</button>
+                <button type="button" onClick={() => setQty(row.no, row.qty - 1)} aria-label="개수 줄이기">−</button>
                 <b>{row.qty}</b>
-                <button type="button" onClick={() => add(row.no)} aria-label="비중 늘리기">+</button>
+                <button type="button" onClick={() => setQty(row.no, row.qty + 1)} aria-label="개수 늘리기">+</button>
               </span>
             </li>
           );

@@ -80,7 +80,7 @@ export default function Market({ today, points, kospi, tiers }: Props) {
   const [showSoldOut, setShowSoldOut] = useState(false);
   const [pfOpen, setPfOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  const { portfolio, add, remove } = usePortfolio();
+  const { portfolio, setQty } = usePortfolio();
 
   /* ── KOSPI 상태 → 아래로 전파 ── */
   const liveOn = k.marketOpen === true;
@@ -302,7 +302,7 @@ export default function Market({ today, points, kospi, tiers }: Props) {
           remaining={remainingOf(selectedOffer)} bid={bids[selectedOffer.product.productNo]} watching={qtyOf(portfolio, selectedOffer.product.productNo)}
           qty={Math.max(1, qtyOf(portfolio, selectedOffer.product.productNo))}
           canBuy={canBuy} lockNote={lockNote}
-          onBuy={() => buyPicked(selectedOffer)} onWatch={() => add(selectedOffer.product.productNo)} onUnwatch={() => remove(selectedOffer.product.productNo)} onClose={() => setSelected(null)} />
+          onBuy={() => buyPicked(selectedOffer)} onQty={next => setQty(selectedOffer.product.productNo, next)} onClose={() => setSelected(null)} />
       )}
     </div>
   );

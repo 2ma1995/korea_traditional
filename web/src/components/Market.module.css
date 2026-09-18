@@ -489,3 +489,9 @@ p.callout { cursor: default; }
 /* 카운트다운 — "마감까지" 를 숫자 왼쪽 같은 줄에 */
 .countRow { display: inline-flex; align-items: baseline; justify-content: center; gap: 10px; }
 .countRow small { font-size: 13px; font-weight: 700; color: var(--muted); }
+
+/* 시트 스테퍼 — [− 갯수 +] */
+.stepper { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; background: var(--background); border-radius: 14px; min-height: 60px; }
+.stepper button { font: inherit; font-size: 20px; font-weight: 700; color: var(--ink); background: none; border: 0; height: 100%; cursor: pointer; }
+.stepper button:disabled { color: #c3c0b1; cursor: default; }
+.stepper b { text-align: center; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }

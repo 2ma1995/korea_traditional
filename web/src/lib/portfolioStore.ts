@@ -68,6 +68,17 @@ export function usePortfolio() {
     const prev = portfolio[productNo];
     write({ ...portfolio, [productNo]: { qty: (prev?.qty ?? 0) + 1, at: Date.now() } });
   };
+  /**
+   * 수량을 그 값으로 맞춘다. add를 연달아 부르면 같은 스냅샷에서 계산해 1만 오르므로,
+   * 스테퍼(− 갯수 +)처럼 목표 수량이 정해진 곳에서는 이걸 쓴다.
+   * at은 그대로 둔다 — 수량만 바뀔 때 표시 순서가 흔들리지 않게.
+   */
+  const setQty = (productNo: number, qty: number) => {
+    const next = { ...portfolio };
+    if (qty <= 0) delete next[productNo];
+    else next[productNo] = { qty, at: portfolio[productNo]?.at ?? Date.now() };
+    write(next);
+  };
   const remove = (productNo: number) => {
     const next = { ...portfolio };
     const prev = next[productNo];
@@ -75,7 +86,7 @@ export function usePortfolio() {
     else next[productNo] = { qty: prev.qty - 1, at: Date.now() };
     write(next);
   };
-  return { portfolio, add, remove };
+  return { portfolio, add, remove, setQty };
 }
 
 /**

@@ -29,15 +29,15 @@ interface Props {
   canBuy: boolean;
   lockNote: string;
   onBuy: () => void;
-  onWatch: () => void;
-  onUnwatch: () => void;
+  /** 스테퍼 — 목표 수량으로 맞춘다 */
+  onQty: (qty: number) => void;
   onClose: () => void;
 }
 
 const won = (n: number) => n.toLocaleString('ko-KR');
 const shopUrl = (no: number) => `https://makji.kr/product/detail.html?product_no=${no}`;
 
-export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, onBuy, onWatch, onUnwatch, onClose }: Props) {
+export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, onBuy, onQty, onClose }: Props) {
   const pct = Math.round(rate * 100);
   const up = changePct >= 0;
 
@@ -95,16 +95,18 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
         )}
 
         <div className={styles.sheetActions}>
-          {watching > 0
-            ? <button type="button" className={styles.ghost} onClick={onUnwatch}><b>🔔 알림 설정됨 · {watching}개</b><small>눌러서 1개 줄이기</small></button>
-            : <button type="button" className={styles.ghost} onClick={onWatch}><b>🔔 알림받기</b><small>더 할인할 때 구매하기</small></button>}
+          <div className={styles.stepper}>
+            <button type="button" onClick={() => onQty(qty - 1)} disabled={qty <= 1} aria-label="개수 줄이기">−</button>
+            <b aria-live="polite">{qty}개</b>
+            <button type="button" onClick={() => onQty(qty + 1)} disabled={qty >= remaining} aria-label="개수 늘리기">+</button>
+          </div>
           <button type="button" className={styles.primary}
             disabled={!canBuy || remaining <= 0 || bid?.status === 'busy' || bid?.status === 'filled'} onClick={onBuy}>
             {bid?.status === 'busy' ? '예약 중…' : bid?.status === 'filled' ? '예약 완료' : !canBuy ? lockNote : remaining <= 0 ? '오늘 물량 끝'
-              : qty > 1 ? `${qty}개 ${won(offer.price * qty)}원에 구매하기` : `${won(offer.price)}원에 구매하기`}
+              : `${won(offer.price * qty)}원에 구매하기`}
           </button>
         </div>
-        <p className={styles.sheetFine}>알림은 내 관심빵으로 저장됩니다. 실제 발송(푸시·문자)은 준비 중이에요.</p>
+        <p className={styles.sheetFine}>개수는 <b>내 관심빵</b>에 저장돼 포트폴리오 비중이 됩니다. 알림 발송(푸시·문자)은 준비 중이에요.</p>
       </div>
     </div>
   );
