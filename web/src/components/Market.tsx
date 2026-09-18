@@ -216,10 +216,9 @@ export default function Market({ today, points, kospi, tiers }: Props) {
             const no = o.product.productNo, remaining = remainingOf(o), n = qtyOf(portfolio, no);
             const ranked = sort === 'popular' ? filledOf(o) > 0 : n > 0;
             return (
-              <li key={no} className={styles.reveal} style={reveal(1 + i)}>
+              <li key={no} className={`${styles.reveal} ${styles.cell}`} style={reveal(1 + i)}>
                 <button type="button" className={styles.topCard} style={{ ['--ph' as string]: `${i * 5}s` }} onClick={() => setSelected(no)}>
                   {ranked && i < 3 && <span className={styles.medal}>{MEDAL[i]}</span>}
-                  {n > 0 && <span className={styles.bell} aria-label="알림 설정됨">🔔</span>}
                   <span className={styles.topPhoto}><ProductPhoto productNo={no} name={o.product.name} /></span>
                   <b>{o.product.name}</b>
                   <span className={styles.topPrice}>
@@ -234,6 +233,16 @@ export default function Market({ today, points, kospi, tiers }: Props) {
                       <small>{remaining > 0 ? `남음 ${remaining} / ${o.allotment}` : '오늘 물량 끝'}{phase === 'live' ? ' · 지금 기준 예상' : ''}</small>
                     </>
                   )}
+                </button>
+                {/* 카드 전체가 이미 버튼이라 안에 넣을 수 없다. 형제로 두고 위에 얹는다 */}
+                <button
+                  type="button"
+                  className={styles.watch}
+                  aria-pressed={n > 0}
+                  aria-label={`${o.product.name} 관심 ${n > 0 ? '해제' : '담기'}`}
+                  onClick={() => setQty(no, n > 0 ? 0 : 1)}
+                >
+                  {n > 0 ? '♥' : '♡'}
                 </button>
               </li>
             );

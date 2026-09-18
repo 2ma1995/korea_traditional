@@ -92,17 +92,22 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
   const has = s.length >= 2;
   const iMax = has ? s.indexOf(Math.max(...s)) : 0, iMin = has ? s.indexOf(Math.min(...s)) : 0;
 
-  /* 마감 뒤 티커 — 오늘의 기록이 흐른다. 전부 실제 값이고, 색은 증시 관례대로
-     오르면 빨강·내리면 파랑. 회색 한 톤이면 주식 느낌이 빠진다 */
+  /* 기록 티커 — 전부 실제 값이고, 색은 증시 관례대로 오르면 빨강·내리면 파랑.
+     회색 한 톤이면 주식 느낌이 빠진다.
+
+     장중에도 쓴다. 실시간 틱은 값이 '바뀐' 폴링에서만 쌓여서(useKospiLive) 들어온
+     직후나 지수가 멈춘 구간에는 흐를 게 없다. 그때 화면이 비는 대신 이 요약이 흐르고,
+     틱이 쌓이면 아래에서 실시간 틱으로 교체된다. 그래서 문구가 때에 따라 달라진다. */
+  const liveNow = phase === 'live';
   const dirTone = up ? 'up' : 'down';
   const facts: { t: string; tone: 'up' | 'down' | 'mood' | 'ink' | 'muted' }[] = has ? [
-    { t: `마감 ${fmt(k.value)} ${up ? '▲' : '▼'}`, tone: dirTone },
+    { t: `${liveNow ? '현재' : '마감'} ${fmt(k.value)} ${up ? '▲' : '▼'}`, tone: dirTone },
     { t: `어제보다 ${up ? '+' : ''}${fmt(diff)} (${Math.abs(k.changePct).toFixed(2)}%)`, tone: dirTone },
-    { t: `최고 ${fmt(s[iMax])} ▲`, tone: 'up' },
-    { t: `최저 ${fmt(s[iMin])} ▼`, tone: 'down' },
-    { t: `오늘의 라인 ${mood.theme}`, tone: 'mood' },
-    { t: `모든 빵 ${Math.round(rate * 100)}% 할인`, tone: 'ink' },
-    { t: phase === 'open' ? '00:00 CLOSE' : phase === 'locked' ? `${openAt} OPEN` : '다음 거래일 09:00 LIVE', tone: 'muted' },
+    { t: `${liveNow ? '오늘 최고' : '최고'} ${fmt(s[iMax])} ▲`, tone: 'up' },
+    { t: `${liveNow ? '오늘 최저' : '최저'} ${fmt(s[iMin])} ▼`, tone: 'down' },
+    { t: `${liveNow ? '지금 라인' : '오늘의 라인'} ${mood.theme}`, tone: 'mood' },
+    { t: `${liveNow ? '지금 기준 ' : ''}모든 빵 ${Math.round(rate * 100)}% 할인`, tone: 'ink' },
+    { t: liveNow ? '15:30 확정' : phase === 'open' ? '00:00 CLOSE' : phase === 'locked' ? `${openAt} OPEN` : '다음 거래일 09:00 LIVE', tone: 'muted' },
   ] : [];
 
   return (
@@ -127,16 +132,19 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
 
       <KospiChart k={k} phase={phase} tiers={tiers} breads={breads} noWatch={noWatch} drawMs={DRAW_MS} />
 
-      {phase === 'live' && k.ticks.length > 0 && (
+      {liveNow && k.ticks.length > 0 ? (
         <div className={styles.ticker} aria-hidden="true">
           <div className={styles.tickerTrack}>
-            {[...k.ticks, ...k.ticks].map((t, i) => (
-              <span key={i} className={t.dir === 'up' ? styles.up : styles.down}>{t.t} {fmt(t.v)} {t.dir === 'up' ? '▲' : '▼'}</span>
+            {[0, 1].map(set => (
+              <div key={set} className={styles.tickerSet} aria-hidden={set === 1}>
+                {k.ticks.map((t, i) => (
+                  <span key={i} className={t.dir === 'up' ? styles.up : styles.down}>{t.t} {fmt(t.v)} {t.dir === 'up' ? '▲' : '▼'}</span>
+                ))}
+              </div>
             ))}
           </div>
         </div>
-      )}
-      {phase !== 'live' && facts.length > 0 && (
+      ) : facts.length > 0 && (
         <div className={styles.factsTicker} aria-label="오늘의 기록">
           <div className={styles.factsTrack}>
             <div className={styles.factsSet}>
