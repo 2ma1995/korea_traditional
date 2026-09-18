@@ -4,8 +4,9 @@ import { PRODUCTS } from '@/data/products';
 import { loadFilled } from '@/lib/fills';
 import { fetchKospiHistory, getMarketSnapshot } from '@/lib/market';
 import { buildToday } from '@/lib/offers';
-import { OPEN_HOUR } from '@/lib/orderbook';
+import { OPEN_AT } from '@/lib/orderbook';
 import { loadTiers } from '@/lib/settings';
+import { applyStock, fetchStock } from '@/lib/stock';
 
 /**
  * 빵장 — 서버는 오늘의 재료를 모아 넘기기만 한다.
@@ -14,13 +15,16 @@ import { loadTiers } from '@/lib/settings';
  */
 export default async function BreadMarketPage() {
   const now = new Date();
-  const [market, tiers, filled, intraday] = await Promise.all([
+  const [market, tiers, filled, intraday, stock] = await Promise.all([
     getMarketSnapshot(now),
     loadTiers(),
     loadFilled(now),
     fetchKospiHistory('1d'),
+    fetchStock(),
   ]);
-  const today = buildToday(market, tiers, filled, now, PRODUCTS);
+  /* 재고는 자사몰에서 받아온다 — products.ts의 값은 마지막 안전망이다.
+     손으로 적어둔 값이 열흘 묵어 생지를 품절로 걸러낸 적이 있다. */
+  const today = buildToday(market, tiers, filled, now, applyStock(PRODUCTS, stock));
 
   /* 대문이 뭐라고 말할지 — Market.tsx의 phase와 같은 규칙이다.
      거기는 폴링한 marketOpen을, 여기는 서버 스냅샷을 쓴다. 문이 열려 있는
@@ -38,7 +42,7 @@ export default async function BreadMarketPage() {
         theme={today.mood.theme}
         changePct={today.changePct}
         rate={today.rate}
-        openAt={`${String(OPEN_HOUR).padStart(2, '0')}:00`}
+        openAt={OPEN_AT}
       >
       <Market
         today={today}

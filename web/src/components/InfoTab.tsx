@@ -1,7 +1,7 @@
 'use client';
 
 import type { TodayMarket } from '@/lib/offers';
-import { CLOSE_HOUR, OPEN_HOUR } from '@/lib/orderbook';
+import { CLOSE_HOUR, OPEN_AT } from '@/lib/orderbook';
 import styles from './Tabs.module.css';
 
 /**
@@ -39,7 +39,7 @@ export default function InfoTab({ today }: { today: TodayMarket }) {
           <li><b>하락 마감</b>이라 위로 몫을 더 얹습니다 — 기본 <b>{Math.round(today.baseRate * 100)}%</b> + 하락장 <b>{Math.round(today.bonusRate * 100)}%p</b> = <b>−{pct}%</b> (상한 38%)</li>
         )}
         <li>오르면 <b>자축가</b>(Celebrate), 내리면 <b>위로가</b>(Comfort). 시장이 어떻게 움직여도 빵장에선 즐거운 일이 생깁니다</li>
-        <li><b>{OPEN_HOUR}:00</b> 개장 — 오늘의 빵을 한정 수량으로. 오늘 살지, 관심에 담고 다음에 살지는 내가 정합니다</li>
+        <li><b>{OPEN_AT}</b> 개장 — 오늘의 빵을 한정 수량으로. 오늘 살지, 관심에 담고 다음에 살지는 내가 정합니다</li>
       </ol>
 
       <dl className={styles.ipoRules}>
@@ -49,7 +49,7 @@ export default function InfoTab({ today }: { today: TodayMarket }) {
       </dl>
 
       <p className={styles.note}>
-        빵장은 {OPEN_HOUR}:00–{CLOSE_HOUR}:00에 열리고, 주식시장이 쉬는 날은 빵장도 쉽니다.
+        빵장은 {OPEN_AT}–{CLOSE_HOUR}:00에 열리고, 주식시장이 쉬는 날은 빵장도 쉽니다.
         {today.hours.reason === 'test' && <> 지금은 <b>테스트를 위해 24시간</b> 열어두었습니다.</>}
       </p>
 

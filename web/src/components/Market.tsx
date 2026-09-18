@@ -11,7 +11,7 @@ import Portfolio from '@/components/Portfolio';
 import ProductPhoto from '@/components/ProductPhoto';
 import type { DiscountTier } from '@/data/indicators';
 import { moodFor, priceAt, rateFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
-import { OPEN_HOUR } from '@/lib/orderbook';
+import { OPEN_AT } from '@/lib/orderbook';
 import { qtyOf, usePortfolio, useStableHoldings } from '@/lib/portfolioStore';
 import { useKospiLive, type Point } from '@/lib/useKospiLive';
 import styles from './Market.module.css';
@@ -90,8 +90,8 @@ export default function Market({ today, points, kospi, tiers }: Props) {
   const test = today.hours.reason === 'test';
   const phase: Phase = liveOn ? 'live' : today.hours.open ? 'open' : today.hours.reason === 'before' ? 'locked' : 'closed';
   const canBuy = today.hours.open && (phase !== 'live' || test);
-  const lockNote = phase === 'live' ? '15:30 확정 후 살 수 있어요' : phase === 'locked' ? `🔒 ${OPEN_HOUR}:00 공개` : phase === 'closed' ? `내일 ${OPEN_HOUR}시에 열려요` : '휴장';
-  const openAt = `${String(OPEN_HOUR).padStart(2, '0')}:00`;
+  const lockNote = phase === 'live' ? `${OPEN_AT} 확정과 함께 열려요` : phase === 'locked' ? `🔒 ${OPEN_AT} 공개` : phase === 'closed' ? `내일 ${OPEN_AT}에 열려요` : '휴장';
+  const openAt = OPEN_AT;
 
   /* 표시 가격은 실시간 폭으로. 실제 예약은 서버 확정 폭(today.rate)으로 간다 */
   const offers: TodayOffer[] = today.offers.map(o => ({ ...o, ...priceAt(o.product.price, rate) }));

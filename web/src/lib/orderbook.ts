@@ -16,9 +16,14 @@ import type { MarketSnapshot } from './market';
  * 구매 문턱을 낮추는 장치가 아니라 오히려 올리는 장치가 된다.
  */
 
-/** 빵장 개장 시각 (KST). 주식장 마감 뒤, 온라인 구매가 몰리는 시간대에 맞춘다. */
-export const OPEN_HOUR = 20;
+/**
+ * 빵장 개장 시각 (KST). 국장이 닫히는 그 순간에 연다 — "국장이 끝나면, 빵장".
+ * 분 단위가 필요해서 시·분을 따로 둔다. 화면에 쓸 문자열은 OPEN_AT.
+ */
+export const OPEN_HOUR = 15;
+export const OPEN_MINUTE = 30;
 export const CLOSE_HOUR = 24;
+export const OPEN_AT = `${String(OPEN_HOUR).padStart(2, '0')}:${String(OPEN_MINUTE).padStart(2, '0')}`;
 
 /**
  * 테스트용 상시 개장.
@@ -30,7 +35,7 @@ export const CLOSE_HOUR = 24;
  *    테스트가 끝나면 false로 되돌릴 것. 켜져 있는 동안에는 화면 시계가
  *    '테스트 · 상시 개장'으로 표시돼 실제 동작과 혼동되지 않는다.
  */
-export const ALWAYS_OPEN = true;
+export const ALWAYS_OPEN = false;
 
 export interface Tick {
   /** 정가 대비 할인 폭 (0.05 = 5%) */
@@ -120,7 +125,7 @@ export function marketHours(at: Date = new Date()): MarketHours {
   if (weekday === 'Sat' || weekday === 'Sun') {
     return { open: false, reason: 'holiday', nowLabel };
   }
-  if (hour < OPEN_HOUR) return { open: false, reason: 'before', nowLabel };
+  if (hour * 60 + minute < OPEN_HOUR * 60 + OPEN_MINUTE) return { open: false, reason: 'before', nowLabel };
   return { open: true, reason: 'open', nowLabel };
 }
 

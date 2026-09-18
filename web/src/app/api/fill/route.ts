@@ -4,6 +4,7 @@ import { getMarketSnapshot } from '@/lib/market';
 import { marketHours } from '@/lib/orderbook';
 import { DAILY_ALLOTMENT, rateFor } from '@/lib/offers';
 import { loadTiers } from '@/lib/settings';
+import { fetchStock } from '@/lib/stock';
 import { loadFilledCounts, tryFill } from '@/lib/fills';
 
 /**
@@ -36,10 +37,13 @@ export async function POST(request: Request) {
   const product = PRODUCTS.find(item => item.productNo === productNo);
   if (!product) return bad('없는 상품입니다.');
   if (!Number.isFinite(depth) || depth <= 0 || depth >= 1) return bad('할인 폭이 올바르지 않습니다.');
-  if (!product.inStock) return bad('품절 상품입니다.');
-
   const now = new Date();
   if (!marketHours(now).open) return bad('지금은 빵장이 닫혀 있습니다.', 409);
+
+  /* 재고도 화면과 같은 곳에서 본다. 코드 상수만 보면, 자사몰에서 품절된 빵을
+     계속 예약받거나 재입고된 빵을 거절한다 */
+  const stock = await fetchStock();
+  if (!(stock.map[productNo] ?? product.inStock)) return bad('품절 상품입니다.', 409);
 
   const [market, tiers] = await Promise.all([getMarketSnapshot(now), loadTiers()]);
   /* 오늘 폭 하나만 받는다. 호가 사다리는 접었다 — 폭이 다르면 오늘 것이 아니다.

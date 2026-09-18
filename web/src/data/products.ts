@@ -36,7 +36,15 @@ export interface Product {
   glutenFree: boolean;
   /** 사이트 원재료 표기 원문 */
   label: string;
-  /** 재고 (2026-09-08 확인) */
+  /**
+   * 재고 (2026-09-18 재확인).
+   *
+   * 판정은 상품 상세의 SOLD OUT 버튼 블록이 `displaynone`인지로 본다.
+   * 페이지에 있는 `aSoldoutDisplay = {"33":"품절"}`은 품절일 때 쓸 문구일 뿐
+   * 상태가 아니다 — 이걸 상태로 읽어서 생지를 열흘간 품절로 두었다.
+   *
+   * 손으로 확인하는 값이라 재입고를 놓친다. 카페24 재고 연동이 다음 단계다.
+   */
   inStock: boolean;
   /** 원료 바스켓 — 값은 게임 레시피 필요 개수이자 원가 비중의 대리값 (추정치) */
   recipe: Partial<Record<IngredientCode, number>>;
@@ -60,7 +68,7 @@ export const PRODUCTS: Product[] = [
     price: 21000,
     glutenFree: true,
     label: '밀가루 없이 만든 글루텐프리',
-    inStock: false,
+    inStock: true,
     recipe: { butter: 8, almondFlour: 5, riceFlour: 5, egg: 4, water: 2 },
   },
   {
