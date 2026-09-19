@@ -2,6 +2,8 @@
 
 import { useMemo, useState, useSyncExternalStore } from 'react';
 
+import { seoulDateString } from '@/lib/market';
+
 /**
  * 내 관심 빵 — 포트폴리오.
  *
@@ -12,7 +14,9 @@ import { useMemo, useState, useSyncExternalStore } from 'react';
  * 수량이 같을 때 **최근에 담은 것이 먼저** 오도록 정렬에 쓴다. 예전 형태({ 번호: 수량 })도
  * 그대로 읽어 at=0으로 본다 — 이미 담아둔 사람의 목록이 사라지면 안 된다.
  *
- * 브라우저에만 남는다. 서버로 가지 않는다.
+ * 목록 자체는 브라우저에만 남는다. 서버로 가는 것은 "누가 무엇을 담았는지"가
+ * 아니라 **담겼다는 사실 한 건**뿐이다(reportWatch) — 수요 보정(+3%p)의 분모가
+ * 거기서 나온다. 목록을 통째로 올리지 않는 이유는 그럴 필요가 없어서다.
  */
 
 export interface Holding { qty: number; at: number }
@@ -35,6 +39,38 @@ function write(next: Portfolio) {
   memo = raw;
   try { window.localStorage.setItem(STORAGE_KEY, raw); } catch { /* 메모리 사본으로 유지 */ }
   listeners.forEach(cb => cb());
+}
+
+/**
+ * 서버에 "이 빵이 담겼다"를 알린다 — 수요 보정의 분모.
+ *
+ * 실패해도 아무것도 되돌리지 않는다. 담기는 이미 화면에서 끝났고, 여기서
+ * 손님에게 오류를 보여줄 일이 아니다. 집계가 한 건 빠질 뿐이다.
+ *
+ * 중복은 서버가 (날짜·상품·방문자)로 거른다. 여기 Set은 그 앞단에서 같은 탭의
+ * 반복 토글이 요청을 쏟아내지 않게 막는 것뿐이라, 새로고침하면 비어도 된다.
+ */
+const reported = new Set<string>();
+function reportWatch(productNo: number) {
+  const key = `${seoulDateString()}:${productNo}`;
+  if (reported.has(key)) return;
+  reported.add(key);
+  void fetch('/api/watch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productNo }),
+  }).catch(() => {
+    /* 다음 기회에 다시 보내도록 되돌린다 */
+    reported.delete(key);
+  });
+}
+
+/** 저장하면서, 이번에 새로 들어온 빵만 서버에 알린다 */
+function commit(prev: Portfolio, next: Portfolio) {
+  for (const no of Object.keys(next)) {
+    if (!prev[no]) reportWatch(Number(no));
+  }
+  write(next);
 }
 
 /** 예전 형태(숫자)도 받아 준다 */
@@ -66,7 +102,7 @@ export function usePortfolio() {
   const portfolio = useMemo(() => parse(raw), [raw]);
   const add = (productNo: number) => {
     const prev = portfolio[productNo];
-    write({ ...portfolio, [productNo]: { qty: (prev?.qty ?? 0) + 1, at: Date.now() } });
+    commit(portfolio, { ...portfolio, [productNo]: { qty: (prev?.qty ?? 0) + 1, at: Date.now() } });
   };
   /**
    * 수량을 그 값으로 맞춘다. add를 연달아 부르면 같은 스냅샷에서 계산해 1만 오르므로,
@@ -77,14 +113,14 @@ export function usePortfolio() {
     const next = { ...portfolio };
     if (qty <= 0) delete next[productNo];
     else next[productNo] = { qty, at: portfolio[productNo]?.at ?? Date.now() };
-    write(next);
+    commit(portfolio, next);
   };
   const remove = (productNo: number) => {
     const next = { ...portfolio };
     const prev = next[productNo];
     if (!prev || prev.qty <= 1) delete next[productNo];
     else next[productNo] = { qty: prev.qty - 1, at: Date.now() };
-    write(next);
+    commit(portfolio, next);
   };
   return { portfolio, add, remove, setQty };
 }

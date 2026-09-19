@@ -78,6 +78,43 @@ function memoryCounts(day: string): Record<string, number> {
   return counts;
 }
 
+/**
+ * [from, to) 구간에 상품별로 몇 건이 체결됐나. 수요 전환율의 분자이고,
+ * 판매속도(재고 보정)의 재료이기도 하다 — 둘 다 skuSignals가 쓴다.
+ *
+ * 저장소가 없으면 메모리로 센다. 여기서 빈 값을 주면 Supabase 없는 로컬에서는
+ * 수요·재고 보정이 늘 0이라 확인할 방법이 없다.
+ */
+export async function loadFilledWindow(from: string, to: string): Promise<Record<number, number>> {
+  const db = supabase();
+  if (!db) return memoryWindow(from, to);
+
+  const { data, error } = await db
+    .from('fills')
+    .select('product_no')
+    .gte('day', from)
+    .lt('day', to);
+
+  if (error || !data) return memoryWindow(from, to);
+
+  const counts: Record<number, number> = {};
+  for (const row of data as { product_no: number }[]) {
+    counts[row.product_no] = (counts[row.product_no] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/** 메모리 키는 "날짜:상품:폭"이다. 날짜가 YYYY-MM-DD라 사전순 비교가 곧 날짜순이다 */
+function memoryWindow(from: string, to: string): Record<number, number> {
+  const counts: Record<number, number> = {};
+  for (const [key, n] of memory) {
+    const [day, no] = key.split(':');
+    if (day < from || day >= to) continue;
+    counts[Number(no)] = (counts[Number(no)] ?? 0) + n;
+  }
+  return counts;
+}
+
 /** 오늘 상품·칸별 체결 수. 서버가 호가표를 만들 때 쓴다 */
 export async function loadFilled(at: Date = new Date()): Promise<FilledLookup> {
   const counts = await loadFilledCounts(at);
