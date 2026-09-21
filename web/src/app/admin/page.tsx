@@ -4,6 +4,11 @@ import AdminLogin from '@/components/AdminLogin';
 import Cafe24Panel from '@/components/Cafe24Panel';
 import { isAdmin } from '@/lib/adminAuth';
 import TierSettings from '@/components/TierSettings';
+import IpoSettings from '@/components/IpoSettings';
+import DividendSettings from '@/components/DividendSettings';
+import IpoRounds from '@/components/IpoRounds';
+import { loadDividendPolicy, loadIpoEnabled, MAX_DIVIDEND_RATE } from '@/lib/appSettings';
+import { listRounds } from '@/lib/ipo';
 import { loadProductLinks, loadTiers } from '@/lib/settings';
 import { MAX_DISCOUNT_RATE } from '@/data/indicators';
 import { buildDailyPlan } from '@/lib/discount';
@@ -31,11 +36,14 @@ export default async function AdminPage() {
   }
 
   /* 구간과 연결표는 관리자가 바꾸는 값이라 DB에서 읽는다. 비어 있으면 코드 기본값. */
-  const [market, tiers, links] = await Promise.all([
+  const [market, tiers, links, ipo, dividend] = await Promise.all([
     getMarketSnapshot(new Date()),
     loadTiers(),
     loadProductLinks(),
+    loadIpoEnabled(),
+    loadDividendPolicy(),
   ]);
+  const seasons = await listRounds();
   const daily = buildDailyPlan(market, undefined, tiers);
   /* 즉시구매 칸의 폭 = 가장 얕은 구간. 자사몰에 반영하는 기본값이다. */
   const instantDepth = Math.min(...tiers.map(tier => tier.rate));
@@ -63,6 +71,9 @@ export default async function AdminPage() {
     </header>
     <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} instantDepth={instantDepth} />
     <TierSettings initial={tiers} maxRate={MAX_DISCOUNT_RATE} />
+    <IpoSettings initial={ipo.value} stored={ipo.stored} />
+    <DividendSettings initial={dividend} maxRate={MAX_DIVIDEND_RATE} />
+    <IpoRounds initial={seasons.rounds} stored={seasons.stored} />
     <Cafe24Panel links={links} />
   </main>;
 }

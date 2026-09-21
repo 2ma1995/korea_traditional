@@ -40,7 +40,22 @@ const OPTIONS = {
 /** UUID v4 모양만 받는다. 손으로 넣은 값으로 표를 더럽히지 않게 */
 const WELL_FORMED = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-/** 지금 브라우저의 표식. 없거나 모양이 틀리면 새로 발급한다 */
+/**
+ * 이미 발급된 표식만 읽는다. 없으면 null이다.
+ *
+ * 서버 컴포넌트는 쿠키를 쓸 수 없다 — visitorId()를 부르면 발급을 시도하다
+ * "Cookies can only be modified in a Server Action or Route Handler"로 렌더가 죽는다.
+ * 화면을 그리는 쪽(page.tsx의 출석 기록)은 이 함수를 쓴다. 표식은 첫 예약·관심
+ * 담기 같은 라우트 핸들러에서 발급되므로, 처음 들어온 사람은 그날 출석이 안 잡힌다 —
+ * 점수 한 항목이 하루 늦게 붙을 뿐이라 감수한다.
+ */
+export async function currentVisitorId(): Promise<string | null> {
+  const jar = await cookies();
+  const seen = jar.get(VISITOR)?.value ?? '';
+  return WELL_FORMED.test(seen) ? seen : null;
+}
+
+/** 지금 브라우저의 표식. 없거나 모양이 틀리면 새로 발급한다 — 라우트 핸들러 전용 */
 export async function visitorId(): Promise<string> {
   const jar = await cookies();
   const seen = jar.get(VISITOR)?.value ?? '';

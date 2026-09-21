@@ -67,6 +67,20 @@ export async function recordWatch(
   throw new Error(`관심 기록 실패: ${error.message}`);
 }
 
+/** [from, to) 구간에 이 사람이 한 번이라도 담았나. 주간 활동점수의 관심 항목 */
+export async function watchedInWindow(visitor: string, from: string, to: string): Promise<boolean> {
+  const db = supabase();
+  if (!db) return false;
+  const { count, error } = await db
+    .from('watches')
+    .select('id', { count: 'exact', head: true })
+    .eq('visitor', visitor)
+    .gte('day', from)
+    .lt('day', to);
+  if (error) return false;
+  return (count ?? 0) > 0;
+}
+
 /**
  * [from, to) 구간에 상품별로 몇 명이 담았나.
  *

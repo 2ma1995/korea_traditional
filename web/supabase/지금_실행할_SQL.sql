@@ -1,9 +1,11 @@
 -- ============================================================================
--- 지금 실행할 SQL — 0005 · 0006 · 0007 한 장
+-- 지금 실행할 SQL — 0005 ~ 0010 한 장
 --
 --   어디서   Supabase 대시보드 → SQL Editor → 붙여넣고 Run
 --   무엇을   예약(fills) · 공모 청약(ipo_bids) · 관심 담기(watches)
---   왜       셋 다 지금은 **서버 메모리에만** 저장된다. 서버가 재시작되면 사라진다.
+--            운영 스위치(app_settings) · 공모 회차(ipo_rounds · ipo_candidates)
+--            주말 배당 재료(fills.visitor · visits)
+--   왜       없으면 전부 **서버 메모리에만** 저장된다. 서버가 재시작되면 사라진다.
 --            화면은 정상 동작하고 "이번 서버 세션의 메모리에만 기록됩니다"라고 밝힌다.
 --
 --   ⚠️ 여러 번 돌려도 안전하다 — 전부 if not exists / add column if not exists다.
@@ -12,8 +14,7 @@
 --   이미 들어가 있어야 하는 것: 0001~0004 (daily_plans · discount_tiers ·
 --   product_links · cafe24_tokens). 맨 아래 확인 쿼리가 빠진 것을 알려준다.
 --
---   설계 의도 전문은 supabase/migrations/0005_fills.sql · 0006_ipo.sql ·
---   0007_watches.sql에 있다. 여기는 실행용 사본이다.
+--   설계 의도 전문은 supabase/migrations/ 의 각 파일에 있다. 여기는 실행용 사본이다.
 -- ============================================================================
 
 begin;
@@ -89,6 +90,78 @@ comment on table watches is '관심 담기 기록. (day, product_no, visitor) un
 create index if not exists watches_day_product_idx on watches (day, product_no);
 
 
+-- ── 0008 · 운영 스위치 ──────────────────────────────────────────────────────
+-- 관리자가 화면에서 껐다 켜는 값. 지금은 공모주 노출 하나다.
+-- 코드 상수(ALWAYS_OPEN · PRICE_SYNC_ENABLED)와 역할이 다르다 — 그 둘은 켜면
+-- 진짜 자사몰 가격이 바뀌는 값이라 관리자 화면에 두지 않는다.
+create table if not exists app_settings (
+  key        text        primary key,
+  value      jsonb       not null,
+  updated_at timestamptz not null default now()
+);
+
+comment on table app_settings is '관리자가 운영 중에 바꾸는 스위치. 값 모양은 lib/appSettings.ts가 검증한다';
+
+
+-- ── 0009 · 공모 회차 ────────────────────────────────────────────────────────
+-- 절기 자동 편성을 걷어내고 막지가 직접 회차를 연다.
+-- 현직자 지적이 근거다 — "백로에 포도 띄우고 포도 상품이 없으면 그건 죽은 데이터."
+-- 기업이 실제로 만들 수 있는 빵만 후보에 올라야 지킬 수 있는 약속이 된다.
+-- 열린 회차가 없으면 손님 화면에서 공모 섹션이 아예 안 뜬다.
+create table if not exists ipo_rounds (
+  id         text        primary key,
+  name       text        not null,
+  opens_on   date        not null,
+  closes_on  date        not null,
+  ask        text,
+  created_at timestamptz not null default now(),
+  check (closes_on >= opens_on)
+);
+
+comment on table ipo_rounds is '공모 회차. 관리자가 기간을 직접 정한다(절기 자동 편성 폐기)';
+
+create index if not exists ipo_rounds_window_idx on ipo_rounds (opens_on, closes_on);
+
+create table if not exists ipo_candidates (
+  round_id   text     not null references ipo_rounds(id) on delete cascade,
+  id         text     not null,
+  name       text     not null,
+  note       text,
+  product_no integer,
+  allotment  smallint not null default 30,
+  sort       smallint not null default 0,
+  primary key (round_id, id)
+);
+
+comment on table ipo_candidates is '회차별 후보 빵. 막지가 직접 넣고 뺀다';
+
+-- ⚠️ 개인정보가 들어오는 자리다. 0006은 "개인 식별 값은 없다"고 적어 두었는데
+--    그 전제가 여기서 깨진다 — 당첨자에게 쿠폰을 주려면 누구인지 알아야 하고,
+--    이 서비스에는 로그인이 없어 자사몰 회원 ID를 직접 받는다.
+--      · 청약 폼에 수집·이용 목적과 보유 기간을 적는다(개인정보처리방침 포함)
+--      · 쿠폰 발급이 끝난 회차의 member는 지운다
+--      · 이 열은 서버(service_role)만 읽는다
+alter table ipo_bids add column if not exists member text;
+comment on column ipo_bids.member is '자사몰 회원 ID. 당첨 쿠폰 발급 목적으로만 쓰고 발급 후 삭제한다';
+
+
+-- ── 0010 · 주말 배당 ────────────────────────────────────────────────────────
+-- 주간 활동점수의 재료 둘. 관심빵(0007)은 이미 사람 단위로 세고 있다.
+alter table fills add column if not exists visitor text;
+comment on column fills.visitor is '서버 발급 난수(lib/visitor.ts). 0010 이전 기록은 null';
+create index if not exists fills_visitor_day_idx on fills (visitor, day);
+
+create table if not exists visits (
+  id         bigserial   primary key,
+  day        date        not null,
+  visitor    text        not null,
+  created_at timestamptz not null default now(),
+  unique (day, visitor)
+);
+comment on table visits is '거래일 출석. (day, visitor) unique로 하루 1회만 센다';
+create index if not exists visits_visitor_day_idx on visits (visitor, day);
+alter table visits enable row level security;
+
 -- ── 권한 · RLS ──────────────────────────────────────────────────────────────
 -- RLS는 정책 없이 켜 둔다. anon 키로는 아무것도 안 보이고 service_role만 통과한다.
 -- 서버만 이 표들을 읽고 쓴다(lib/supabase.ts).
@@ -96,40 +169,66 @@ grant usage on schema public to anon, authenticated, service_role;
 grant all privileges on all tables in schema public to service_role;
 grant all privileges on all sequences in schema public to service_role;
 
-alter table fills    enable row level security;
-alter table ipo_bids enable row level security;
-alter table watches  enable row level security;
+alter table fills          enable row level security;
+alter table ipo_bids       enable row level security;
+alter table watches        enable row level security;
+alter table app_settings   enable row level security;
+alter table ipo_rounds     enable row level security;
+alter table ipo_candidates enable row level security;
 
 commit;
 
 
 -- ============================================================================
--- 확인 — 코드가 쓰는 표 일곱 개가 다 있는가
--- 없는 것이 위로 올라온다. fills·ipo_bids·watches 말고 다른 게 ❌면
--- 0001~0004 중 안 돌아간 것이 있다는 뜻이다.
+-- 확인 — 한 번에 본다. ❌가 하나라도 있으면 그 줄의 '만드는 것'을 다시 돌린다.
+--
+--   표          코드가 여는 열 개
+--   붙는 열      표가 있어도 열이 빠지면 insert가 통째로 실패한다
 -- ============================================================================
-select
-  expected.name                                         as "표",
-  case when c.oid is null then '❌ 없음' else '✅ 있음' end as "상태",
-  expected.made_by                                      as "만드는 마이그레이션",
-  expected.used_by                                      as "쓰는 곳"
-from (values
-  ('fills',          '0005', '예약 — lib/fills.ts'),
-  ('ipo_bids',       '0006', '공모 청약 — lib/ipo.ts'),
-  ('watches',        '0007', '관심 담기 — lib/watches.ts'),
-  ('daily_plans',    '0001', '자사몰 가격 복원 근거 — lib/priceSync.ts'),
-  ('cafe24_tokens',  '0001', '카페24 토큰 — lib/cafe24.ts'),
-  ('discount_tiers', '0002', '할인 구간 — lib/settings.ts'),
-  ('product_links',  '0002', '상품 링크 — api/admin/links')
-) as expected(name, made_by, used_by)
-left join pg_class c
-  on  c.relname     = expected.name
-  and c.relnamespace = 'public'::regnamespace
-  and c.relkind      = 'r'
-order by (c.oid is null) desc, expected.name;
+select * from (
+  -- ① 표
+  select
+    1                                                       as "순서",
+    expected.name                                           as "확인 대상",
+    case when c.oid is null then '❌ 없음' else '✅ 있음' end  as "상태",
+    expected.made_by                                        as "만드는 것",
+    expected.used_by                                        as "쓰는 곳"
+  from (values
+    ('fills',          '0005', '예약 — lib/fills.ts'),
+    ('ipo_bids',       '0006', '공모 청약 — lib/ipo.ts'),
+    ('watches',        '0007', '관심 담기 — lib/watches.ts'),
+    ('app_settings',   '0008', '운영 스위치 — lib/appSettings.ts'),
+    ('ipo_rounds',     '0009', '공모 회차 — lib/ipo.ts'),
+    ('ipo_candidates', '0009', '후보 빵 — lib/ipo.ts'),
+    ('visits',         '0010', '거래일 출석 — lib/visits.ts'),
+    ('daily_plans',    '0001', '자사몰 가격 복원 — lib/priceSync.ts'),
+    ('cafe24_tokens',  '0001', '카페24 토큰 — lib/cafe24.ts'),
+    ('discount_tiers', '0002', '할인 구간 — lib/settings.ts'),
+    ('product_links',  '0002', '상품 링크 — api/admin/links')
+  ) as expected(name, made_by, used_by)
+  left join pg_class c
+    on  c.relname      = expected.name
+    and c.relnamespace = 'public'::regnamespace
+    and c.relkind      = 'r'
 
--- ipo_bids.mode 컬럼까지 들어갔는지 (이게 없으면 청약 insert가 전부 실패한다)
-select
-  case when count(*) = 1 then '✅ ipo_bids.mode 있음' else '❌ ipo_bids.mode 없음' end as "mode 컬럼"
-from information_schema.columns
-where table_schema = 'public' and table_name = 'ipo_bids' and column_name = 'mode';
+  union all
+
+  -- ② 표에 붙는 열 — 표 목록만 봐서는 빠진 걸 못 잡는다
+  select
+    2,
+    want.label,
+    case when count(col.column_name) = 1 then '✅ 있음' else '❌ 없음' end,
+    want.made_by,
+    want.used_by
+  from (values
+    ('ipo_bids', 'mode',    'ipo_bids.mode',    '0006', '회차 모드 — 없으면 청약 insert 실패'),
+    ('ipo_bids', 'member',  'ipo_bids.member',  '0006', '청약자 — lib/ipo.ts'),
+    ('fills',    'visitor', 'fills.visitor',    '0010', '구매 표식 — 주간 활동점수')
+  ) as want(tbl, col, label, made_by, used_by)
+  left join information_schema.columns col
+    on  col.table_schema = 'public'
+    and col.table_name   = want.tbl
+    and col.column_name  = want.col
+  group by want.label, want.made_by, want.used_by
+) as checks
+order by "상태" desc, "순서", "확인 대상";

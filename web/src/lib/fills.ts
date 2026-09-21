@@ -68,6 +68,79 @@ export async function loadFilledCounts(at: Date = new Date()): Promise<Record<st
   return counts;
 }
 
+export interface WeekReport {
+  /** 체결이 하루라도 있었던 날 수 */
+  tradedDays: number;
+  /** 구간 전체 체결 건수 */
+  fills: number;
+  /** 체결에 걸린 폭의 평균 (0.18 = 18%) */
+  avgDepth: number;
+  /** 가장 깊었던 날 — 그날 최대 폭 */
+  deepest: { day: string; depth: number } | null;
+  /** 가장 많이 나간 상품 */
+  topProduct: { productNo: number; count: number } | null;
+}
+
+/**
+ * 이번 주 빵장 결산 — 주말 화면이 쓴다.
+ *
+ * 개인 기록이 아니라 시장 전체 기록이다. fills에는 visitor가 없어서 누가 샀는지
+ * 모르기 때문이다(watches에는 있다). 그래서 "내 수익률"이 아니라 "이번 주 시장"으로
+ * 쓴다 — 주식시장 주간 결산이라는 은유에는 오히려 이쪽이 맞는다.
+ */
+export async function loadWeekReport(from: string, to: string): Promise<WeekReport> {
+  const empty: WeekReport = { tradedDays: 0, fills: 0, avgDepth: 0, deepest: null, topProduct: null };
+  const db = supabase();
+  if (!db) return empty;
+
+  const { data, error } = await db
+    .from('fills')
+    .select('day, product_no, depth')
+    .gte('day', from)
+    .lt('day', to);
+
+  if (error || !data || !data.length) return empty;
+
+  const rows = (data as { day: string; product_no: number; depth: number | string }[])
+    .map(r => ({ day: r.day, productNo: r.product_no, depth: Number(r.depth) }));
+
+  const days = new Set(rows.map(r => r.day));
+  const byProduct = new Map<number, number>();
+  const deepestByDay = new Map<string, number>();
+  let depthSum = 0;
+
+  for (const r of rows) {
+    depthSum += r.depth;
+    byProduct.set(r.productNo, (byProduct.get(r.productNo) ?? 0) + 1);
+    deepestByDay.set(r.day, Math.max(deepestByDay.get(r.day) ?? 0, r.depth));
+  }
+
+  const top = [...byProduct.entries()].sort((a, b) => b[1] - a[1])[0];
+  const deep = [...deepestByDay.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  return {
+    tradedDays: days.size,
+    fills: rows.length,
+    avgDepth: depthSum / rows.length,
+    deepest: deep ? { day: deep[0], depth: deep[1] } : null,
+    topProduct: top ? { productNo: top[0], count: top[1] } : null,
+  };
+}
+
+/** [from, to) 구간에 이 사람이 한 번이라도 샀나. 주간 활동점수의 구매 항목 */
+export async function boughtInWindow(visitor: string, from: string, to: string): Promise<boolean> {
+  const db = supabase();
+  if (!db) return false;
+  const { count, error } = await db
+    .from('fills')
+    .select('id', { count: 'exact', head: true })
+    .eq('visitor', visitor)
+    .gte('day', from)
+    .lt('day', to);
+  if (error) return false;
+  return (count ?? 0) > 0;
+}
+
 /** 메모리에 쌓인 오늘 체결 수를 화면이 쓰는 "상품:폭" 형태로 */
 function memoryCounts(day: string): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -157,6 +230,10 @@ export async function tryFill(
   depth: number,
   quantity: number,
   at: Date = new Date(),
+  /* 주간 활동점수의 구매 항목을 사람 단위로 세려면 누가 샀는지가 필요하다(0010).
+     없으면 null로 들어간다 — 선착순 경합은 (day, product_no, depth, slot)이 막으므로
+     표식이 없어도 체결 자체는 그대로 동작한다 */
+  visitor: string | null = null,
 ): Promise<FillResult> {
   const db = supabase();
   const day = seoulDateString(at);
@@ -169,7 +246,7 @@ export async function tryFill(
     const slot = filled + 1;
     const { error } = await db
       .from('fills')
-      .insert({ day, product_no: productNo, depth: depth.toFixed(3), slot });
+      .insert({ day, product_no: productNo, depth: depth.toFixed(3), slot, visitor });
 
     if (!error) return { filled: true, remaining: quantity - slot, slot, stored: true };
     /* 표가 아직 없다 — 마이그레이션 전이다. 품절이라 거짓말하지 않고 메모리로 받는다 */
