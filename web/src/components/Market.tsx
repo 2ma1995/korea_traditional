@@ -12,6 +12,8 @@ import Portfolio from '@/components/Portfolio';
 import ProductPhoto from '@/components/ProductPhoto';
 import type { DiscountTier } from '@/data/indicators';
 import type { IpoRound } from '@/lib/ipo';
+import type { WeeklyScore } from '@/lib/dividend';
+import type { WeekReport } from '@/lib/fills';
 import { moodFor, priceAt, rateFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
 import { withSkuBonus } from '@/lib/skuAdjust';
 import { OPEN_AT } from '@/lib/orderbook';
@@ -37,8 +39,15 @@ interface Props {
   kospi: KospiView;
   tiers: DiscountTier[];
   /** 이번 공모 회차 — 서버가 오늘 날짜와 품절 목록으로 정한다 */
-  round: IpoRound;
+  /** 지금 열린 회차. 관리자가 만든 회차가 없으면 null이다 */
+  round: IpoRound | null;
   ipo: IpoView;
+  /** 공모주를 화면에 띄울지. 관리자가 껐거나 회차가 없으면 NEXT 섹션이 통째로 사라진다 */
+  ipoOn: boolean;
+  /** 휴장일에만 온다. 이번 주 빵장 결산 — 평일엔 null */
+  week: WeekReport | null;
+  /** 휴장일에만 온다. 내 주간 활동점수와 이번 주 배당 */
+  score: WeeklyScore | null;
 }
 
 type Sort = 'popular' | 'watched';
@@ -76,7 +85,7 @@ function RollingPrice({ from, to, delay }: { from: number; to: number; delay: nu
   return <Flip value={won(v)} />;
 }
 
-export default function Market({ today, points, kospi, tiers, round, ipo: initialIpo }: Props) {
+export default function Market({ today, points, kospi, tiers, round, ipo: initialIpo, ipoOn, week, score }: Props) {
   const k = useKospiLive({ value: kospi.value, changePct: kospi.changePct, marketOpen: kospi.marketOpen, live: kospi.live, points });
   const [filled, setFilled] = useState<Record<string, number>>({});
   const [bids, setBids] = useState<Record<number, Bid>>({});
@@ -103,6 +112,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const canBuy = today.hours.open && (phase !== 'live' || test);
   const lockNote = phase === 'live' ? `${OPEN_AT} 확정과 함께 열려요` : phase === 'locked' ? `🔒 ${OPEN_AT} 공개` : phase === 'closed' ? `내일 ${OPEN_AT}에 열려요` : '휴장';
   const openAt = OPEN_AT;
+  /* 휴장일 — 주말이다. 가격이 움직이지 않으니 화면이 할 말이 달라진다 */
+  const holiday = today.hours.reason === 'holiday';
 
   /* 표시 가격은 실시간 폭으로. 실제 예약은 서버 확정 폭(today.rate)으로 간다 */
   /* 장중 '지금 기준 예상'도 빵마다 갈린다 — 서버가 계산한 SKU 보정을 실시간 폭 위에 얹는다.
@@ -114,10 +125,13 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
 
   const base = points.length < 2 ? 0 : DRAW_MS + 150;
   const reveal = (step: number) => ({ ['--d' as string]: `${base + step * 90}ms` });
-  /* 등장 애니메이션 지연은 상품마다 고정한다.
-     정렬 순서(i)로 주면 인기순↔관심순을 오갈 때 --d가 바뀌고, .reveal의 기본값이
-     opacity:0이라 이미 끝난 애니메이션이 '시작 전'으로 되돌아가 카드가 깜빡였다. */
-  const revealOrder = new Map(today.offers.map((o, idx) => [o.product.productNo, idx]));
+  /* 카드에 붙는 시간 값은 전부 상품마다 고정한다. 정렬 순서로 주면 인기순↔관심순을
+     오갈 때 값이 바뀌면서 셋이 한꺼번에 다시 튄다.
+       --d  .reveal의 기본값이 opacity:0이라 끝난 애니메이션이 '시작 전'으로 돌아가 깜빡인다
+       --ph 사진 kenburns는 무한 alternate라 지연이 바뀌면 확대 상태가 순간 점프한다
+       delay RollingPrice의 effect가 다시 돌아 가격이 정가부터 다시 굴러 내려온다
+     서버가 준 순서(today.offers)를 쓰면 처음 등장할 때의 촤라락은 그대로 남는다. */
+  const stepOf = new Map(today.offers.map((o, idx) => [o.product.productNo, idx]));
 
   useEffect(() => {
     if (!today.hours.open) return;
@@ -189,6 +203,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const sorted = [...offers].sort((a, b) => sort === 'watched'
     ? qtyOf(portfolio, b.product.productNo) - qtyOf(portfolio, a.product.productNo) || b.saved - a.saved
     : filledOf(b) - filledOf(a) || b.saved - a.saved);
+  /* 정렬 결과는 순위로만 쓴다 — 화면 배치는 위 목록에서 CSS order가 한다 */
+  const rankOf = new Map(sorted.map((o, idx) => [o.product.productNo, idx]));
   const ranking = offers.map(o => ({ o, n: filledOf(o) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
   const selectedOffer = offers.find(o => o.product.productNo === selected) ?? null;
 
@@ -214,12 +230,89 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
 
   return (
     <div className={styles.page} data-side={mood.side}>
+      <header className={styles.masthead}>
+        <div><p className={styles.exchangeLabel}>MAKJI / BREAD EXCHANGE</p>
+          <h1>국장이 끝나면,<br /><em>빵장</em>이 열립니다.</h1>
+        </div>
+        <div className={styles.mastheadAside}><span>시장을 읽고, 빵을 고르다.</span><p>오늘의 코스피가 만드는<br />오늘만의 빵 가격.</p><a href="#today">오늘의 빵 만나기 <span aria-hidden="true">↘</span></a></div>
+      </header>
       {/* ══ MARKET ══ */}
       <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} base={live.base} bonus={live.bonus} />
 
+      {/* ══ 휴장일 — 가격 대신 이번 주 결산. 국장이 쉬면 폭도 쉰다 ══ */}
+      {holiday && (
+        <section id="week" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="이번 주 빵장">
+          <div className={styles.eyebrowRow}>
+            <span className={styles.eyebrow}>◍ MARKET CLOSED</span>
+            <span className={styles.theme}>휴장일에는 정가</span>
+          </div>
+          <h2 className={styles.weekLead}>국장이 쉬는 동안,<br />이번 주 나의 빵장.</h2>
+
+          {/* 주인공은 배당금이 아니라 결산이다. 배당을 앞에 세우면 쿠폰 페이지가 된다 */}
+          {score && (
+            <>
+              <ul className={styles.scoreList}>
+                <li data-on={score.watched}>
+                  <i aria-hidden="true">{score.watched ? '✓' : '·'}</i>
+                  <b>관심빵 담기</b>
+                  <small>{score.watched ? '이번 주에 담았어요' : '아직 담은 빵이 없어요'}</small>
+                  <em>{score.watched ? '+1' : '0'}</em>
+                </li>
+                <li data-on={score.bought}>
+                  <i aria-hidden="true">{score.bought ? '✓' : '·'}</i>
+                  <b>빵장에서 구매</b>
+                  <small>{score.bought ? '이번 주에 샀어요' : '이번 주 구매가 없어요'}</small>
+                  <em>{score.bought ? '+1' : '0'}</em>
+                </li>
+                <li data-on={score.attended}>
+                  <i aria-hidden="true">{score.attended ? '✓' : '·'}</i>
+                  <b>거래일 출석</b>
+                  <small>{score.visitDays}일 방문 · 3일부터 인정</small>
+                  <em>{score.attended ? '+1' : '0'}</em>
+                </li>
+              </ul>
+
+              <div className={styles.dividend} data-none={score.amount === 0}>
+                <span className={styles.eyebrow}>WEEKEND DIVIDEND</span>
+                {score.amount > 0 ? (
+                  <>
+                    <strong>{won(score.amount)}P</strong>
+                    <p>주간 활동점수 <b>{score.score}점</b> · 주말에 쓸 수 있고 <b>이달 말</b>까지 유효해요</p>
+                  </>
+                ) : (
+                  <>
+                    <strong>0P</strong>
+                    <p>이번 주에는 활동이 없었어요. 하나만 채워도 다음 주 배당이 생깁니다</p>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          <h3 className={styles.weekSub}>이번 주 빵장은 이랬어요</h3>
+          {week && week.fills > 0 ? (
+            <ul className={styles.weekStats}>
+              <li><b>{week.tradedDays}일</b><small>이번 주 거래일</small></li>
+              <li><b>{Math.round(week.avgDepth * 100)}%</b><small>평균 할인 폭</small></li>
+              <li><b>{week.fills}건</b><small>예약된 빵</small></li>
+              {week.deepest && (
+                <li><b>{Math.round(week.deepest.depth * 100)}%</b><small>가장 깊었던 날 · {week.deepest.day.slice(5).replace('-', '/')}</small></li>
+              )}
+            </ul>
+          ) : (
+            <p className={styles.empty}>이번 주에는 체결된 예약이 없었어요. <b>월요일 {OPEN_AT}</b>에 새 장이 열립니다.</p>
+          )}
+          <p className={styles.hint}>
+            빵장은 <b>주식시장이 열리는 날</b>만 엽니다. 휴장일에는 할인 대신 정가로 판매하고,
+            다음 장에 나올 빵을 고르는 <b>공모</b>가 열립니다.
+          </p>
+        </section>
+      )}
+
       {/* ══ TODAY ══ */}
+      {!holiday && (
       <section id="today" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="오늘의 할인 빵">
-        <div className={styles.eyebrowRow}><span className={styles.eyebrow}>🔔 TODAY&apos;S BREAD MARKET</span><span className={styles.theme}>{mood.theme}</span></div>
+        <div className={styles.eyebrowRow}><span className={styles.eyebrow}>01 / TODAY’S BREAD</span><span className={styles.theme}>{mood.theme}</span></div>
         <header className={styles.cardHead}>
           <h2>{phase === 'live' ? '지금 예상되는 오늘의 할인 빵' : '오늘의 할인 빵'} <small>{offers.length}종 · 각 {offers[0]?.allotment ?? 30}개 · 전부 {Math.round(rate * 100)}%</small></h2>
           <div className={styles.sort} role="group" aria-label="정렬">
@@ -228,18 +321,27 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           </div>
         </header>
 
+        {/* DOM 순서는 건드리지 않고 CSS order로만 자리를 바꾼다.
+            카드를 실제로 옮기면(insertBefore) 브라우저가 그 노드를 잠깐 떼었다 붙이는 것으로
+            처리해 CSS 애니메이션이 전부 처음부터 다시 돈다 — 등장(.reveal)이 지연값만큼
+            늦게 다시 뜨고 사진 확대도 되감긴다. 그래서 인기순↔관심순을 오갈 때 카드 몇 개만
+            뒤늦게 나타났다. order만 바꾸면 노드가 움직이지 않아 아무것도 다시 돌지 않는다.
+            ⚠️ 화면 순서와 DOM 순서가 달라진다 — 탭 이동과 스크린리더는 고정 순서를 따른다. */}
         <ul className={styles.grid}>
-          {sorted.map((o, i) => {
+          {offers.map((o, i) => {
             const no = o.product.productNo, remaining = remainingOf(o), n = qtyOf(portfolio, no);
             const ranked = sort === 'popular' ? filledOf(o) > 0 : n > 0;
+            const step = stepOf.get(no) ?? i;      // 등장·사진·가격 굴림에 쓰는 고정 순서
+            const rank = rankOf.get(no) ?? i;      // 지금 정렬에서 몇 번째로 보이는가
             return (
-              <li key={no} className={`${styles.reveal} ${styles.cell}`} style={reveal(1 + (revealOrder.get(no) ?? i))}>
-                <button type="button" className={styles.topCard} style={{ ['--ph' as string]: `${i * 5}s` }} onClick={() => openFromList(no)}>
-                  {ranked && i < 3 && <span className={styles.medal}>{MEDAL[i]}</span>}
+              <li key={no} className={`${styles.reveal} ${styles.cell}`} style={{ ...reveal(1 + step), order: rank }}>
+                <button type="button" className={styles.topCard} style={{ ['--ph' as string]: `${step * 5}s` }} onClick={() => openFromList(no)}>
+                  {ranked && rank < 3 && <span className={styles.medal}>{MEDAL[rank]}</span>}
+                  {!o.onLine && <span className={styles.offLine}>오늘 라인 밖</span>}
                   <span className={styles.topPhoto}><ProductPhoto productNo={no} name={o.product.name} /></span>
                   <b>{o.product.name}</b>
                   <span className={styles.topPrice}>
-                    <strong><RollingPrice from={o.product.price} to={o.price} delay={base + (1 + i) * 90 + 500} />원</strong>
+                    <strong><RollingPrice from={o.product.price} to={o.price} delay={base + (1 + step) * 90 + 500} />원</strong>
                     <del>{won(o.product.price)}원</del>
                   </span>
                   {phase === 'locked' ? (
@@ -289,35 +391,38 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           <div><dt>수량</dt><dd>상품별 <b>재고</b> 기준</dd></div>
         </dl>
       </section>
+      )}
 
-      {ranking.length > 0 && (
+      {!holiday && ranking.length > 0 && (
+        <>
+        <p className={`${styles.lead} ${styles.reveal}`} style={reveal(5)}>먼저 고른 사람이, <b>먼저 가져갑니다.</b></p>
         <section className={`${styles.card} ${styles.reveal}`} style={reveal(5)} aria-label="오늘 많이 산 빵">
           <header className={styles.cardHead}><h2>오늘 많이 산 빵 <small>10초마다 갱신</small></h2></header>
           <ol className={styles.rankList}>{ranking.map(({ o, n }, i) => <li key={o.product.productNo}><i>{i + 1}</i><b>{o.product.name}</b><small>{n}개 · 남음 {remainingOf(o)}</small></li>)}</ol>
         </section>
+        </>
       )}
 
       {/* ══ MY ══ */}
-      <section id="foryou" className={`${styles.card} ${styles.reveal}`} style={reveal(6)} aria-label="내 빵 포트폴리오">
-        <div className={styles.eyebrowRow}><span className={styles.eyebrow}>♡ MY BREAD PORTFOLIO</span>{pfTotal > 0 && <span className={styles.theme}>관심빵 {entries.length}종{hits.length > 0 && ` · 오늘 ${hits.length}종 할인`}</span>}</div>
+      <section id="foryou" className={`${styles.card} ${styles.portfolioCard} ${styles.reveal}`} style={reveal(6)} aria-label="내 빵 포트폴리오">
+        <div className={styles.eyebrowRow}><span className={styles.eyebrow}>02 / MY BREAD</span>{pfTotal > 0 && <span className={styles.theme}>관심빵 {entries.length}종{hits.length > 0 && ` · 오늘 ${hits.length}종 할인`}</span>}</div>
 
         {actions === 0 ? (
           <div className={styles.emptyBox}>
-            <p className={styles.emptyLead}>아직</p>
-            <h2>나의 빵 취향을 알아가는 중</h2>
-            <div className={styles.paths}><span>♡ 관심</span><span>🛒 장바구니</span></div>
-            <p className={styles.arrowDown}>↓<br /><b>MY PORTFOLIO</b></p>
-            <p>마음에 드는 빵을 고르면 나만의 포트폴리오가 만들어집니다.</p>
+            <h2>취향을 담아두세요.</h2>
+            <div className={styles.emptyMark} aria-hidden="true">♡</div>
+            <p>마음에 드는 빵의 하트를 눌러보세요.<br />오늘 할인하는 관심빵을 모아드릴게요.</p>
             <div className={styles.emptyBtns} data-single="true">
               <button type="button" className={styles.ghost} onClick={() => scrollTo('today')}>♡ 빵 둘러보기</button>
             </div>
           </div>
         ) : (
           <>
+            <header className={styles.cardHead}><h2>내 빵 포트폴리오</h2></header>
             <p className={styles.sub}>내가 관심을 보인 빵으로 만든 포트폴리오</p>
             <Donut slices={slices} onPick={openFromPortfolio} />
-            <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen}>내 포트폴리오 {pfOpen ? '접기 ▴' : '→'}</button>
-            {pfOpen && <div className={styles.pop}><Portfolio offers={offers} entries={entries} onBuyAll={buyAll} bulk={bulk} onPick={openFromPortfolio} /></div>}
+            <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen} aria-controls="portfolio-details">내 포트폴리오 {pfOpen ? '접기 ▴' : '펼치기 ▾'}</button>
+            {pfOpen && <div id="portfolio-details" className={styles.pop}><Portfolio offers={offers} entries={entries} onBuyAll={buyAll} bulk={bulk} onPick={openFromPortfolio} /></div>}
           </>
         )}
       </section>
@@ -326,9 +431,14 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
            내 것을 다 본 사람에게 마지막 질문이 이어진다:
            MARKET(지금 국장) → TODAY(오늘 살 빵) → MY(내 것) → NEXT(다음에 나올 빵)
            탭이 아니라 스크롤 순서 안에 둔다 — 탭으로 빼면 처음 온 사람은 영영 못 본다. */}
-      <section id="next" className={`${styles.card} ${styles.reveal}`} style={reveal(7)} aria-label="다음 절기빵 공모">
-        <IpoTab round={round} view={ipo} onChange={setIpo} />
-      </section>
+      {ipoOn && round && (
+        <>
+        <p className={`${styles.lead} ${styles.reveal}`} style={reveal(7)}>다음에 나올 빵은, <b>오늘 산 사람</b>이 정합니다.</p>
+        <section id="next" className={`${styles.card} ${styles.reveal}`} style={reveal(7)} aria-label="다음 빵 공모">
+          <IpoTab round={round} view={ipo} onChange={setIpo} />
+        </section>
+        </>
+      )}
 
       <p className={`${styles.fine} ${styles.reveal}`} style={reveal(8)}>
         {today.kospiLive ? '' : '⚠️ 코스피 수집에 실패해 샘플 값입니다. '}
@@ -336,7 +446,12 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         {test && <> <b>지금은 테스트로 24시간 열어두었습니다</b> — 원래는 {openAt}~24:00.</>}
         {' '}<button type="button" className={styles.link} onClick={() => setInfoOpen(v => !v)} aria-expanded={infoOpen}>오늘 가격은 어떻게 정해지나 {infoOpen ? '▴' : '→'}</button>
       </p>
-      {infoOpen && <section className={`${styles.card} ${styles.pop}`} aria-label="정보"><InfoTab today={today} /></section>}
+      {infoOpen && (
+        <section className={`${styles.card} ${styles.pop}`} aria-label="오늘 가격은 어떻게 정해지나">
+          <header className={styles.cardHead}><h2>오늘 가격은 어떻게 정해지나</h2></header>
+          <InfoTab today={today} />
+        </section>
+      )}
 
       {selectedOffer && (
         <OfferSheet offer={selectedOffer} mood={mood} changePct={k.changePct} rate={rate} estimate={phase === 'live'}
@@ -344,7 +459,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           qty={Math.max(1, qtyOf(portfolio, selectedOffer.product.productNo))}
           canBuy={canBuy} lockNote={lockNote}
           left={sheetFrom === 'portfolio' ? 'qty' : 'watch'}
-          canBid={ipo.canBid && !ipo.bidFor}
+          canBid={ipoOn && ipo.canBid && !ipo.bidFor}
           onNext={() => { setSelected(null); scrollTo('next'); }}
           onBuy={() => buyPicked(selectedOffer)} onQty={next => setQty(selectedOffer.product.productNo, next)} onClose={() => setSelected(null)} />
       )}

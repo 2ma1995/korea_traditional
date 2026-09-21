@@ -28,10 +28,20 @@ import { depthFor, marketHours, type FilledLookup, type MarketHours } from '@/li
 /** 오늘 각 빵의 한정 수량. 기업 협의 값 — 관리자 입력 화면은 다음 단계 */
 export const DAILY_ALLOTMENT = 30;
 
-/** 'all' = 전 상품 같은 폭 · 'line' = 오르면 글루텐프리(담백) 라인, 내리면 달콤 라인.
+/** 'all' = 전 상품 같은 폭 · 'line' = 오르면 식사형(meal), 내리면 달달한(sweet) 라인.
  *  라인 분기의 근거는 Garg·Wansink·Inman (2007) — 슬플 때 hedonic food 섭취가 늘고
- *  기쁠 때 덜 hedonic한 것이 늘어난다. 원산지가 아니라 감정이 기준이다. */
-export const LINE_MODE: 'all' | 'line' = 'all';
+ *  기쁠 때 덜 hedonic한 것이 늘어난다. 원산지가 아니라 감정이 기준이다.
+ *  라인은 products.ts의 line 필드가 정한다(발표덱 8·9장과 같은 구성). */
+export const LINE_MODE: 'all' | 'line' = 'line';
+
+/**
+ * 오늘 라인에 남는 빵이 이보다 적으면 라인 밖에서 채운다.
+ *
+ * 켜 놓고 보니 하락일에 두 종만 남는 날이 있다 — 덱의 하락 라인 4종 중 둘(초코케이크·
+ * 티라미수)이 품절이라서다. 화면에 두 칸만 뜨면 "오늘 살 것"이 사라져 컨셉보다 손해가
+ * 크다. 라인을 우선하되 최소 진열은 지킨다. 채워 넣은 빵은 화면에서 라인 밖임을 밝힌다.
+ */
+export const MIN_LINE_OFFERS = 3;
 
 /** 이 안쪽은 보합으로 본다 */
 const FLAT_PCT = 0.1;
@@ -52,6 +62,8 @@ export interface Mood {
 
 export interface TodayOffer {
   product: Product;
+  /** 오늘 라인(상승=식사형 · 하락=달달)에 든 빵인가 */
+  onLine: boolean;
   /** 이 빵의 오늘 폭 — 시장 기본 + 하락장 + 수요 + 재고 */
   rate: number;
   /** 수요 보정분 (0 · 0.02 · 0.03) */
@@ -140,8 +152,7 @@ export function badgesFor(product: Product): string[] {
 /** 라인 모드일 때 오늘 대상인가. 오르면 글루텐프리(쌀) 라인, 내리면 달콤 라인 */
 function inTodayLine(product: Product, side: Side): boolean {
   if (LINE_MODE === 'all' || side === 'flat') return true;
-  if (side === 'gain') return product.glutenFree;
-  return ['cocoa', 'cream', 'cheese', 'allulose'].some(code => (product.recipe as Record<string, number>)[code]);
+  return product.line === (side === 'gain' ? 'meal' : 'sweet');
 }
 
 export function buildToday(
@@ -156,8 +167,15 @@ export function buildToday(
   const mood = moodFor(market.kospi.changePct);
   const { tier, base, bonus, rate } = rateFor(market.kospi.changePct, tiers);
 
-  const offers = products
-    .filter(product => product.inStock && inTodayLine(product, mood.side))
+  /* 오늘 라인에 드는 빵. 너무 적으면 라인 밖에서 정가 높은 순으로 채운다 —
+     라인이 뜻을 만들지만, 살 것이 두 개뿐인 화면은 뜻보다 손해가 크다 */
+  const sellable = products.filter(product => product.inStock);
+  const onLine = sellable.filter(product => inTodayLine(product, mood.side));
+  const filler = LINE_MODE === 'line' && onLine.length < MIN_LINE_OFFERS
+    ? sellable.filter(product => !onLine.includes(product)).sort((a, b) => b.price - a.price).slice(0, MIN_LINE_OFFERS - onLine.length)
+    : [];
+
+  const offers = [...onLine, ...filler]
     .map<TodayOffer>(product => {
       /* 여기서 빵마다 폭이 갈린다. 신호가 없으면 보정이 0이라 전 상품 같은 폭이다 */
       const signal = signals[product.productNo];
@@ -167,6 +185,8 @@ export function buildToday(
       const { price, saved } = priceAt(product.price, skuRate);
       return {
         product,
+        /* 오늘 라인에 든 빵인가. false면 최소 진열을 맞추려고 채워 넣은 것이다 */
+        onLine: inTodayLine(product, mood.side),
         rate: skuRate,
         demandBonus,
         inventoryBonus,

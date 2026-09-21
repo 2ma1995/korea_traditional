@@ -62,7 +62,19 @@ function useCountdown(target: (kst: Date) => Date, on: boolean) {
       const kst = kstNow();
       const ms = target(kst).getTime() - kst.getTime();
       if (ms <= 0) { setLeft(null); return; }
-      /* 초까지, 매초. 시간이 내려가는 게 보여야 한다 — 코스피·수량 폴링만 30초다 */
+
+      /* 하루가 넘으면 일·시간·분으로 말한다.
+         주말에는 금요일 자정부터 다음 거래일까지 57시간이 남는데, 그걸 '57 : 00 : 00'으로
+         쓰면 시계인지 숫자인지 읽히지 않는다. 이틀 넘게 초를 세는 것도 뜻이 없다. */
+      if (ms >= 24 * 3.6e6) {
+        const d = Math.floor(ms / 8.64e7);
+        const h = Math.floor((ms % 8.64e7) / 3.6e6);
+        const m = Math.floor((ms % 3.6e6) / 6e4);
+        setLeft(`${d}일 ${h}시간 ${m}분`);
+        return;
+      }
+
+      /* 하루 안쪽은 초까지, 매초. 시간이 내려가는 게 보여야 한다 — 폴링만 30초다 */
       const h = Math.floor(ms / 3.6e6), m = Math.floor((ms % 3.6e6) / 6e4), s = Math.floor((ms % 6e4) / 1000);
       setLeft(`${String(h).padStart(2, '0')} : ${String(m).padStart(2, '0')} : ${String(s).padStart(2, '0')}`);
     };
@@ -112,6 +124,9 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
 
   return (
     <section className={styles.hero} data-phase={phase} data-dir={up ? 'up' : 'down'} aria-label="오늘의 시장">
+      {/* §3.3 히어로 — 상단 라벨과 메인 카피가 먼저 온다. 이 화면이 무엇인지
+          말한 다음에 숫자를 보여준다는 §2.1의 순서다. */}
+      <div className={styles.marketChart}>
       <div className={styles.heroLine}>
         <span className={styles.eyebrow}>TODAY&apos;S MARKET · 코스피</span>
         <span className={styles.liveTag} data-live={phase === 'live'}>
@@ -158,11 +173,18 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
         </div>
       )}
 
+      </div>
+      <div className={styles.marketResult}>
+      <p className={styles.eyebrow}>THE DAILY BREAD PRICE</p>
+      <p className={styles.resultTitle}>{phase === 'live' ? '지금 기준, 예상 할인' : '오늘의 빵장 할인'}</p>
+      <div className={styles.resultRate}>{Math.round(rate * 100)}<span>%</span></div>
+      <p className={styles.resultNote}>{mood.theme}<br />{phase === 'live' ? '15:30 마감 후 할인율이 확정돼요.' : phase === 'closed' ? '오늘 빵장은 마감됐어요.' : `${openAt}부터 오늘의 가격으로 만나요.`}</p>
+
       {/* 카운트다운 — 그래프 아래 가운데. 상태는 위, 무엇까지 남은 시간인지는 숫자 왼쪽에 */}
       <div className={styles.countCenter}>
         <span className={styles.marketTag} data-open={phase === 'open'}>
           <i aria-hidden="true" />
-          {phase === 'live' ? 'BREAD MARKET · 15:30 OPEN'
+          {phase === 'live' ? 'BREAD MARKET · 15:30 확정'
             : phase === 'locked' ? `BREAD MARKET OPEN · ${openAt}`
             : phase === 'open' ? 'BREAD MARKET OPEN'
             : 'BREAD MARKET CLOSED'}
@@ -173,11 +195,13 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
         </span>
       </div>
 
+      <details className={styles.rateDetails}>
+      <summary>할인 기준 보기</summary>
       {phase === 'live' ? (
         <div className={styles.verdict} key={mood.side}>
           <div className={styles.verdictPop}>
             <span className={styles.eyebrow}>지금 마감한다면</span>
-            <h1>모든 빵 <b>{Math.round(rate * 100)}%</b> 할인</h1>
+            <h2>기본 할인 <b>{Math.round(rate * 100)}%</b></h2>
             <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {why} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
           </div>
         </div>
@@ -185,12 +209,13 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
         <div className={styles.verdict}>
           <div>
             <span className={styles.eyebrow}>오늘은 {k.changePct > 0 ? '상승' : k.changePct < 0 ? '하락' : '보합'} 마감<span className={styles.stamp}>확정 ✓</span></span>
-            <h1>오늘 모든 빵 <b>{Math.round(rate * 100)}%</b> 할인</h1>
+            <h2>기본 할인 <b>{Math.round(rate * 100)}%</b></h2>
             <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {why} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
           </div>
         </div>
       )}
 
+      </details>
       {/* 규칙 한 줄.
           "왜 코스피냐"는 손님이 이해해야 할 질문이 아니다 — 우천 할인에 "비가 왜
           가격과 상관있냐"고 묻는 사람은 없다. 규칙이 명확하고 매일 확인할 수 있으면
@@ -199,6 +224,8 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
       <p className={styles.rule}>
         <b>많이 흔들린 날</b>일수록 싸집니다 · <b>내린 날</b>은 더 싸집니다
       </p>
+      <a className={styles.marketCta} href="#today">오늘의 할인 빵 보기 <span aria-hidden="true">↗</span></a>
+      </div>
     </section>
   );
 }

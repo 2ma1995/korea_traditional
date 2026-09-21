@@ -210,8 +210,8 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
             onClick={e => { const i = idxFromEvent(e as unknown as React.PointerEvent<SVGSVGElement>); setPinned(prev => (prev === i ? null : i)); }}>
             <defs>
               <linearGradient id={`fill-${dir}`} x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor={up ? 'var(--up)' : 'var(--down)'} stopOpacity=".28" />
-                <stop offset="100%" stopColor={up ? 'var(--up)' : 'var(--down)'} stopOpacity="0" />
+                <stop offset="0%" stopColor="var(--dir)" stopOpacity=".28" />
+                <stop offset="100%" stopColor="var(--dir)" stopOpacity="0" />
               </linearGradient>
             </defs>
             {showGuide && guide && (
@@ -240,6 +240,9 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
             {axis.map(a => <text key={a.label + a.i} x={xAt(a.i)} y={H - 8} className={styles.axis} textAnchor={a.anchor}>{a.label}</text>)}
           </svg>
 
+          {phase !== 'live' && (
+            <span className={styles.closedMark} aria-hidden="true">장 마감</span>
+          )}
           {tip && (
             <div ref={tipRef} className={styles.tipBox} style={{ left: `${tip.xPct}%` }} data-flip={tip.xPct > 62} role="status">
               <b>{tip.label}</b>

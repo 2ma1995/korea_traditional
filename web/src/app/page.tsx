@@ -1,14 +1,18 @@
 import Market from '@/components/Market';
 import MarketIntro from '@/components/MarketIntro';
 import { PRODUCTS } from '@/data/products';
-import { loadFilled } from '@/lib/fills';
-import { fetchKospiHistory, getMarketSnapshot } from '@/lib/market';
+import { weeklyScoreFor } from '@/lib/dividend';
+import { loadFilled, loadWeekReport } from '@/lib/fills';
+import { fetchKospiHistory, getMarketSnapshot, seoulDateString } from '@/lib/market';
 import { buildToday } from '@/lib/offers';
 import { OPEN_AT } from '@/lib/orderbook';
 import { loadTiers } from '@/lib/settings';
 import { bidState } from '@/lib/bidRight';
+import { loadIpoEnabled } from '@/lib/appSettings';
 import { currentRound, loadIpoCounts } from '@/lib/ipo';
 import { loadSkuSignals } from '@/lib/skuSignals';
+import { currentVisitorId } from '@/lib/visitor';
+import { recordVisit } from '@/lib/visits';
 import { applyStock, fetchStock } from '@/lib/stock';
 
 /**
@@ -18,6 +22,10 @@ import { applyStock, fetchStock } from '@/lib/stock';
  */
 export default async function BreadMarketPage() {
   const now = new Date();
+  /* 출석 — 주간 활동점수의 세 항목 중 하나. 하루 1회만 세므로 매 렌더 호출해도 된다.
+     서버 컴포넌트는 쿠키를 발급할 수 없어 이미 있는 표식만 읽는다. 실패해도 삼킨다 */
+  const visitor = await currentVisitorId();
+  if (visitor) await recordVisit(visitor, now);
   const [market, tiers, filled, intraday, stock, signals] = await Promise.all([
     getMarketSnapshot(now),
     loadTiers(),
@@ -31,10 +39,23 @@ export default async function BreadMarketPage() {
   const products = applyStock(PRODUCTS, stock);
   const today = buildToday(market, tiers, filled, now, products, signals);
 
-  /* 이번 공모 회차. 평소엔 품절 상품 재입고 공모, 이분이지엔 절기 신제품 공모다.
-     후보가 재고에서 나오므로 재고를 받은 뒤에 세운다 (lib/ipo) */
-  const round = currentRound(now, products.filter(product => !product.inStock));
-  const [ipoCounts, mine] = await Promise.all([loadIpoCounts(round), bidState(now)]);
+  /* 휴장일(주말)에는 가격이 움직이지 않는다. 대신 이번 주 빵장이 어땠는지를 보여준다.
+     fills에 visitor가 없어 개인 기록은 못 만든다 — 시장 전체 결산으로 쓴다.
+     평일에는 쓰지 않으므로 그때만 조회한다 */
+  const weekend = today.hours.reason === 'holiday';
+  const weekAgo = new Date(now);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const [week, score] = weekend
+    ? await Promise.all([
+        loadWeekReport(seoulDateString(weekAgo), seoulDateString(now)),
+        weeklyScoreFor(visitor, now),
+      ])
+    : [null, null];
+
+  /* 이번 공모 회차 — 관리자가 만든 회차 중 오늘 열려 있는 것. 없으면 null이고
+     화면이 공모 섹션을 통째로 감춘다(lib/ipo). 절기 자동 편성은 2026-09-21에 걷어냈다. */
+  const [round, mine, ipoOn] = await Promise.all([currentRound(now), bidState(now), loadIpoEnabled()]);
+  const ipoCounts = round ? await loadIpoCounts(round) : { counts: {}, demo: 0, live: false };
 
   /* 대문이 뭐라고 말할지 — Market.tsx의 phase와 같은 규칙이다.
      거기는 폴링한 marketOpen을, 여기는 서버 스냅샷을 쓴다. 문이 열려 있는
@@ -57,8 +78,11 @@ export default async function BreadMarketPage() {
       <Market
         today={today}
         tiers={tiers}
+        week={week}
+        score={score}
         round={round}
         ipo={{ ...ipoCounts, ...mine }}
+        ipoOn={ipoOn.value && round !== null}
         points={intraday?.points ?? []}
         kospi={{ value: market.kospi.value, changePct: market.kospi.changePct, live: market.kospi.live, marketOpen: market.kospiMarketOpen }}
       />

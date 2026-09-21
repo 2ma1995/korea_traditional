@@ -6,6 +6,7 @@ import { marketHours } from '@/lib/orderbook';
 import { DAILY_ALLOTMENT, rateFor } from '@/lib/offers';
 import { demandBonusFor, inventoryBonusFor, skuRateFor } from '@/lib/skuAdjust';
 import { loadSkuSignals } from '@/lib/skuSignals';
+import { visitorId } from '@/lib/visitor';
 import { loadTiers } from '@/lib/settings';
 import { fetchStock } from '@/lib/stock';
 import { loadFilledCounts, tryFill } from '@/lib/fills';
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
   const quantity = DAILY_ALLOTMENT;
 
   try {
-    const result = await tryFill(productNo, depth, quantity, now);
+    const result = await tryFill(productNo, depth, quantity, now, await visitorId());
     /* 오늘 산 사람에게 공모 청약권 한 장. 구매가 증거금 역할을 한다 (lib/bidRight) */
     await grantBidRight(now);
     return NextResponse.json({ ok: true as const, ...result, quantity }, { headers: NO_STORE });
