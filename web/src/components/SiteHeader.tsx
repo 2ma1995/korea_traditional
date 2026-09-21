@@ -6,18 +6,21 @@ import { usePathname } from 'next/navigation';
 /**
  * 헤더.
  *
- * 빵장('/')이 본편이고, 접었던 절기 화면('/season')과 절기 기록장('/archive')을
- * 나란히 둔다. 둘을 오가며 비교할 수 있어야 해서 메뉴로 노출한다.
+ * 메뉴는 '빵장' 하나다. 2026-09-20에 절기 화면('/season')·절기 기록장('/archive')과
+ * 섹션 앵커(MY · NEXT)를 뺐다.
  *
- * 절기 화면의 오프닝은 URL에 해시가 없으면 재생된다(Intro.getSkipPreference).
- * 메뉴에서 '/season'으로 들어가면 매번 오프닝부터 본다 — 그게 의도다.
+ * 왜 — 절기는 '보여주는 화면'에서 '다음 상품을 정하는 자리'로 이미 옮겨졌다(lib/ipo.ts).
+ * 설계도의 서비스 구조(MARKET → TODAY → MY → NEXT)에 절기 화면은 들어 있지 않다.
+ * 메뉴에 남겨두면 본편이 아닌 화면으로 손님을 흘려보낸다.
+ *
+ * ⚠️ MY·NEXT는 다른 페이지가 아니라 빵장 안의 섹션 앵커다. 공모주_재설계.md가
+ *    "NEXT가 없어 직접 갈 수 없다"며 일부러 넣었던 항목이니, 되살리려면 아래 배열에
+ *    다시 넣으면 된다 — 그 외에 지운 것은 없다.
+ *
+ * 페이지 파일은 아직 남아 있다. 메뉴에서만 뺐고 직접 URL로는 열린다.
  */
 const links = [
   { href: '/', label: '빵장' },
-  { href: '/season', label: '절기' },
-  { href: '/archive', label: '스물네 절기' },
-  { href: '/#foryou', label: 'MY' },
-  { href: '/#next', label: 'NEXT' },
 ];
 
 export default function SiteHeader() {

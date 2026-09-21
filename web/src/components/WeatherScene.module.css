@@ -22,15 +22,15 @@
 .landscape { top: 60%; background: radial-gradient(ellipse at 15% 140%, #b9caa062, transparent 70%), radial-gradient(ellipse at 90% 180%, #ccd3a760, transparent 70%); }
 /* A translucent paper wash keeps moving weather behind the centered lettering. */
 .paperVeil { z-index: 2; background: radial-gradient(ellipse 40% 39% at 50% 48%, var(--scene-paper) 0%, color-mix(in srgb, var(--scene-paper) 82%, transparent) 50%, transparent 100%); }
-.copy { position: relative; z-index: 3; text-align: center; color: var(--scene-ink); width: min(860px, calc(100% - 48px)); padding: 65px 0; transform: translateY(17px); transition: transform .75s ease; }
+.copy { position: relative; z-index: 3; text-align: center; color: var(--scene-ink); width: min(860px, calc(100% - 48px)); padding: 64px 0; transform: translateY(17px); transition: transform .75s ease; }
 .scene[data-active='true'] .copy { transform: translateY(0); }
-.seasonLabel { display: block; font-family: var(--font-serif-kr), serif; font-size: 13px; letter-spacing: .32em; color: var(--scene-accent); margin-bottom: 26px; }
-.seasonLabel > span { margin: 0 10px; }
+.seasonLabel { display: block; font-family: var(--font-serif-kr), serif; font-size: 13px; letter-spacing: .32em; color: var(--scene-accent); margin-bottom: 28px; }
+.seasonLabel > span { margin: 0 12px; }
 .copy h2 { font-size: clamp(36px, 4.2vw, 60px); line-height: 1.62; font-weight: 400; letter-spacing: -.02em; word-break: keep-all; }
 .copy h2 > span { display: block; }
 .copy h2 em { color: var(--scene-accent); }
-.copy p { color: var(--scene-ink); opacity: .72; font-size: 13px; line-height: 1.9; margin-top: 25px; word-break: keep-all; }
-.seal { display: inline-block; font-family: var(--font-serif-kr), serif; color: #aa6551; border: 1px solid currentColor; outline: 1px solid currentColor; outline-offset: -4px; padding: 7px 9px; font-size: 12px; line-height: 1.35; transform: rotate(-6deg); margin-top: 33px; opacity: .8; }
+.copy p { color: var(--scene-ink); opacity: .72; font-size: 13px; line-height: 1.9; margin-top: 24px; word-break: keep-all; }
+.seal { display: inline-block; font-family: var(--font-serif-kr), serif; color: #aa6551; border: 1px solid currentColor; outline: 1px solid currentColor; outline-offset: -4px; padding: 8px 8px; font-size: 12px; line-height: 1.35; transform: rotate(-6deg); margin-top: 32px; opacity: .8; }
 .blossomBranch { position: absolute; left: -2%; top: -12%; width: min(44vw, 650px); height: auto; opacity: .58; transform: rotate(-11deg); transform-origin: top left; }
 .particle { position: absolute; left: var(--x); top: -10%; opacity: 0; width: var(--size); height: var(--size); animation: driftFall var(--duration) linear var(--delay) infinite; animation-play-state: paused; }
 .particle > i { display: block; height: 100%; width: 100%; transform: rotate(var(--turn)); }
@@ -86,9 +86,9 @@
 @media (max-width: 760px) {
   .copy { width: calc(100% - 44px); }
   .copy h2 { font-size: clamp(30px, 7.6vw, 44px); }
-  .copy p { max-width: 300px; margin: 22px auto 0; font-size: 12px; }
-  .seasonLabel { font-size: 11px; margin-bottom: 22px; }
-  .seal { margin-top: 29px; font-size: 11px; }
+  .copy p { max-width: 300px; margin: 24px auto 0; font-size: 12px; }
+  .seasonLabel { font-size: 12px; margin-bottom: 24px; }
+  .seal { margin-top: 28px; font-size: 12px; }
   .blossomBranch { width: 72vw; left: -14%; top: -4%; opacity: .52; }
   .summerCanopy { width: 250px; height: 320px; right: -30%; top: -7%; }
   .summerCanopy > i { width: 130px; height: 42px; }
@@ -96,11 +96,11 @@
   .particle:nth-of-type(2n) { display: none; }
 }
 @media (max-height: 550px) {
-  .copy { padding-block: 45px; }
+  .copy { padding-block: 44px; }
   .copy h2 { font-size: 32px; line-height: 1.5; }
-  .seasonLabel { margin-bottom: 12px; font-size: 10px; }
-  .copy p { margin-top: 14px; font-size: 11px; }
-  .seal { margin-top: 15px; font-size: 9px; }
+  .seasonLabel { margin-bottom: 12px; font-size: 12px; }
+  .copy p { margin-top: 16px; font-size: 12px; }
+  .seal { margin-top: 16px; font-size: 12px; }
 }
 
 /* 이 장면들은 오프닝 안에서만 쓴다. 동작 줄이기에서도 그대로 재생한다 —

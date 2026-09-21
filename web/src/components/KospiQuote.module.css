@@ -3,10 +3,10 @@
 
 .quoteHeader { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .quoteHeader > span:first-child { display: flex; align-items: center; gap: 12px; font-size: 13px; }
-.quoteHeader b { font-size: 9px; font-weight: 500; letter-spacing: .1em; color: var(--muted); }
+.quoteHeader b { font-size: 12px; font-weight: 500; letter-spacing: .1em; color: var(--muted); }
 
 /* 장중이면 초록에 점이 뛰고, 마감이면 회색으로 가라앉는다 */
-.marketBadge { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; padding: 5px 8px; border: 1px solid #cbd2bf; white-space: nowrap; }
+.marketBadge { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 8px; border: 1px solid #cbd2bf; white-space: nowrap; }
 .marketBadge[data-tone='open'] { color: #446440; background: #edf2e5; }
 .marketBadge[data-tone='closed'] { color: #6b7166; background: #eeeee8; border-color: #d5d6cc; }
 .marketBadge[data-tone='sample'] { color: #866739; background: #f4edde; border-color: #e0d1b8; }
@@ -18,8 +18,8 @@
   font-size: 32px; font-weight: 400; letter-spacing: -.045em;
   margin-top: 12px; line-height: 1.25; font-variant-numeric: tabular-nums;
 }
-.indexChange { font-family: var(--font-geist-mono), monospace; font-size: 14px; margin-top: 6px; }
-.indexChange small { font-family: var(--font-geist-sans), sans-serif; font-size: 10px; color: var(--muted); margin-left: 10px; }
+.indexChange { font-family: var(--font-geist-mono), monospace; font-size: 14px; margin-top: 8px; }
+.indexChange small { font-family: var(--font-geist-sans), sans-serif; font-size: 12px; color: var(--muted); margin-left: 12px; }
 
 .up { color: var(--hong); }
 .down { color: #45618b; }
@@ -30,7 +30,7 @@
 @media (prefers-reduced-motion: reduce) { .tickUp, .tickDown { animation: none; } }
 
 /* 상태바 한 줄 */
-.compact { display: inline-flex; align-items: center; gap: 9px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.compact b { font-size: 9px; font-weight: 500; letter-spacing: .1em; color: var(--muted); }
+.compact { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.compact b { font-size: 12px; font-weight: 500; letter-spacing: .1em; color: var(--muted); }
 .compact strong { font-family: var(--font-geist-mono), monospace; font-size: 14px; font-weight: 500; letter-spacing: -.02em; }
 .compact > span:not(.marketBadge) { font-family: var(--font-geist-mono), monospace; font-size: 12px; }
