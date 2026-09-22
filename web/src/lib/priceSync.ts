@@ -45,6 +45,15 @@ export const PRICE_SYNC_ENABLED = false;
    할인이 두 번 먹는다(lib/discountDelivery) */
 const enabled = () => discountDelivery() === 'price' && (PRICE_SYNC_ENABLED || process.env.PRICE_SYNC === 'on');
 
+/**
+ * 지금 자사몰 판매가가 실제로 오늘 폭으로 바뀌고 있는가.
+ *
+ * 화면이 "오늘 가격이 이미 적용돼 있습니다"라고 말해도 되는지 판단하는 값이다.
+ * 의도(DISCOUNT_DELIVERY=price)와 실제(PRICE_SYNC=on)는 다르다 — 의도만 보고
+ * 말하면 값은 정가인데 싸다고 말하는 꼴이 된다. 이 서비스가 계속 싸워온 문제다.
+ */
+export const priceSyncActive = enabled;
+
 /* 10원 단위 절사 — 화면·publish 라우트와 같은 규칙이어야 한다. Math.round를 먼저 거치는 이유 — 21000 * (1 - 0.3)이 IEEE754에서
    14699.999999999998이 되어 그냥 내리면 14,690원이 된다. 30% 할인인데 10원이 더
    깎인 값이다. 90개 조합 중 8개에서 이렇게 어긋났다. */

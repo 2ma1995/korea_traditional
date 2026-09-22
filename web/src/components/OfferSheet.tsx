@@ -23,8 +23,13 @@ export interface Bid {
   error?: string;
   /** 결제 기한(ISO). 이 시각까지 결제하지 않으면 자리가 반납된다 */
   expiresAt?: string | null;
-  /** 할인을 어떻게 주는가. 'price'면 자사몰 값이 이미 내려가 있어 코드가 없다 */
-  delivery?: 'price' | 'coupon';
+  /**
+   * 할인이 **실제로** 어떻게 전달됐는가.
+   *   price   자사몰 판매가가 이미 내려가 있다
+   *   coupon  코드를 받았다
+   *   none    둘 다 아니다 — 자사몰에선 정가로 보인다
+   */
+  delivery?: 'price' | 'coupon' | 'none';
 }
 
 interface Props {
@@ -168,14 +173,21 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
                 {clock}
               </div>
             ) : (
-              <p className={styles.sheetNote}>
-                코드 발급에 실패했습니다. <b>예약은 그대로 살아 있습니다</b> — 자사몰에서는 정가로 보이니
-                코드를 다시 받으실 때까지 기다려 주세요.
-              </p>
+              /* 할인을 전달할 수단이 없다. 자리는 잡혔지만 자사몰에선 정가다.
+                 이 사실을 감추면 손님이 정가로 결제한다 */
+              <div className={styles.couponBox} data-warn="true">
+                <span className={styles.couponLabel}>⚠️ 자사몰에서는 아직 정가로 보입니다</span>
+                <span className={styles.couponFine}>
+                  <b>자리는 잡혔습니다.</b> 다만 오늘 가격을 적용할 준비가 안 돼 있어,
+                  지금 결제하시면 정가 {won(offer.product.price)}원으로 결제됩니다.
+                  잠시 뒤 다시 확인해 주세요.
+                </span>
+                {clock}
+              </div>
             )}
 
             <a className={styles.primary} href={shopUrl(offer.product.productNo)} target="_blank" rel="noopener noreferrer">
-              {bid.delivery === 'price' || bid.coupon ? '이 가격으로 자사몰에서 결제하기 ↗' : '자사몰에서 결제하기 ↗'}
+              {bid.delivery === 'none' ? '자사몰에서 정가로 결제하기 ↗' : '이 가격으로 자사몰에서 결제하기 ↗'}
             </a>
             {canBid && (
               <button type="button" className={styles.toNext} onClick={onNext}>

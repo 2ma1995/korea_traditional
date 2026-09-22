@@ -225,6 +225,9 @@
 .couponClock b { font-family: var(--font-geist-mono), monospace; font-size: 15px; color: var(--ink); }
 .couponClock[data-urgent='true'] { color: var(--hong); }
 .couponClock[data-urgent='true'] b { color: var(--hong); }
+/* 할인을 전달할 수단이 없을 때 — 축하가 아니라 경고다 */
+.couponBox[data-warn='true'] { border-color: var(--muted); background: color-mix(in srgb, var(--muted) 7%, var(--paper)); }
+.couponBox[data-warn='true'] .couponLabel { color: var(--ink); }
 
 .sheetNote { font-size: 13px; line-height: 1.8; margin-top: 12px; padding: 12px 16px; background: var(--background); border-radius: var(--r-card); word-break: keep-all; }
 .sheetNote b { font-weight: 700; }

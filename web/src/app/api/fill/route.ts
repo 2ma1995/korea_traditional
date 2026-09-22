@@ -13,6 +13,7 @@ import { attachCoupon, loadFilledCounts, tryFill } from '@/lib/fills';
 import { issueCoupon } from '@/lib/coupon';
 import { adjustInventory } from '@/lib/inventory';
 import { discountDelivery } from '@/lib/discountDelivery';
+import { priceSyncActive } from '@/lib/priceSync';
 import { sweepExpired } from '@/lib/settle';
 
 /**
@@ -98,10 +99,17 @@ export async function POST(request: Request) {
       await adjustInventory(productNo, -1);
     }
 
-    /* 화면이 뭘 보여줄지는 전달 방식이 정한다 — price면 코드가 없는 게 정상이다.
-       이걸 안 내려보내면 화면이 "코드 발급 실패"라고 거짓말한다 */
+    /* 화면이 뭘 보여줄지는 **실제로 할인이 전달되는 방식**이 정한다.
+       의도(DISCOUNT_DELIVERY)만 보고 말하면 안 된다 — price로 두고 PRICE_SYNC를
+       안 켜면 값은 정가인데 화면은 "이미 적용돼 있습니다"라고 말한다.
+       그게 설계도 최상단이 지적한 "싸다고 보여주고 정가로 보낸다"의 재발이다.
+         price   판매가가 실제로 바뀌고 있다
+         coupon  코드를 손에 쥐여줬다
+         none    둘 다 아니다 — 자사몰에선 정가로 보인다고 밝힌다 */
+    const delivery = priceSyncActive() ? 'price' : coupon ? 'coupon' : 'none';
+
     return NextResponse.json(
-      { ok: true as const, ...result, quantity, coupon, delivery: discountDelivery() },
+      { ok: true as const, ...result, quantity, coupon, delivery, intent: discountDelivery() },
       { headers: NO_STORE },
     );
   } catch (err) {
