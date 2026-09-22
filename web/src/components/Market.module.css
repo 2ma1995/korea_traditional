@@ -778,3 +778,19 @@ p.callout { cursor: default; }
   color: var(--muted); background: color-mix(in srgb, var(--paper) 88%, transparent);
   border-radius: 999px; padding: 3px 8px; white-space: nowrap;
 }
+
+
+/* ── 오늘의 결론 ─────────────────────────────────────────
+   TODAY 섹션 바로 위. 히어로가 '시장이 어떻게 움직였나'를 말하고,
+   여기가 '그래서 오늘 얼마나 싸냐'에 답한다. 근거는 히어로의 서랍에 있다 */
+.todayCall { display: grid; gap: 6px; padding: 0 4px; margin-bottom: 2px; }
+.todayCall .eyebrow { display: inline-flex; align-items: center; gap: 8px; }
+.todayCall strong { font-size: clamp(24px, 5vw, 30px); font-weight: 700; letter-spacing: -.03em; line-height: 1.25; }
+.todayCall strong b { color: var(--mood); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+
+/* 품절 — 사진에서 색을 뺀다. 목록 맨 뒤로 가 있지만 색까지 남아 있으면
+   여전히 오늘 살 수 있는 빵처럼 읽힌다. 이름·가격은 읽을 수 있게 남긴다 */
+.topCard[data-sold-out='true'] .topPhoto { filter: grayscale(1); opacity: .55; }
+.topCard[data-sold-out='true'] b { color: var(--muted); }
+.topCard[data-sold-out='true']:hover { transform: none; background: var(--background); }

@@ -14,7 +14,7 @@ import type { DiscountTier } from '@/data/indicators';
 import type { IpoRound } from '@/lib/ipo';
 import type { WeeklyScore } from '@/lib/dividend';
 import type { WeekReport } from '@/lib/fills';
-import { moodFor, priceAt, rateFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
+import { badgesFor, DAILY_ALLOTMENT, moodFor, priceAt, rateFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
 import { withSkuBonus } from '@/lib/skuAdjust';
 import { OPEN_AT } from '@/lib/orderbook';
 import { qtyOf, usePortfolio, useStableHoldings } from '@/lib/portfolioStore';
@@ -50,7 +50,7 @@ interface Props {
   score: WeeklyScore | null;
 }
 
-type Sort = 'popular' | 'watched';
+type Sort = 'popular' | 'watched' | 'all';
 const MEDAL = ['🥇', '🥈', '🥉'];
 const EMOJI: Record<number, string> = { 29: '🍰', 33: '🥖', 19: '🍮', 23: '🍰', 31: '🍞', 32: '🥐', 28: '🧁', 25: '🥐', 27: '🥪', 30: '🧁' };
 const won = (n: number) => n.toLocaleString('ko-KR');
@@ -89,7 +89,9 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const k = useKospiLive({ value: kospi.value, changePct: kospi.changePct, marketOpen: kospi.marketOpen, live: kospi.live, points });
   const [filled, setFilled] = useState<Record<string, number>>({});
   const [bids, setBids] = useState<Record<number, Bid>>({});
-  const [sort, setSort] = useState<Sort>('popular');
+  /* 처음에는 전체를 보여준다 — 라인을 켜면서 오늘 진열이 4~6종으로 줄었는데,
+     들어오자마자 그것만 보이면 막지에 빵이 그것뿐인 것처럼 읽힌다 */
+  const [sort, setSort] = useState<Sort>('all');
   const [selected, setSelected] = useState<number | null>(null);
   /* 시트 왼쪽 버튼이 갈린다 — 할인 목록에서 열면 '관심 담기', 포트폴리오에서 열면 개수 조절 */
   const [sheetFrom, setSheetFrom] = useState<'list' | 'portfolio'>('list');
@@ -131,7 +133,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
        --ph 사진 kenburns는 무한 alternate라 지연이 바뀌면 확대 상태가 순간 점프한다
        delay RollingPrice의 effect가 다시 돌아 가격이 정가부터 다시 굴러 내려온다
      서버가 준 순서(today.offers)를 쓰면 처음 등장할 때의 촤라락은 그대로 남는다. */
-  const stepOf = new Map(today.offers.map((o, idx) => [o.product.productNo, idx]));
+  const stepOf = new Map(today.all.map((p, idx) => [p.productNo, idx]));
 
   useEffect(() => {
     if (!today.hours.open) return;
@@ -200,9 +202,24 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
     setBulk({ busy: false, done, missed });
   }
 
-  const sorted = [...offers].sort((a, b) => sort === 'watched'
-    ? qtyOf(portfolio, b.product.productNo) - qtyOf(portfolio, a.product.productNo) || b.saved - a.saved
-    : filledOf(b) - filledOf(a) || b.saved - a.saved);
+  /* '전체'는 오늘 라인 밖·품절까지 막지의 모든 빵을 보여준다. 라인이 뜻을 만들지만,
+     "다른 빵도 있나?"라는 질문에 답할 곳이 없으면 진열이 좁아 보인다.
+     오늘 진열에 없는 빵은 정가 그대로고, 카드가 라인 밖·품절임을 밝힌다 */
+  const shelf: TodayOffer[] = sort !== 'all' ? offers : today.all.map(product => {
+    const live = offers.find(o => o.product.productNo === product.productNo);
+    if (live) return live;
+    return {
+      product, onLine: false, rate: 0, demandBonus: 0, inventoryBonus: 0,
+      price: product.price, saved: 0, allotment: DAILY_ALLOTMENT, filled: 0, badges: badgesFor(product),
+    };
+  });
+
+  /* 품절은 어떤 정렬이든 맨 뒤다 — 살 수 없는 빵이 위에 있으면 진열이 아니라 목록이 된다 */
+  const sorted = [...shelf].sort((a, b) =>
+    Number(b.product.inStock) - Number(a.product.inStock)
+    || (sort === 'watched'
+      ? qtyOf(portfolio, b.product.productNo) - qtyOf(portfolio, a.product.productNo) || b.saved - a.saved
+      : filledOf(b) - filledOf(a) || b.saved - a.saved));
   /* 정렬 결과는 순위로만 쓴다 — 화면 배치는 위 목록에서 CSS order가 한다 */
   const rankOf = new Map(sorted.map((o, idx) => [o.product.productNo, idx]));
   const ranking = offers.map(o => ({ o, n: filledOf(o) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
@@ -214,7 +231,11 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const pfTotal = entries.reduce((a, b) => a + b.qty, 0);
   /* 하나만 담아도 도넛을 보여준다. '3개부터'는 성급한 판정을 막자는 안이었지만, 담았는데 안 보이는 게 더 이상하다 */
   const actions = pfTotal;
-  const nameOf = (no: number) => offers.find(o => o.product.productNo === no)?.product.name ?? today.soldOut.find(p => p.productNo === no)?.name ?? `#${no}`;
+  /* 이름은 오늘 진열이 아니라 전체 목록에서 찾는다.
+     라인을 켜면서 '재고는 있는데 오늘 라인이 아닌 빵'이 생겼는데, offers에도
+     soldOut에도 없어서 관심빵이 '#25'로 떨어졌다 — 담아둔 빵의 이름은 오늘
+     팔든 안 팔든 알아야 한다 */
+  const nameOf = (no: number) => today.all.find(p => p.productNo === no)?.name ?? `#${no}`;
   const slices: Slice[] = entries.map(e => {
     const o = offers.find(x => x.product.productNo === e.no);
     return { no: e.no, name: nameOf(e.no), emoji: EMOJI[e.no] ?? '🍞', share: Math.round((e.qty / pfTotal) * 100), today: Boolean(o), price: o?.price };
@@ -309,6 +330,21 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         </section>
       )}
 
+      {/* ══ 오늘의 결론 — 들어온 사람이 가장 먼저 알아야 할 한 줄.
+             근거(구간·하락장 보정)는 위 히어로의 '할인 기준 보기'에 접어 두고,
+             여기에는 결과만 세운다. 서랍 안에 있으면 아무도 안 연다.
+             '모든 빵'이라고 쓰지 않는다 — SKU 보정이 붙어 빵마다 폭이 다르다 ══ */}
+      {!holiday && (
+        <div className={`${styles.todayCall} ${styles.reveal}`} style={reveal(0)}>
+          <span className={styles.eyebrow}>
+            {phase === 'live'
+              ? '지금 마감한다면'
+              : <>오늘은 {k.changePct > 0 ? '상승' : k.changePct < 0 ? '하락' : '보합'} 마감<span className={styles.stamp}>확정 ✓</span></>}
+          </span>
+          <strong>기본 할인 <b>{Math.round(rate * 100)}%</b></strong>
+        </div>
+      )}
+
       {/* ══ TODAY ══ */}
       {!holiday && (
       <section id="today" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="오늘의 할인 빵">
@@ -318,6 +354,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           <div className={styles.sort} role="group" aria-label="정렬">
             <button type="button" aria-pressed={sort === 'popular'} onClick={() => setSort('popular')}>인기순</button>
             <button type="button" aria-pressed={sort === 'watched'} onClick={() => setSort('watched')}>관심순</button>
+            <button type="button" aria-pressed={sort === 'all'} onClick={() => setSort('all')}>전체</button>
           </div>
         </header>
 
@@ -328,28 +365,41 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
             뒤늦게 나타났다. order만 바꾸면 노드가 움직이지 않아 아무것도 다시 돌지 않는다.
             ⚠️ 화면 순서와 DOM 순서가 달라진다 — 탭 이동과 스크린리더는 고정 순서를 따른다. */}
         <ul className={styles.grid}>
-          {offers.map((o, i) => {
+          {shelf.map((o, i) => {
             const no = o.product.productNo, remaining = remainingOf(o), n = qtyOf(portfolio, no);
             const ranked = sort === 'popular' ? filledOf(o) > 0 : n > 0;
             const step = stepOf.get(no) ?? i;      // 등장·사진·가격 굴림에 쓰는 고정 순서
             const rank = rankOf.get(no) ?? i;      // 지금 정렬에서 몇 번째로 보이는가
             return (
               <li key={no} className={`${styles.reveal} ${styles.cell}`} style={{ ...reveal(1 + step), order: rank }}>
-                <button type="button" className={styles.topCard} style={{ ['--ph' as string]: `${step * 5}s` }} onClick={() => openFromList(no)}>
+                <button type="button" className={styles.topCard} data-sold-out={!o.product.inStock} style={{ ['--ph' as string]: `${step * 5}s` }} onClick={() => openFromList(no)}>
                   {ranked && rank < 3 && <span className={styles.medal}>{MEDAL[rank]}</span>}
-                  {!o.onLine && <span className={styles.offLine}>오늘 라인 밖</span>}
+                  {!o.onLine && <span className={styles.offLine}>{o.product.inStock ? '오늘 라인 밖' : '품절'}</span>}
                   <span className={styles.topPhoto}><ProductPhoto productNo={no} name={o.product.name} /></span>
                   <b>{o.product.name}</b>
                   <span className={styles.topPrice}>
-                    <strong><RollingPrice from={o.product.price} to={o.price} delay={base + (1 + step) * 90 + 500} />원</strong>
-                    <del>{won(o.product.price)}원</del>
+                    {o.saved > 0 ? (
+                      <>
+                        <strong><RollingPrice from={o.product.price} to={o.price} delay={base + (1 + step) * 90 + 500} />원</strong>
+                        <del>{won(o.product.price)}원</del>
+                      </>
+                    ) : (
+                      /* 오늘 할인 대상이 아니다 — 정가만 보여주고 취소선을 긋지 않는다 */
+                      <strong>{won(o.product.price)}원</strong>
+                    )}
                   </span>
                   {phase === 'locked' ? (
                     <small>🔒 {openAt} 공개</small>
                   ) : (
                     <>
-                      <span className={styles.topMeter} aria-hidden="true"><i style={{ width: `${Math.round((remaining / o.allotment) * 100)}%` }} data-low={remaining <= o.allotment * 0.2} /></span>
-                      <small>{remaining > 0 ? `남음 ${remaining} / ${o.allotment}` : '오늘 물량 끝'}{phase === 'live' ? ' · 지금 기준 예상' : ''}</small>
+                      {o.saved > 0 ? (
+                        <>
+                          <span className={styles.topMeter} aria-hidden="true"><i style={{ width: `${Math.round((remaining / o.allotment) * 100)}%` }} data-low={remaining <= o.allotment * 0.2} /></span>
+                          <small>{remaining > 0 ? `남음 ${remaining} / ${o.allotment}` : '오늘 물량 끝'}{phase === 'live' ? ' · 지금 기준 예상' : ''}</small>
+                        </>
+                      ) : (
+                        <small>{o.product.inStock ? '오늘은 정가로 판매해요' : '지금은 품절이에요'}</small>
+                      )}
                     </>
                   )}
                 </button>

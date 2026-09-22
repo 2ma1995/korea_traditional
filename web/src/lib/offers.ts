@@ -96,8 +96,16 @@ export interface TodayMarket {
   bonusRate: number;
   mood: Mood;
   hours: MarketHours;
-  /** 재고 있는 빵, 할인 금액 큰 순 */
+  /** 오늘 진열 — 라인에 든 빵, 할인 금액 큰 순 */
   offers: TodayOffer[];
+  /**
+   * 막지 전체 빵. 오늘 라인 밖이거나 품절인 것까지 전부 들어 있다.
+   *
+   * 화면이 '전체' 탭과 관심빵 이름 조회에 쓴다. 라인을 켜면서 '재고는 있는데
+   * 오늘 라인이 아닌 빵'이 생겼는데, offers·soldOut 어느 쪽에도 없어서 담아둔
+   * 빵의 이름을 못 찾는 구멍이 있었다.
+   */
+  all: Product[];
   soldOut: Product[];
 }
 
@@ -213,6 +221,7 @@ export function buildToday(
     mood,
     hours: marketHours(at),
     offers,
+    all: products,
     soldOut: products.filter(product => !product.inStock),
   };
 }

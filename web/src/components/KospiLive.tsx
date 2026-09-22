@@ -201,7 +201,6 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
         <div className={styles.verdict} key={mood.side}>
           <div className={styles.verdictPop}>
             <span className={styles.eyebrow}>지금 마감한다면</span>
-            <h2>기본 할인 <b>{Math.round(rate * 100)}%</b></h2>
             <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {why} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
           </div>
         </div>
@@ -209,7 +208,6 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
         <div className={styles.verdict}>
           <div>
             <span className={styles.eyebrow}>오늘은 {k.changePct > 0 ? '상승' : k.changePct < 0 ? '하락' : '보합'} 마감<span className={styles.stamp}>확정 ✓</span></span>
-            <h2>기본 할인 <b>{Math.round(rate * 100)}%</b></h2>
             <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {why} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
           </div>
         </div>
