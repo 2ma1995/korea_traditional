@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ProductPhoto from '@/components/ProductPhoto';
+import { shopListUrl } from '@/lib/shop';
 import styles from '@/app/landing.module.css';
 
 /**
@@ -22,7 +23,7 @@ import styles from '@/app/landing.module.css';
 const won = (n: number) => n.toLocaleString('ko-KR');
 
 /** 「전체보기」가 향하는 곳 — 막지 공식몰 전체상품 */
-const SHOP_URL = 'https://makji.kr/product/list.html?cate_no=24';
+const SHOP_URL = shopListUrl;
 
 /**
  * 한 줄 높이(px). landing.module.css의 .featuredBread에서 나온다.

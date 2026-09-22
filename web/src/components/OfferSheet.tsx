@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import ProductPhoto from '@/components/ProductPhoto';
 import type { Mood, TodayOffer } from '@/lib/offers';
+import { shopProductUrl } from '@/lib/shop';
 import styles from './Market.module.css';
 
 /**
@@ -68,7 +69,7 @@ interface Props {
 }
 
 const won = (n: number) => n.toLocaleString('ko-KR');
-const shopUrl = (no: number) => `https://makji.kr/product/detail.html?product_no=${no}`;
+const shopUrl = shopProductUrl;
 
 export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, left, canBid, onNext, onBuy, onQty, onClose }: Props) {
   const [copied, setCopied] = useState(false);

@@ -2,6 +2,7 @@
 
 import type { TodayMarket } from '@/lib/offers';
 import { CLOSE_HOUR, OPEN_AT } from '@/lib/orderbook';
+import { shopListUrl } from '@/lib/shop';
 import styles from './Tabs.module.css';
 
 /**
@@ -53,7 +54,7 @@ export default function InfoTab({ today }: { today: TodayMarket }) {
         {today.hours.reason === 'test' && <> 지금은 <b>테스트를 위해 24시간</b> 열어두었습니다.</>}
       </p>
 
-      <a className={styles.shopLink} href="https://makji.kr/product/list.html?cate_no=24" target="_blank" rel="noopener noreferrer">
+      <a className={styles.shopLink} href={shopListUrl} target="_blank" rel="noopener noreferrer">
         정가로 바로 사기 — 막지 공식몰 <span aria-hidden="true">↗</span>
       </a>
     </>

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { shopListUrl } from '@/lib/shop';
 import Intro from '@/components/Intro';
 import KospiQuote from '@/components/KospiQuote';
 import DiscountList, { type DiscountRow } from '@/components/DiscountList';
@@ -97,7 +98,7 @@ export default async function Home() {
                 {targetCount > 0 ? (
                   <DiscountList rows={discountRows} targetCount={targetCount} onSale={plan.items.length} />
                 ) : <p className={styles.soldOut}>오늘 할인 대상 빵이 모두 품절되었습니다.</p>}
-                <a href="https://makji.kr/product/list.html?cate_no=24" target="_blank" rel="noopener noreferrer" className={styles.benefitLink}>할인 제품 둘러보기 <span aria-hidden="true">↗</span></a>
+                <a href={shopListUrl} target="_blank" rel="noopener noreferrer" className={styles.benefitLink}>할인 제품 둘러보기 <span aria-hidden="true">↗</span></a>
               </div>
             </div>
           </ScrollReveal>

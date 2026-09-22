@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { SHOP_BASE } from '@/lib/shop';
 
 /**
  * 헤더.
@@ -39,7 +40,7 @@ export default function SiteHeader() {
               <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined}>{label}</Link>
             ))}
           </nav>
-          <a className="shop-link" href="https://makji.kr" target="_blank" rel="noopener noreferrer">
+          <a className="shop-link" href={SHOP_BASE} target="_blank" rel="noopener noreferrer">
             막지 공식몰 <span aria-hidden="true">↗</span>
           </a>
         </div>

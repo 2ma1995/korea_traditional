@@ -1,3 +1,4 @@
+import { shopListUrl } from '@/lib/shop';
 import { PRODUCTS, type Product } from '@/data/products';
 import { adminApi, cafe24Config } from '@/lib/cafe24';
 
@@ -25,7 +26,7 @@ const TTL_MS = 5 * 60 * 1000;
 const TIMEOUT_MS = 8000;
 
 /** 전체상품 목록. 상품 10종이 한 번에 다 나온다 — 상세 페이지를 10번 부르지 않는다 */
-const SHOP_LIST = 'https://makji.kr/product/list.html?cate_no=24';
+const SHOP_LIST = shopListUrl;
 
 /** 카페24가 봇 취급하지 않도록. 목록 HTML이 UA에 따라 달라진다 */
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
