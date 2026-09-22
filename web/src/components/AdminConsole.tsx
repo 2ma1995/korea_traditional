@@ -270,6 +270,7 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                     5씩만 움직이면 37건 같은 수를 넣을 방법이 없었다.
                     ± 는 누르는 즉시, 직접 친 값은 칸을 벗어날 때 저장한다 */}
                 <span className={styles.stepper} data-busy={savingCap === row.productNo}>
+                  <span className={styles.stepperLabel}>예약</span>
                   <button type="button" aria-label={`${row.name} 물량 한 건 줄이기`}
                     disabled={capOf(row.productNo) <= 1 || savingCap === row.productNo}
                     onClick={() => saveCap(row.productNo, capOf(row.productNo) - 1)}>−</button>
@@ -278,6 +279,7 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                     onChange={event => setCaps(previous => ({ ...previous, [row.productNo]: Number(event.target.value) || 1 }))}
                     onBlur={event => saveCap(row.productNo, Number(event.target.value) || 1)}
                     onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
+                  <span className={styles.stepperLabel}>건</span>
                   <button type="button" aria-label={`${row.name} 물량 한 건 늘리기`}
                     disabled={capOf(row.productNo) >= 1000 || savingCap === row.productNo}
                     onClick={() => saveCap(row.productNo, capOf(row.productNo) + 1)}>+</button>
@@ -301,13 +303,15 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                     추가금도 같은 비율로 깎이므로(lib/priceSync.discountVariants)
                     어느 옵션을 골라도 할인율은 같다 — 그걸 눈으로 확인하는 자리다 */}
                 {(() => {
-                  const opts = (stockOf(row.productNo)?.options ?? []).filter(o => o.add > 0);
+                  const opts = stockOf(row.productNo)?.options ?? [];
                   if (!opts.length) return null;
                   return (
                     <small className={styles.optionPrices}>
                       {opts.map(o => (
                         <span key={o.label}>
-                          {o.label} <del>{won(row.price + o.add)}</del> <b>{won(unitPrice(row, o.add))}원</b>
+                          {o.label}
+                          {o.add > 0 && <> <b>{won(unitPrice(row, o.add))}원</b></>}
+                          {o.quantity !== null && <> · 재고 {won(o.quantity)}</>}
                         </span>
                       ))}
                     </small>
@@ -340,6 +344,12 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
         <p className={styles.note} style={{ marginTop: 12 }}>
           자사몰로 나가는 값은 <b>즉시구매 칸의 가격</b>입니다. 그 아래 한정 호가는 체결을 거쳐야 하므로
           자사몰 판매가와 무관합니다 (체결 처리는 구현 전).
+          <br />
+          <b>예약 n건</b>은 그 빵을 하루에 몇 <b>건</b>까지 할인가로 예약받을지입니다 —
+          빵 개수가 아닙니다. 한 건은 손님이 옵션 하나를 고르는 단위라, 30건을 열어두고
+          모두가 &lsquo;5개&rsquo;를 고르면 빵은 150개가 나갑니다.
+          <b>옵션별 상한은 카페24 재고</b>가 맡습니다 — 줄 아래 옵션마다 적힌 수가 그것이고,
+          둘 중 작은 쪽이 실제 한도입니다.
           <br />
           기본값은 코스피가 채웁니다. 재고나 기업 요청으로 빼거나 낮출 수 있고, 상한{' '}
           {Math.round(maxRate * 100)}%(기업 확인값)는 넘지 못합니다.

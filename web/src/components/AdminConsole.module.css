@@ -44,6 +44,8 @@
 /* 물량 조절 — 빵마다 따로 정한다. 누르면 그 자리에서 저장된다 */
 .stepper { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
 .stepper[data-busy='true'] { opacity: .5; }
+/* '예약 n건' — 무엇을 세는 수인지 칸 옆에 붙여 둔다 */
+.stepperLabel { font-size: 11px; color: var(--muted); padding: 0 6px; white-space: nowrap; }
 .stepper button { font: inherit; font-size: 15px; line-height: 1; width: 30px; height: 30px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
 .stepper button:disabled { opacity: .35; cursor: not-allowed; }
 .stepper input { font: inherit; font-size: 12px; font-weight: 600; width: 52px; text-align: center; font-variant-numeric: tabular-nums;
