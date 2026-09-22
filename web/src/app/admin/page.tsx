@@ -7,7 +7,7 @@ import TierSettings from '@/components/TierSettings';
 import IpoSettings from '@/components/IpoSettings';
 import DividendSettings from '@/components/DividendSettings';
 import IpoRounds from '@/components/IpoRounds';
-import { loadAllotment, loadDividendPolicy, loadIpoEnabled, MAX_DIVIDEND_RATE } from '@/lib/appSettings';
+import { ALLOTMENT_DEFAULT, allotmentFor, loadAllotments, loadDividendPolicy, loadIpoEnabled, MAX_DIVIDEND_RATE } from '@/lib/appSettings';
 import { listRounds } from '@/lib/ipo';
 import { loadProductLinks, loadTiers } from '@/lib/settings';
 import { fetchStock } from '@/lib/stock';
@@ -37,13 +37,13 @@ export default async function AdminPage() {
   }
 
   /* 구간과 연결표는 관리자가 바꾸는 값이라 DB에서 읽는다. 비어 있으면 코드 기본값. */
-  const [market, tiers, links, ipo, dividend, allotment, stock] = await Promise.all([
+  const [market, tiers, links, ipo, dividend, allotments, stock] = await Promise.all([
     getMarketSnapshot(new Date()),
     loadTiers(),
     loadProductLinks(),
     loadIpoEnabled(),
     loadDividendPolicy(),
-    loadAllotment(),
+    loadAllotments(),
     fetchStock(),
   ]);
   const seasons = await listRounds();
@@ -62,6 +62,8 @@ export default async function AdminPage() {
       finalPrice: item.finalPrice,
       /* 카페24에서 읽어온 값. 관리자 화면은 보여주기만 하고 바꾸지 않는다 */
       stock: stock.quantity[item.product.productNo] ?? null,
+      /* 이 빵에 정한 물량. 정한 적 없으면 기본값이 뜬다 */
+      allotment: allotmentFor(allotments.value, item.product.productNo),
       options: (stock.options[item.product.productNo] ?? []).map(o => ({ label: o.label, quantity: o.quantity })),
     })),
     soldOutCount: daily.soldOut.length,
@@ -75,7 +77,7 @@ export default async function AdminPage() {
         <p>오늘의 호가 범위를 확인하고 자사몰에 반영합니다.</p>
       </div>
     </header>
-    <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} instantDepth={instantDepth} allotment={allotment} />
+    <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} instantDepth={instantDepth} allotmentDefault={ALLOTMENT_DEFAULT} />
     <TierSettings initial={tiers} maxRate={MAX_DISCOUNT_RATE} />
     <IpoSettings initial={ipo.value} stored={ipo.stored} />
     <DividendSettings initial={dividend} maxRate={MAX_DIVIDEND_RATE} />

@@ -23,15 +23,12 @@
 .planTop strong { font-size: 17px; font-weight: 600; letter-spacing: -.015em; }
 .rate { font-size: 26px; font-weight: 600; color: var(--hong); letter-spacing: -.02em; }
 .reason { font-size: 12px; color: var(--muted); line-height: 1.9; margin-top: 8px; }
-/* 오늘 풀 물량 — 자사몰 재고를 덮어쓰지 않고 위에서 막는 값이다.
-   목록 바로 위에 둔다. 다른 화면에 있으면 가격을 보면서 물량을 못 고친다 */
-.capRow { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 16px; padding: 12px 0 0; border-top: 1px solid var(--line); }
-.capLabel { font-size: 13px; font-weight: 600; }
-.capLabel small { font-weight: 400; color: var(--muted); margin-left: 4px; }
+/* 물량 조절 — 빵마다 따로 정한다. 누르면 그 자리에서 저장된다 */
 .stepper { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
-.stepper button { font: inherit; font-size: 16px; line-height: 1; width: 36px; height: 36px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.stepper[data-busy='true'] { opacity: .5; }
+.stepper button { font: inherit; font-size: 15px; line-height: 1; width: 30px; height: 30px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
 .stepper button:disabled { opacity: .35; cursor: not-allowed; }
-.stepper b { font-size: 13px; font-weight: 600; min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; }
+.stepper b { font-size: 12px; font-weight: 600; min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }
 /* 자사몰 재고 — 읽기 전용. 물량보다 적으면 ⚠️로 표시한다(재고가 이긴다) */
 .stock { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 

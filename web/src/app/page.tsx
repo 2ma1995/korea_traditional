@@ -8,7 +8,7 @@ import { buildToday } from '@/lib/offers';
 import { OPEN_AT } from '@/lib/orderbook';
 import { loadTiers } from '@/lib/settings';
 import { bidState } from '@/lib/bidRight';
-import { loadAllotment, loadIpoEnabled } from '@/lib/appSettings';
+import { loadAllotments, loadIpoEnabled } from '@/lib/appSettings';
 import { currentRound, loadIpoCounts } from '@/lib/ipo';
 import { loadSkuSignals } from '@/lib/skuSignals';
 import { currentVisitorId } from '@/lib/visitor';
@@ -26,19 +26,19 @@ export default async function BreadMarketPage() {
      서버 컴포넌트는 쿠키를 발급할 수 없어 이미 있는 표식만 읽는다. 실패해도 삼킨다 */
   const visitor = await currentVisitorId();
   if (visitor) await recordVisit(visitor, now);
-  const [market, tiers, filled, intraday, stock, signals, allotment] = await Promise.all([
+  const [market, tiers, filled, intraday, stock, signals, allotments] = await Promise.all([
     getMarketSnapshot(now),
     loadTiers(),
     loadFilled(now),
     fetchKospiHistory('1d'),
     fetchStock(),
     loadSkuSignals(now),
-    loadAllotment(),
+    loadAllotments(),
   ]);
   /* 재고는 자사몰에서 받아온다 — products.ts의 값은 마지막 안전망이다.
      손으로 적어둔 값이 열흘 묵어 생지를 품절로 걸러낸 적이 있다. */
   const products = applyStock(PRODUCTS, stock);
-  const today = buildToday(market, tiers, filled, now, products, signals, allotment.value);
+  const today = buildToday(market, tiers, filled, now, products, signals, allotments.value);
 
   /* 휴장일(주말)에는 가격이 움직이지 않는다. 대신 이번 주 빵장이 어땠는지를 보여준다.
      fills에 visitor가 없어 개인 기록은 못 만든다 — 시장 전체 결산으로 쓴다.

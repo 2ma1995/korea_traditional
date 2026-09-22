@@ -97,7 +97,7 @@ export const saveIpoEnabled = (on: boolean) => saveSetting(IPO_KEY, on);
 export const MAX_DIVIDEND_RATE = 0.15;
 
 /**
- * 오늘 풀 물량의 상한 — 관리자가 정한다.
+ * 오늘 풀 물량의 상한 — 관리자가 **상품마다** 정한다.
  *
  * 카페24 재고를 그대로 쓰면 "할인가로 몇 개까지 팔 것인가"를 정할 수가 없다.
  * 재고가 300개라고 300개를 5% 할인해 팔 생각은 아니기 때문이다. 그래서 이 값은
@@ -140,13 +140,38 @@ const asRate = (raw: unknown): number | null =>
 const asCount = (raw: unknown): number | null =>
   typeof raw === 'number' && Number.isFinite(raw) && raw >= 1 && raw <= 1000 ? Math.round(raw) : null;
 
-export const loadAllotment = () => loadSetting(ALLOTMENT_KEY, ALLOTMENT_DEFAULT, asCount);
+/**
+ * 상품별 물량 — 빵마다 다르게 준다.
+ *
+ * 하나로 묶으면 1,500원짜리 머핀과 42,000원짜리 케이크에 같은 수를 풀게 된다.
+ * 여기 없는 상품은 ALLOTMENT_DEFAULT를 쓴다 — 새 빵이 들어와도 0이 되지 않는다.
+ */
+const asAllotments = (raw: unknown): Record<number, number> | null => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out: Record<number, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const productNo = Number(key);
+    const count = asCount(value);
+    if (Number.isInteger(productNo) && productNo > 0 && count !== null) out[productNo] = count;
+  }
+  return out;
+};
 
-export async function saveAllotment(raw: unknown): Promise<number> {
+export const loadAllotments = () => loadSetting(ALLOTMENT_KEY, {} as Record<number, number>, asAllotments);
+
+/** 이 상품의 물량. 따로 정한 적 없으면 기본값 */
+export const allotmentFor = (byProduct: Record<number, number>, productNo: number) =>
+  byProduct[productNo] ?? ALLOTMENT_DEFAULT;
+
+export async function saveAllotmentFor(productNo: unknown, raw: unknown): Promise<Record<number, number>> {
+  const no = Number(productNo);
+  if (!Number.isInteger(no) || no <= 0) throw new Error('상품 번호가 올바르지 않습니다.');
   const value = asCount(typeof raw === 'string' ? Number(raw) : raw);
   if (value === null) throw new Error('물량은 1 이상 1,000 이하의 숫자여야 합니다.');
-  await saveSetting(ALLOTMENT_KEY, value);
-  return value;
+  const current = await loadAllotments();
+  const next = { ...current.value, [no]: value };
+  await saveSetting(ALLOTMENT_KEY, next);
+  return next;
 }
 
 export const loadAov = () => loadSetting(AOV_KEY, AOV_DEFAULT, asMoney(1_000_000));

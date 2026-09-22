@@ -216,8 +216,9 @@ export function buildToday(
   at: Date = new Date(),
   products: Product[] = PRODUCTS,
   signals: SkuSignals = {},
-  /* 관리자가 정한 하루 상한. 자사몰 재고와 견줘 작은 쪽이 오늘 물량이 된다 */
-  cap: number = DAILY_ALLOTMENT,
+  /* 관리자가 상품마다 정한 하루 상한. 자사몰 재고와 견줘 작은 쪽이 오늘 물량이 된다.
+     표에 없는 상품은 DAILY_ALLOTMENT를 쓴다 — 새 빵이 들어와도 0이 되지 않는다 */
+  caps: Record<number, number> = {},
 ): TodayMarket {
   const absChangePct = Math.abs(market.kospi.changePct);
   const mood = moodFor(market.kospi.changePct);
@@ -252,7 +253,7 @@ export function buildToday(
            재고가 300개여도 그걸 다 할인가로 팔 생각은 아니고(관리자 상한),
            반대로 재고가 상한보다 적으면 재고가 이긴다 — 없는 빵을 팔 수는 없다.
            자사몰 재고를 못 읽으면 상한만 본다 */
-        allotment: Math.min(product.allotment ?? Infinity, cap),
+        allotment: Math.min(product.allotment ?? Infinity, caps[product.productNo] ?? DAILY_ALLOTMENT),
         /* 체결은 폭으로 구분된다 — 그 빵의 폭으로 세야 잔량이 맞는다 */
         filled: filledFor(product.productNo, skuRate),
         badges: badgesFor(product),

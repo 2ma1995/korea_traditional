@@ -27,14 +27,16 @@ export interface PlanSummary {
     stock: number | null;
     /** 옵션별 재고 — 합계만 보면 "90개"가 90묶음인지 90개인지 알 수 없다 */
     options: { label: string; quantity: number | null }[];
+    /** 이 빵에 정한 하루 물량 */
+    allotment: number;
   }[];
   soldOutCount: number;
 }
 
 interface Props {
   plan: PlanSummary;
-  /** 오늘 풀 물량 상한. 자사몰 재고와 견줘 작은 쪽이 실제 물량이 된다 */
-  allotment: { value: number; stored: boolean };
+  /** 따로 정한 적 없는 빵에 쓰는 물량 기본값 */
+  allotmentDefault: number;
   /** 우리 제품번호 → 자사몰 상품번호. 없으면 productNo를 그대로 쓴다 */
   links: Record<number, number>;
   maxRate: number;
@@ -53,21 +55,24 @@ interface PlanRow {
 
 const won = (value: number) => value.toLocaleString('ko-KR');
 
-export default function AdminConsole({ plan, links, maxRate, instantDepth, allotment }: Props) {
-  /* 물량은 상품마다가 아니라 한 종당 공통값이다. 상품별로 다르게 둘 이유가 아직
-     없고, 열한 종에 각각 숫자를 넣게 하면 아무도 안 고친다 */
-  const [cap, setCap] = useState(allotment.value);
-  const [capState, setCapState] = useState<'idle' | 'busy' | 'saved'>('idle');
+export default function AdminConsole({ plan, links, maxRate, instantDepth, allotmentDefault }: Props) {
+  /* 물량은 빵마다 다르다. 1,500원짜리 머핀과 42,000원짜리 케이크에 같은 수를
+     풀 이유가 없다. 누르면 그 자리에서 저장한다 — 저장 버튼을 따로 두면
+     고쳐놓고 안 누르는 일이 생긴다 */
+  const [caps, setCaps] = useState<Record<number, number>>(
+    () => Object.fromEntries(plan.items.map(item => [item.productNo, item.allotment])),
+  );
+  const [savingCap, setSavingCap] = useState<number | null>(null);
 
-  async function saveCap(next: number) {
+  async function saveCap(productNo: number, next: number) {
     const value = Math.min(1000, Math.max(1, next));
-    setCap(value);
-    setCapState('busy');
-    const res = await fetch('/api/admin/allotment', {
+    setCaps(prev => ({ ...prev, [productNo]: value }));
+    setSavingCap(productNo);
+    await fetch('/api/admin/allotment', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ allotment: value }),
+      body: JSON.stringify({ productNo, allotment: value }),
     }).catch(() => null);
-    setCapState(res?.ok ? 'saved' : 'idle');
+    setSavingCap(null);
   }
 
   const [rows, setRows] = useState<PlanRow[]>(() => plan.items.map(item => ({
@@ -161,20 +166,6 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
           <span className={styles.rate}>−{Math.round(instantDepth * 100)}%</span>
         </div>
 
-        {/* 물량은 자사몰 재고를 덮어쓰지 않고 위에서 막기만 한다 — 실제 물량은
-            재고와 이 값 중 작은 쪽이다. 재고 자체는 카페24에서 관리한다 */}
-        <div className={styles.capRow}>
-          <span className={styles.capLabel}>오늘 풀 물량 <small>한 종당</small></span>
-          <div className={styles.stepper}>
-            <button type="button" onClick={() => saveCap(cap - 5)} disabled={cap <= 1 || capState === 'busy'} aria-label="물량 줄이기">−</button>
-            <b aria-live="polite">{cap}건</b>
-            <button type="button" onClick={() => saveCap(cap + 5)} disabled={cap >= 1000 || capState === 'busy'} aria-label="물량 늘리기">+</button>
-          </div>
-          <span className={styles.note}>
-            {capState === 'busy' ? '저장 중…' : capState === 'saved' ? '저장됨 ✓' : allotment.stored ? '' : '아직 기본값입니다'}
-            {' '}자사몰 재고가 이보다 적으면 재고가 이깁니다.
-          </span>
-        </div>
 
         <ul className={styles.planItems}>
           {rows.map(row => {
@@ -197,8 +188,19 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                   {(() => {
                     const total = stockOf(row.productNo)?.stock;
                     if (total === null || total === undefined) return '재고 —';
-                    return `재고 ${won(total)}${total < cap ? ' ⚠️' : ''}`;
+                    /* 재고가 물량보다 적으면 재고가 이긴다 — 없는 빵은 못 판다 */
+                    return `재고 ${won(total)}${total < (caps[row.productNo] ?? allotmentDefault) ? ' ⚠️' : ''}`;
                   })()}
+                </span>
+                {/* 이 빵의 하루 물량. 누르면 그 자리에서 저장된다 */}
+                <span className={styles.stepper} data-busy={savingCap === row.productNo}>
+                  <button type="button" aria-label={`${row.name} 물량 줄이기`}
+                    disabled={(caps[row.productNo] ?? allotmentDefault) <= 1 || savingCap === row.productNo}
+                    onClick={() => saveCap(row.productNo, (caps[row.productNo] ?? allotmentDefault) - 5)}>−</button>
+                  <b aria-live="polite">{caps[row.productNo] ?? allotmentDefault}건</b>
+                  <button type="button" aria-label={`${row.name} 물량 늘리기`}
+                    disabled={(caps[row.productNo] ?? allotmentDefault) >= 1000 || savingCap === row.productNo}
+                    onClick={() => saveCap(row.productNo, (caps[row.productNo] ?? allotmentDefault) + 5)}>+</button>
                 </span>
                 <del>{won(row.price)}원</del>
                 <b>{won(finalPrice(row))}원</b>
