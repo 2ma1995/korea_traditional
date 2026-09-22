@@ -114,9 +114,9 @@ export interface WeekReport {
 /**
  * 이번 주 빵장 결산 — 주말 화면이 쓴다.
  *
- * 개인 기록이 아니라 시장 전체 기록이다. fills에는 visitor가 없어서 누가 샀는지
- * 모르기 때문이다(watches에는 있다). 그래서 "내 수익률"이 아니라 "이번 주 시장"으로
- * 쓴다 — 주식시장 주간 결산이라는 은유에는 오히려 이쪽이 맞는다.
+ * 개인 기록이 아니라 시장 전체 기록이다. 0010이 fills.visitor를 붙여 누가 샀는지는
+ * 알 수 있게 됐지만(바로 아래 boughtInWindow가 그걸 쓴다), 여기서 쓰지 않는 것은
+ * "내 수익률"보다 "이번 주 시장"이 주식시장 주간 결산이라는 은유에 맞아서다.
  */
 export async function loadWeekReport(from: string, to: string): Promise<WeekReport> {
   const empty: WeekReport = { tradedDays: 0, fills: 0, avgDepth: 0, deepest: null, topProduct: null };
@@ -157,17 +157,28 @@ export async function loadWeekReport(from: string, to: string): Promise<WeekRepo
   };
 }
 
-/** [from, to) 구간에 이 사람이 한 번이라도 샀나. 주간 활동점수의 구매 항목 */
+/**
+ * [from, to) 구간에 이 사람이 한 번이라도 샀나. 주간 활동점수의 구매 항목.
+ *
+ * 기한 넘겨 반납된 예약(settled='expired')은 세지 않는다. 눌러만 두고 결제를 안 한
+ * 사람에게 구매 점수를 주면, 배당이 "산 사람"이 아니라 "누른 사람"에게 나간다.
+ * 0012 이전 DB에는 settled 열이 없어 그때는 조건 없이 센다(hasExpiry).
+ */
 export async function boughtInWindow(visitor: string, from: string, to: string): Promise<boolean> {
   const db = supabase();
   if (!db) return false;
-  const { count, error } = await db
+  const base = db
     .from('fills')
     .select('id', { count: 'exact', head: true })
     .eq('visitor', visitor)
     .gte('day', from)
     .lt('day', to);
-  if (error) return false;
+  const { count, error } = await (hasExpiry === false ? base : base.neq('settled', 'expired'));
+  if (error) {
+    if (missingColumn(error.code) && hasExpiry !== false) { hasExpiry = false; return boughtInWindow(visitor, from, to); }
+    return false;
+  }
+  hasExpiry ??= true;
   return (count ?? 0) > 0;
 }
 
