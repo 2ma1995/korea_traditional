@@ -1,12 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/adminAuth';
-import { getProduct, setProductPrice } from '@/lib/cafe24';
+import { getProduct } from '@/lib/cafe24';
 
 /**
- * 카페24 상품 조회·가격 변경. 관리자만.
+ * 카페24 상품 조회. 관리자만.
  *
- * 이 라우트가 자사몰 판매가를 실제로 바꾼다. 화면에서 버튼을 감추는 것으로는
- * 막을 수 없으므로 여기서 직접 검사한다.
+ * '자사몰 현재가 확인'이 쓴다 — 반영 전에 "무엇이 얼마로 바뀌는지"를 눈으로 보는
+ * 자리다. 우리 정가(products.ts)가 자사몰과 다를 수 있어서, 할인은 늘 자사몰의
+ * 현재 판매가를 기준으로 계산된다(lib/priceSync).
  */
 
 export async function GET(request: NextRequest) {
@@ -30,23 +31,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
-  const denied = await requireAdmin();
-  if (denied) return denied;
-
-  const { no, price } = (await request.json().catch(() => ({}))) as { no?: number; price?: number };
-  if (!Number.isInteger(no) || !no || !Number.isFinite(price) || price === undefined || price <= 0) {
-    return Response.json({ error: '상품번호(no)와 가격(price)이 필요합니다.' }, { status: 400 });
-  }
-  try {
-    const updated = await setProductPrice(no, price);
-    return Response.json({
-      productNo: updated.product_no,
-      name: updated.product_name,
-      price: updated.price,
-      retailPrice: updated.retail_price,
-    });
-  } catch (cause) {
-    return Response.json({ error: cause instanceof Error ? cause.message : String(cause) }, { status: 502 });
-  }
-}
+/* 판매가 쓰기(PUT)는 '카페24 연결 시험' 패널만 쓰던 것이라 같이 걷어냈다.
+   지금 자사몰 가격을 바꾸는 길은 둘뿐이다 — 관리자 화면의 '자사몰에 반영'과
+   15:30 크론(lib/priceSync). 손으로 한 상품만 바꾸는 창구는 두지 않는다. */

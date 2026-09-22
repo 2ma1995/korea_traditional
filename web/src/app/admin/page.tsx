@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import AdminConsole, { type PlanSummary } from '@/components/AdminConsole';
 import AdminLogin from '@/components/AdminLogin';
-import Cafe24Panel from '@/components/Cafe24Panel';
 import { isAdmin } from '@/lib/adminAuth';
 import TierSettings from '@/components/TierSettings';
 import IpoSettings from '@/components/IpoSettings';
@@ -99,6 +98,5 @@ export default async function AdminPage() {
         화면 절반을 차지하면, 오늘 할 일(가격 반영)이 그만큼 아래로 밀린다 */}
     <IpoSettings initial={ipo.value} stored={ipo.stored} />
     {ipo.value && <IpoRounds initial={seasons.rounds} stored={seasons.stored} />}
-    <Cafe24Panel links={links} />
   </main>;
 }
