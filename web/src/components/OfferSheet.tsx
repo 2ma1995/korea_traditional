@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import ProductPhoto from '@/components/ProductPhoto';
 import type { Mood, TodayOffer } from '@/lib/offers';
 import styles from './Market.module.css';
@@ -17,6 +17,14 @@ export interface Bid {
   slot: number | null;
   /** 저장소에 남았는가. false면 이번 서버 세션 메모리에만 있다 — 화면에 밝힌다 */
   stored?: boolean;
+  /** 오늘 가격으로 결제할 할인코드. 발급에 실패하면 null이다(예약은 그대로) */
+  coupon?: { code: string; rate: number; expiresOn: string } | null;
+  /** 실패했다면 서버가 말한 이유. 없으면 '물량이 끝났다'는 뜻이다 */
+  error?: string;
+  /** 결제 기한(ISO). 이 시각까지 결제하지 않으면 자리가 반납된다 */
+  expiresAt?: string | null;
+  /** 할인을 어떻게 주는가. 'price'면 자사몰 값이 이미 내려가 있어 코드가 없다 */
+  delivery?: 'price' | 'coupon';
 }
 
 interface Props {
@@ -58,6 +66,29 @@ const won = (n: number) => n.toLocaleString('ko-KR');
 const shopUrl = (no: number) => `https://makji.kr/product/detail.html?product_no=${no}`;
 
 export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, left, canBid, onNext, onBuy, onQty, onClose }: Props) {
+  const [copied, setCopied] = useState(false);
+
+  /* 결제 기한 카운트다운. 자리를 붙들 수 있는 시간이 눈에 보여야 결제로 이어진다.
+     남은 시간을 상태로 두지 않고 '지금'만 흘려보낸 뒤 렌더에서 뺀다 —
+     effect 안에서 setState를 직접 부르지 않기 위해서다. */
+  const deadline = bid?.expiresAt ?? null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!deadline) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [deadline]);
+  const remainMs = deadline ? Math.max(0, new Date(deadline).getTime() - now) : null;
+  const mmssNow = remainMs === null ? null
+    : `${String(Math.floor(remainMs / 60000)).padStart(2, '0')}:${String(Math.floor((remainMs % 60000) / 1000)).padStart(2, '0')}`;
+  /* 두 모드가 같이 쓰는 카운트다운 */
+  const clock = mmssNow && (
+    <span className={styles.couponClock} data-urgent={remainMs !== null && remainMs < 10 * 60_000}>
+      {remainMs === 0
+        ? '⏳ 기한이 지났습니다 — 자리가 반납됩니다'
+        : <>⏳ <b>{mmssNow}</b> 남았습니다 · 이 안에 결제하지 않으면 자리가 반납됩니다</>}
+    </span>
+  );
   const pct = Math.round(rate * 100);
   const up = changePct >= 0;
 
@@ -106,11 +137,46 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
         {bid?.status === 'filled' && (
           <>
             <p className={styles.sheetNote}>
-              <b>예약됐습니다 · {bid.slot}번째.</b>{' '}
-              <a href={shopUrl(offer.product.productNo)} target="_blank" rel="noopener noreferrer">자사몰에서 결제하기 ↗</a>
-              <br />오늘 가격 적용은 쿠폰이 필요해 기업 확인 중입니다.
+              <b>예약됐습니다 · {bid.slot}번째.</b>
               {bid.stored === false && <><br />⚠️ 저장소가 연결되지 않아 이번 서버 세션의 메모리에만 기록됩니다.</>}
             </p>
+
+            {/* 설계도 최상단의 문제를 여기서 끝낸다 — "싸다고 보여주고 정가로 보낸다".
+                자사몰은 정가 그대로 두고, 오늘 폭만큼의 코드를 손님에게 준다. */}
+            {/* 할인을 어떻게 주느냐에 따라 할 말이 다르다.
+                price — 자사몰 값이 이미 내려가 있다. 손님은 아무것도 안 해도 된다
+                coupon — 코드를 옮겨 적어야 한다 */}
+            {bid.delivery === 'price' ? (
+              <div className={styles.couponBox}>
+                <span className={styles.couponLabel}>오늘 가격이 이미 적용돼 있습니다</span>
+                <span className={styles.couponFine}>
+                  막지몰에서 <b>{won(offer.price)}원</b> 그대로 결제하시면 됩니다 —
+                  코드 입력도, 회원가입도 필요 없습니다.
+                </span>
+                {clock}
+              </div>
+            ) : bid.coupon ? (
+              <div className={styles.couponBox}>
+                <span className={styles.couponLabel}>오늘 가격으로 결제할 코드</span>
+                <div className={styles.couponRow}>
+                  <code>{bid.coupon.code}</code>
+                  <button type="button" onClick={() => { void navigator.clipboard?.writeText(bid.coupon!.code); setCopied(true); }}>
+                    {copied ? '복사됨 ✓' : '복사'}
+                  </button>
+                </div>
+                <span className={styles.couponFine}>{offer.product.name} 전용 · 결제할 때 입력하세요</span>
+                {clock}
+              </div>
+            ) : (
+              <p className={styles.sheetNote}>
+                코드 발급에 실패했습니다. <b>예약은 그대로 살아 있습니다</b> — 자사몰에서는 정가로 보이니
+                코드를 다시 받으실 때까지 기다려 주세요.
+              </p>
+            )}
+
+            <a className={styles.primary} href={shopUrl(offer.product.productNo)} target="_blank" rel="noopener noreferrer">
+              {bid.delivery === 'price' || bid.coupon ? '이 가격으로 자사몰에서 결제하기 ↗' : '자사몰에서 결제하기 ↗'}
+            </a>
             {canBid && (
               <button type="button" className={styles.toNext} onClick={onNext}>
                 <b>🗳 청약권 1장이 생겼어요</b>

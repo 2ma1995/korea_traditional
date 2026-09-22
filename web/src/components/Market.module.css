@@ -211,6 +211,21 @@
 .toNext b { font-size: 14px; font-weight: 700; }
 .toNext small { font-size: 12px; opacity: .85; word-break: keep-all; }
 
+/* 할인코드 — 예약 뒤 손님이 자사몰에 옮겨 적는 값.
+   화면에서 제일 중요한 문자열이라 크고 넓은 자간의 고정폭으로 둔다.
+   헷갈리는 0·O·1·I·L은 코드 생성에서 이미 뺐다(lib/coupon.ts). */
+.couponBox { display: grid; gap: var(--gap-2); margin-top: var(--gap-3); padding: var(--pad-2); border: 1px dashed var(--hong); border-radius: var(--r-card); background: color-mix(in srgb, var(--hong) 6%, var(--paper)); }
+.couponLabel { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--hong); }
+.couponRow { display: flex; align-items: center; justify-content: space-between; gap: var(--gap-3); flex-wrap: wrap; }
+.couponRow code { font-family: var(--font-geist-mono), monospace; font-size: 20px; font-weight: 700; letter-spacing: .06em; color: var(--ink); word-break: break-all; }
+.couponRow button { font: inherit; font-size: 13px; font-weight: 700; min-height: 44px; padding: 0 16px; border: 1px solid var(--hong); border-radius: var(--r-control); background: transparent; color: var(--hong); cursor: pointer; white-space: nowrap; }
+.couponFine { font-size: 12px; line-height: 1.7; color: var(--muted); word-break: keep-all; }
+/* 결제 기한 — 10분 남으면 색이 바뀐다. 숫자는 고정폭이라야 초마다 안 흔들린다 */
+.couponClock { font-size: 13px; line-height: 1.7; color: var(--muted); word-break: keep-all; font-variant-numeric: tabular-nums; }
+.couponClock b { font-family: var(--font-geist-mono), monospace; font-size: 15px; color: var(--ink); }
+.couponClock[data-urgent='true'] { color: var(--hong); }
+.couponClock[data-urgent='true'] b { color: var(--hong); }
+
 .sheetNote { font-size: 13px; line-height: 1.8; margin-top: 12px; padding: 12px 16px; background: var(--background); border-radius: var(--r-card); word-break: keep-all; }
 .sheetNote b { font-weight: 700; }
 .sheetNote a { color: var(--down); border-bottom: 1px solid currentColor; }
@@ -219,6 +234,8 @@
 .ghost { background: var(--background); border: 0; color: var(--ink); white-space: nowrap; }
 .primary { background: var(--dancheong); border: 0; color: #fdfbf6; }
 .primary:disabled { background: #cfd2c3; color: #fdfbf6; opacity: 1; cursor: default; }
+/* 결제 링크는 <button>이 아니라 <a>다 — min-height·가운데 정렬이 그대로는 안 먹는다 */
+a.primary { display: flex; align-items: center; justify-content: center; text-decoration: none; margin-top: var(--gap-3); }
 
 @media (max-width: 600px) {
   .modules { grid-template-columns: 1fr 1fr; }

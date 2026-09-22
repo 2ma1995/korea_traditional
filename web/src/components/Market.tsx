@@ -97,7 +97,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const [sheetFrom, setSheetFrom] = useState<'list' | 'portfolio'>('list');
   const openFromList = (no: number) => { setSheetFrom('list'); setSelected(no); };
   const openFromPortfolio = (no: number) => { setSheetFrom('portfolio'); setSelected(no); };
-  const [bulk, setBulk] = useState<{ busy: boolean; done: number; missed: number } | null>(null);
+  const [bulk, setBulk] = useState<{ busy: boolean; done: number; missed: number; error?: string } | null>(null);
   const [showSoldOut, setShowSoldOut] = useState(false);
   const [pfOpen, setPfOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -153,23 +153,36 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const filledOf = (o: TodayOffer) => filled[key(o.product.productNo, o.rate)] ?? o.filled;
   const remainingOf = (o: TodayOffer) => Math.max(0, o.allotment - filledOf(o));
 
-  /** 한 종을 예약한다. 성공 여부를 돌려준다 — 포트폴리오 일괄 구매가 결과를 센다 */
-  async function buy(offer: TodayOffer): Promise<boolean> {
+  /**
+   * 한 종을 예약한다. 실패하면 **이유까지** 돌려준다.
+   *
+   * 예전에는 catch가 오류를 통째로 삼키고 전부 '미체결'로 표시했다. 그래서 장이
+   * 닫혀 있어도, 폭이 어긋나도, 품절이어도 화면은 똑같이 "오늘 물량이 끝났습니다"
+   * 라고 말했다 — 손님에게 거짓말이고, 우리도 원인을 못 봤다.
+   * lib/fills.ts가 "저장소 없음"을 "품절"이라고 말하던 것과 같은 실수다.
+   */
+  async function buy(offer: TodayOffer): Promise<{ ok: boolean; error?: string }> {
     const no = offer.product.productNo;
     setBids(prev => ({ ...prev, [no]: { status: 'busy', slot: null } }));
     try {
       const res = await fetch('/api/fill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productNo: no, depth: offer.rate }) });
       const json = await res.json();
-      if (!json?.ok) throw new Error(json?.error ?? '실패');
-      setBids(prev => ({ ...prev, [no]: { status: json.filled ? 'filled' : 'missed', slot: json.slot ?? null, stored: json.stored } }));
+      if (!json?.ok) {
+        const error = String(json?.error ?? '예약에 실패했습니다.');
+        setBids(prev => ({ ...prev, [no]: { status: 'missed', slot: null, error } }));
+        return { ok: false, error };
+      }
+      setBids(prev => ({ ...prev, [no]: { status: json.filled ? 'filled' : 'missed', slot: json.slot ?? null, stored: json.stored, coupon: json.coupon ?? null, expiresAt: json.expiresAt ?? null, delivery: json.delivery } }));
       setFilled(prev => ({ ...prev, [key(no, offer.rate)]: (json.quantity ?? offer.allotment) - (json.remaining ?? 0) }));
       /* 구매가 체결되면 서버가 공모 청약권을 발급한다(lib/bidRight).
          아직 오늘 청약하지 않았다면 NEXT의 버튼이 지금 열린다 */
       if (json.filled) setIpo(prev => (prev.bidFor ? prev : { ...prev, canBid: true }));
-      return Boolean(json.filled);
+      /* filled=false는 진짜 물량이 끝난 경우다 — 서버가 ok로 답했으니 */
+      return { ok: Boolean(json.filled) };
     } catch {
-      setBids(prev => ({ ...prev, [no]: { status: 'missed', slot: null } }));
-      return false;
+      const error = '서버에 닿지 못했습니다. 잠시 뒤 다시 시도해 주세요.';
+      setBids(prev => ({ ...prev, [no]: { status: 'missed', slot: null, error } }));
+      return { ok: false, error };
     }
   }
 
@@ -183,23 +196,25 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   async function buyPicked(offer: TodayOffer) {
     const qty = Math.max(1, qtyOf(portfolio, offer.product.productNo));
     for (let i = 0; i < qty; i++) {
-      const ok = await buy(offer);
+      const { ok } = await buy(offer);
       if (!ok) break;
     }
   }
 
   async function buyAll(list: { offer: TodayOffer; qty: number }[]) {
     setBulk({ busy: true, done: 0, missed: 0 });
-    let done = 0, missed = 0;
+    let done = 0, missed = 0, error: string | undefined;
     for (const { offer, qty } of list) {
       for (let i = 0; i < qty; i++) {
-        const ok = await buy(offer);
-        if (ok) { done += 1; continue; }
+        const result = await buy(offer);
+        if (result.ok) { done += 1; continue; }
         missed += qty - i;
+        /* 첫 실패 이유만 남긴다 — 여러 개가 같은 이유로 막히는 게 보통이다 */
+        error ??= result.error;
         break;
       }
     }
-    setBulk({ busy: false, done, missed });
+    setBulk({ busy: false, done, missed, error });
   }
 
   /* '전체'는 오늘 라인 밖·품절까지 막지의 모든 빵을 보여준다. 라인이 뜻을 만들지만,

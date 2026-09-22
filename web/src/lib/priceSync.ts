@@ -5,6 +5,7 @@ import { getMarketSnapshot, seoulDateString } from '@/lib/market';
 import { rateFor } from '@/lib/offers';
 import { loadProductLinks, loadTiers } from '@/lib/settings';
 import { applyStock, fetchStock } from '@/lib/stock';
+import { discountDelivery } from '@/lib/discountDelivery';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -40,7 +41,9 @@ import { supabase } from '@/lib/supabase';
  */
 export const PRICE_SYNC_ENABLED = false;
 
-const enabled = () => PRICE_SYNC_ENABLED || process.env.PRICE_SYNC === 'on';
+/* 'coupon' 모드에서는 판매가를 건드리지 않는다 — 코드로 깎는데 값까지 내리면
+   할인이 두 번 먹는다(lib/discountDelivery) */
+const enabled = () => discountDelivery() === 'price' && (PRICE_SYNC_ENABLED || process.env.PRICE_SYNC === 'on');
 
 /* 10원 단위 절사 — 화면·publish 라우트와 같은 규칙이어야 한다. Math.round를 먼저 거치는 이유 — 21000 * (1 - 0.3)이 IEEE754에서
    14699.999999999998이 되어 그냥 내리면 14,690원이 된다. 30% 할인인데 10원이 더

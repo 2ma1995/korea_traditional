@@ -9,7 +9,11 @@ import { loadSkuSignals } from '@/lib/skuSignals';
 import { visitorId } from '@/lib/visitor';
 import { loadTiers } from '@/lib/settings';
 import { fetchStock } from '@/lib/stock';
-import { loadFilledCounts, tryFill } from '@/lib/fills';
+import { attachCoupon, loadFilledCounts, tryFill } from '@/lib/fills';
+import { issueCoupon } from '@/lib/coupon';
+import { adjustInventory } from '@/lib/inventory';
+import { discountDelivery } from '@/lib/discountDelivery';
+import { sweepExpired } from '@/lib/settle';
 
 /**
  * 한정 호가 체결 — POST { productNo, depth }
@@ -25,6 +29,9 @@ const bad = (error: string, status = 400) =>
 
 /** 오늘 상품·칸별 체결 수. 화면이 5초마다 불러 잔량 막대를 줄인다 */
 export async function GET() {
+  /* 손님이 화면을 여는 것이 곧 타이머다 — 기한 지난 예약을 여기서 정리한다.
+     Vercel 무료 플랜 크론은 하루 한 번이라 1시간 주기를 맡길 수 없다(lib/settle) */
+  await sweepExpired();
   return NextResponse.json({ ok: true as const, filled: await loadFilledCounts() }, { headers: NO_STORE });
 }
 
@@ -43,6 +50,10 @@ export async function POST(request: Request) {
   if (!Number.isFinite(depth) || depth <= 0 || depth >= 1) return bad('할인 폭이 올바르지 않습니다.');
   const now = new Date();
   if (!marketHours(now).open) return bad('지금은 빵장이 닫혀 있습니다.', 409);
+
+  /* 자리를 세기 전에 반납분을 먼저 정리한다 — 안 그러면 비어 있는 자리를
+     "다 나갔습니다"라고 거절한다 */
+  await sweepExpired(now);
 
   /* 재고도 화면과 같은 곳에서 본다. 코드 상수만 보면, 자사몰에서 품절된 빵을
      계속 예약받거나 재입고된 빵을 거절한다 */
@@ -65,13 +76,34 @@ export async function POST(request: Request) {
   });
   if (Math.abs(depth - skuRate) > 1e-9) return bad('오늘 폭이 아닙니다.', 409);
 
-  const quantity = DAILY_ALLOTMENT;
+  /* 화면과 같은 곳에서 같은 수량을 본다 — 여기만 코드 상수를 쓰면,
+     카페24에서 수량을 줄인 순간 화면은 품절인데 서버는 계속 받는다 */
+  const quantity = stock.quantity[productNo] ?? DAILY_ALLOTMENT;
 
   try {
     const result = await tryFill(productNo, depth, quantity, now, await visitorId());
     /* 오늘 산 사람에게 공모 청약권 한 장. 구매가 증거금 역할을 한다 (lib/bidRight) */
     await grantBidRight(now);
-    return NextResponse.json({ ok: true as const, ...result, quantity }, { headers: NO_STORE });
+
+    /* 자리를 잡은 사람에게만 할인코드를 준다 — 화면 가격과 자사몰 결제가를 맞추는
+       유일한 수단이다(lib/coupon). 발급이 실패해도 예약은 그대로 살린다.
+       손님은 이미 자리를 잡았고, 코드가 없어 아쉬울 뿐이다. */
+    const coupon = result.filled ? await issueCoupon(productNo, depth, now) : null;
+
+    if (result.filled) {
+      /* 코드는 예약이 잡힌 뒤에 나온다. 나중에 "이 예약이 결제됐나"를 이 코드로 본다 */
+      if (coupon && result.id !== null) await attachCoupon(result.id, coupon.code);
+      /* 자사몰 재고도 같이 줄인다 — 그래야 31번째는 자사몰에서도 품절이다(설계도 §9).
+         실패해도 예약은 살린다. fills가 정본이고 카페24는 따라가는 그림자다 */
+      await adjustInventory(productNo, -1);
+    }
+
+    /* 화면이 뭘 보여줄지는 전달 방식이 정한다 — price면 코드가 없는 게 정상이다.
+       이걸 안 내려보내면 화면이 "코드 발급 실패"라고 거짓말한다 */
+    return NextResponse.json(
+      { ok: true as const, ...result, quantity, coupon, delivery: discountDelivery() },
+      { headers: NO_STORE },
+    );
   } catch (err) {
     return bad(err instanceof Error ? err.message : '체결 처리에 실패했습니다.', 500);
   }
