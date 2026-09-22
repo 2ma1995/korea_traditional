@@ -3,7 +3,7 @@ import { grantBidRight } from '@/lib/bidRight';
 import { PRODUCTS } from '@/data/products';
 import { getMarketSnapshot } from '@/lib/market';
 import { marketHours } from '@/lib/orderbook';
-import { DAILY_ALLOTMENT, rateFor } from '@/lib/offers';
+import { rateFor } from '@/lib/offers';
 import { demandBonusFor, inventoryBonusFor, skuRateFor } from '@/lib/skuAdjust';
 import { loadSkuSignals } from '@/lib/skuSignals';
 import { visitorId } from '@/lib/visitor';
@@ -12,6 +12,7 @@ import { fetchStock } from '@/lib/stock';
 import { attachCoupon, loadFilledCounts, tryFill } from '@/lib/fills';
 import { issueCoupon } from '@/lib/coupon';
 import { adjustInventory } from '@/lib/inventory';
+import { loadAllotment } from '@/lib/appSettings';
 import { discountDelivery } from '@/lib/discountDelivery';
 import { priceSyncActive } from '@/lib/priceSync';
 import { sweepExpired } from '@/lib/settle';
@@ -82,7 +83,10 @@ export async function POST(request: Request) {
 
   /* 화면과 같은 곳에서 같은 수량을 본다 — 여기만 코드 상수를 쓰면,
      카페24에서 수량을 줄인 순간 화면은 품절인데 서버는 계속 받는다 */
-  const quantity = stock.quantity[productNo] ?? DAILY_ALLOTMENT;
+  /* 화면(lib/offers)과 같은 규칙으로 센다 — 자사몰 재고와 관리자 상한 중 작은 쪽.
+     여기만 상한을 안 보면 화면이 "물량 끝"이라 해도 서버가 더 받아 준다 */
+  const cap = (await loadAllotment()).value;
+  const quantity = Math.min(stock.quantity[productNo] ?? Infinity, cap);
 
   try {
     const result = await tryFill(productNo, depth, quantity, now, await visitorId(), unit);

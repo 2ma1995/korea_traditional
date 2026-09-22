@@ -96,6 +96,21 @@ export const saveIpoEnabled = (on: boolean) => saveSetting(IPO_KEY, on);
 /** 결제금액 대비 배당 사용 상한 — 코드 고정. 관리자가 뚫지 못한다 */
 export const MAX_DIVIDEND_RATE = 0.15;
 
+/**
+ * 오늘 풀 물량의 상한 — 관리자가 정한다.
+ *
+ * 카페24 재고를 그대로 쓰면 "할인가로 몇 개까지 팔 것인가"를 정할 수가 없다.
+ * 재고가 300개라고 300개를 5% 할인해 팔 생각은 아니기 때문이다. 그래서 이 값은
+ * 재고를 **덮어쓰지 않고 위에서 막는다** — 실제 물량은 둘 중 작은 쪽이다(lib/offers).
+ *
+ * ⚠️ 카페24 재고를 바꾸지 않는다. 그건 기업이 관리하는 값이고, 우리가 건드리면
+ *    같은 숫자를 두 곳에서 관리하게 된다(lib/inventory의 사고가 그것이었다).
+ */
+export const ALLOTMENT_KEY = 'daily_allotment';
+
+/** 손으로 적어둔 30. 기업이 확정한 값이 아니다(lib/offers.DAILY_ALLOTMENT와 같은 뜻) */
+export const ALLOTMENT_DEFAULT = 30;
+
 export const AOV_KEY = 'dividend_aov';
 export const DIVIDEND_RATE_KEY = 'dividend_rate';
 export const DIVIDEND_BUDGET_KEY = 'dividend_budget';
@@ -120,6 +135,19 @@ const asMoney = (max: number) => (raw: unknown): number | null =>
 
 const asRate = (raw: unknown): number | null =>
   typeof raw === 'number' && Number.isFinite(raw) && raw > 0 && raw <= MAX_DIVIDEND_RATE ? raw : null;
+
+/** 1 이상 1,000 이하. 0을 허용하면 관리자가 실수로 장을 닫아버릴 수 있다 */
+const asCount = (raw: unknown): number | null =>
+  typeof raw === 'number' && Number.isFinite(raw) && raw >= 1 && raw <= 1000 ? Math.round(raw) : null;
+
+export const loadAllotment = () => loadSetting(ALLOTMENT_KEY, ALLOTMENT_DEFAULT, asCount);
+
+export async function saveAllotment(raw: unknown): Promise<number> {
+  const value = asCount(typeof raw === 'string' ? Number(raw) : raw);
+  if (value === null) throw new Error('물량은 1 이상 1,000 이하의 숫자여야 합니다.');
+  await saveSetting(ALLOTMENT_KEY, value);
+  return value;
+}
 
 export const loadAov = () => loadSetting(AOV_KEY, AOV_DEFAULT, asMoney(1_000_000));
 export const loadDividendRate = () => loadSetting(DIVIDEND_RATE_KEY, DIVIDEND_RATE_DEFAULT, asRate);

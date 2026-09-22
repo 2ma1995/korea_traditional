@@ -83,6 +83,8 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
      그만큼을 적어야 한다 — "2개"로 두고 1개 값을 보여주던 것이 거짓말이었다 */
   const payPrice = unitPrice * qty;
   const payList = unitList * qty;
+  /* 실제로 살 수 있는 수 — 자사몰 재고와 오늘 물량 중 작은 쪽 */
+  const stockLeft = Math.min(picked?.quantity ?? Infinity, remaining);
   const [copied, setCopied] = useState(false);
 
   /* 결제 기한 카운트다운. 자리를 붙들 수 있는 시간이 눈에 보여야 결제로 이어진다.
@@ -146,8 +148,13 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
           </dd>
         </dl>
 
+        {/* 고른 옵션 기준으로 센다. 전에는 옵션 재고를 모두 더한 값을 보여줘서
+            "오늘 90개 한정"이 나왔는데, 90개의 빵이 아니라 90묶음이라 뜻이 애매했다.
+            자사몰 재고와 오늘 물량 중 작은 쪽이 실제로 살 수 있는 수다 */}
         <p className={styles.sheetStock}>
-          오늘 {offer.allotment}개 한정 · <b>{remaining > 0 ? `남음 ${remaining}` : '오늘 물량 끝'}</b>
+          {picked && picked.quantity !== null
+            ? <>{picked.label} · <b>{stockLeft > 0 ? `남음 ${stockLeft}` : '오늘 물량 끝'}</b></>
+            : <>오늘 {offer.allotment}건 한정 · <b>{remaining > 0 ? `남음 ${remaining}` : '오늘 물량 끝'}</b></>}
           {watching > 0 && <> · 🔔 알림 {watching}개</>}
         </p>
 

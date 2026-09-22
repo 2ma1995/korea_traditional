@@ -104,6 +104,8 @@ export interface OfferUnit {
   price: number;
   /** 이 단위의 정가 */
   listPrice: number;
+  /** 이 단위의 자사몰 재고. 재고관리를 안 켰으면 null */
+  quantity: number | null;
   sellable: boolean;
 }
 
@@ -154,6 +156,7 @@ export function unitsFor(product: Product, price: number, rate: number): OfferUn
     label: option.label,
     price: price + priceAt(option.add, rate).price,
     listPrice: product.price + option.add,
+    quantity: option.quantity,
     sellable: option.sellable,
   }));
 }
@@ -213,6 +216,8 @@ export function buildToday(
   at: Date = new Date(),
   products: Product[] = PRODUCTS,
   signals: SkuSignals = {},
+  /* 관리자가 정한 하루 상한. 자사몰 재고와 견줘 작은 쪽이 오늘 물량이 된다 */
+  cap: number = DAILY_ALLOTMENT,
 ): TodayMarket {
   const absChangePct = Math.abs(market.kospi.changePct);
   const mood = moodFor(market.kospi.changePct);
@@ -243,9 +248,11 @@ export function buildToday(
         inventoryBonus,
         price,
         saved,
-        /* 카페24가 재고관리를 켠 상품이면 그 수량, 아니면 코드 기본값.
-           손으로 적은 30이 자사몰과 따로 놀지 않게 한다 */
-        allotment: product.allotment ?? DAILY_ALLOTMENT,
+        /* 자사몰 재고와 관리자 상한 중 **작은 쪽**이다.
+           재고가 300개여도 그걸 다 할인가로 팔 생각은 아니고(관리자 상한),
+           반대로 재고가 상한보다 적으면 재고가 이긴다 — 없는 빵을 팔 수는 없다.
+           자사몰 재고를 못 읽으면 상한만 본다 */
+        allotment: Math.min(product.allotment ?? Infinity, cap),
         /* 체결은 폭으로 구분된다 — 그 빵의 폭으로 세야 잔량이 맞는다 */
         filled: filledFor(product.productNo, skuRate),
         badges: badgesFor(product),

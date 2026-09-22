@@ -98,8 +98,10 @@ export default function DividendSettings({ initial, maxRate }: Props) {
 
         <ul className={styles.planItems}>
           <li><span>1인 주간 최대 배당</span><b>{valid ? `${won(previewMax)}P` : '—'}</b></li>
-          <li><span>1점 · 활동 하나</span><b>{valid ? `${won(step(0.5))}P` : '—'}</b></li>
-          <li><span>2점 · 활동 둘</span><b>{valid ? `${won(step(0.8))}P` : '—'}</b></li>
+          {/* 비율은 lib/appSettings.loadDividendPolicy와 같아야 한다 — 여기 미리보기와
+              실제 지급액이 다르면 관리자가 잘못된 숫자를 보고 정책을 정한다 */}
+          <li><span>1점 · 활동 하나</span><b>{valid ? `${won(step(0.375))}P` : '—'}</b></li>
+          <li><span>2점 · 활동 둘</span><b>{valid ? `${won(step(0.625))}P` : '—'}</b></li>
           <li><span>3점 · 관심 + 구매 + 출석</span><b>{valid ? `${won(previewMax)}P` : '—'}</b></li>
         </ul>
 
