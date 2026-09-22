@@ -21,12 +21,20 @@ export interface PlanSummary {
   reason: string;
   /** 오늘 열린 최저호가 폭. 참고 표시용이다 */
   rate: number;
-  items: { productNo: number; name: string; price: number; finalPrice: number }[];
+  items: {
+    productNo: number; name: string; price: number; finalPrice: number;
+    /** 자사몰 재고 합. 카페24가 재고관리를 안 켠 상품이면 null */
+    stock: number | null;
+    /** 옵션별 재고 — 합계만 보면 "90개"가 90묶음인지 90개인지 알 수 없다 */
+    options: { label: string; quantity: number | null }[];
+  }[];
   soldOutCount: number;
 }
 
 interface Props {
   plan: PlanSummary;
+  /** 오늘 풀 물량 상한. 자사몰 재고와 견줘 작은 쪽이 실제 물량이 된다 */
+  allotment: { value: number; stored: boolean };
   /** 우리 제품번호 → 자사몰 상품번호. 없으면 productNo를 그대로 쓴다 */
   links: Record<number, number>;
   maxRate: number;
@@ -45,7 +53,23 @@ interface PlanRow {
 
 const won = (value: number) => value.toLocaleString('ko-KR');
 
-export default function AdminConsole({ plan, links, maxRate, instantDepth }: Props) {
+export default function AdminConsole({ plan, links, maxRate, instantDepth, allotment }: Props) {
+  /* 물량은 상품마다가 아니라 한 종당 공통값이다. 상품별로 다르게 둘 이유가 아직
+     없고, 열한 종에 각각 숫자를 넣게 하면 아무도 안 고친다 */
+  const [cap, setCap] = useState(allotment.value);
+  const [capState, setCapState] = useState<'idle' | 'busy' | 'saved'>('idle');
+
+  async function saveCap(next: number) {
+    const value = Math.min(1000, Math.max(1, next));
+    setCap(value);
+    setCapState('busy');
+    const res = await fetch('/api/admin/allotment', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ allotment: value }),
+    }).catch(() => null);
+    setCapState(res?.ok ? 'saved' : 'idle');
+  }
+
   const [rows, setRows] = useState<PlanRow[]>(() => plan.items.map(item => ({
     productNo: item.productNo,
     name: item.name,
@@ -65,6 +89,8 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth }: Pro
   const setRow = (productNo: number, patch: Partial<PlanRow>) =>
     setRows(previous => previous.map(row => (row.productNo === productNo ? { ...row, ...patch } : row)));
   const chosen = rows.filter(row => row.selected);
+  /* 상품번호로 재고를 찾는다. plan.items가 정본이고 rows는 화면 상태다 */
+  const stockOf = (productNo: number) => plan.items.find(item => item.productNo === productNo);
 
   /** 자사몰의 현재 판매가를 불러온다. 반영 전에 "무엇이 얼마로 바뀌는지"를 눈으로 보기 위한 것. */
   const checkShopPrices = async () => {
@@ -135,6 +161,21 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth }: Pro
           <span className={styles.rate}>−{Math.round(instantDepth * 100)}%</span>
         </div>
 
+        {/* 물량은 자사몰 재고를 덮어쓰지 않고 위에서 막기만 한다 — 실제 물량은
+            재고와 이 값 중 작은 쪽이다. 재고 자체는 카페24에서 관리한다 */}
+        <div className={styles.capRow}>
+          <span className={styles.capLabel}>오늘 풀 물량 <small>한 종당</small></span>
+          <div className={styles.stepper}>
+            <button type="button" onClick={() => saveCap(cap - 5)} disabled={cap <= 1 || capState === 'busy'} aria-label="물량 줄이기">−</button>
+            <b aria-live="polite">{cap}건</b>
+            <button type="button" onClick={() => saveCap(cap + 5)} disabled={cap >= 1000 || capState === 'busy'} aria-label="물량 늘리기">+</button>
+          </div>
+          <span className={styles.note}>
+            {capState === 'busy' ? '저장 중…' : capState === 'saved' ? '저장됨 ✓' : allotment.stored ? '' : '아직 기본값입니다'}
+            {' '}자사몰 재고가 이보다 적으면 재고가 이깁니다.
+          </span>
+        </div>
+
         <ul className={styles.planItems}>
           {rows.map(row => {
             const linked = links[row.productNo];
@@ -149,6 +190,15 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth }: Pro
                 <span className={styles.rowName}>
                   {row.name}
                   <small> · 자사몰 #{linked ?? row.productNo}{linked ? '' : ' (제품번호 그대로)'}</small>
+                </span>
+                {/* 카페24에서 읽어온 값이다. 여기서 바꾸지 않는다 — 재고는 기업이
+                    카페24에서 관리하고, 두 곳에서 관리하면 어느 쪽이 맞는지 모르게 된다 */}
+                <span className={styles.stock} title={stockOf(row.productNo)?.options.map(o => `${o.label} ${o.quantity ?? '—'}`).join(' · ') || '재고관리 꺼진 상품'}>
+                  {(() => {
+                    const total = stockOf(row.productNo)?.stock;
+                    if (total === null || total === undefined) return '재고 —';
+                    return `재고 ${won(total)}${total < cap ? ' ⚠️' : ''}`;
+                  })()}
                 </span>
                 <del>{won(row.price)}원</del>
                 <b>{won(finalPrice(row))}원</b>

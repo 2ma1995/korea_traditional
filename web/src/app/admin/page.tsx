@@ -6,11 +6,11 @@ import { isAdmin } from '@/lib/adminAuth';
 import TierSettings from '@/components/TierSettings';
 import IpoSettings from '@/components/IpoSettings';
 import DividendSettings from '@/components/DividendSettings';
-import AllotmentSettings from '@/components/AllotmentSettings';
 import IpoRounds from '@/components/IpoRounds';
-import { ALLOTMENT_DEFAULT, loadAllotment, loadDividendPolicy, loadIpoEnabled, MAX_DIVIDEND_RATE } from '@/lib/appSettings';
+import { loadAllotment, loadDividendPolicy, loadIpoEnabled, MAX_DIVIDEND_RATE } from '@/lib/appSettings';
 import { listRounds } from '@/lib/ipo';
 import { loadProductLinks, loadTiers } from '@/lib/settings';
+import { fetchStock } from '@/lib/stock';
 import { MAX_DISCOUNT_RATE } from '@/data/indicators';
 import { buildDailyPlan } from '@/lib/discount';
 import { getMarketSnapshot } from '@/lib/market';
@@ -37,13 +37,14 @@ export default async function AdminPage() {
   }
 
   /* 구간과 연결표는 관리자가 바꾸는 값이라 DB에서 읽는다. 비어 있으면 코드 기본값. */
-  const [market, tiers, links, ipo, dividend, allotment] = await Promise.all([
+  const [market, tiers, links, ipo, dividend, allotment, stock] = await Promise.all([
     getMarketSnapshot(new Date()),
     loadTiers(),
     loadProductLinks(),
     loadIpoEnabled(),
     loadDividendPolicy(),
     loadAllotment(),
+    fetchStock(),
   ]);
   const seasons = await listRounds();
   const daily = buildDailyPlan(market, undefined, tiers);
@@ -59,6 +60,9 @@ export default async function AdminPage() {
       name: item.product.name,
       price: item.product.price,
       finalPrice: item.finalPrice,
+      /* 카페24에서 읽어온 값. 관리자 화면은 보여주기만 하고 바꾸지 않는다 */
+      stock: stock.quantity[item.product.productNo] ?? null,
+      options: (stock.options[item.product.productNo] ?? []).map(o => ({ label: o.label, quantity: o.quantity })),
     })),
     soldOutCount: daily.soldOut.length,
   };
@@ -71,10 +75,9 @@ export default async function AdminPage() {
         <p>오늘의 호가 범위를 확인하고 자사몰에 반영합니다.</p>
       </div>
     </header>
-    <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} instantDepth={instantDepth} />
+    <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} instantDepth={instantDepth} allotment={allotment} />
     <TierSettings initial={tiers} maxRate={MAX_DISCOUNT_RATE} />
     <IpoSettings initial={ipo.value} stored={ipo.stored} />
-    <AllotmentSettings initial={allotment} fallback={ALLOTMENT_DEFAULT} />
     <DividendSettings initial={dividend} maxRate={MAX_DIVIDEND_RATE} />
     <IpoRounds initial={seasons.rounds} stored={seasons.stored} />
     <Cafe24Panel links={links} />
