@@ -1,4 +1,4 @@
-import { cafe24Config, getProduct } from '@/lib/cafe24';
+import { cafe24Config, getProduct, SCOPES } from '@/lib/cafe24';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -22,6 +22,10 @@ export async function GET(request: Request) {
       clientId: Boolean(process.env.CAFE24_CLIENT_ID),
       clientSecret: Boolean(process.env.CAFE24_CLIENT_SECRET),
       redirectUri: cafe24?.redirectUri ?? null, // 개발자센터 등록값과 눈으로 대조해야 한다
+      /* 인증을 누르기 전에 "이 배포가 무슨 권한을 요구할 것인가"를 본다. 환경변수를
+         넣고 재배포했는데 여기 안 보이면 그 배포에 값이 안 들어간 것이다 —
+         모르고 동의하면 권한 없는 토큰을 받고, 카페24 토큰 요청 횟수만 깎인다 */
+      scopes: SCOPES,
     },
     supabase: { configured: Boolean(db) },
   };
