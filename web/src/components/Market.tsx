@@ -9,6 +9,7 @@ import KospiLive, { DRAW_MS, type Phase } from '@/components/KospiLive';
 import type { KospiView } from '@/components/KospiQuote';
 import OfferSheet, { type Bid } from '@/components/OfferSheet';
 import Portfolio from '@/components/Portfolio';
+import PushToggle from '@/components/PushToggle';
 import ProductPhoto from '@/components/ProductPhoto';
 import type { DiscountTier } from '@/data/indicators';
 import type { IpoRound } from '@/lib/ipo';
@@ -100,7 +101,6 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const openFromList = (no: number) => { setSheetFrom('list'); setSelected(no); };
   const openFromPortfolio = (no: number) => { setSheetFrom('portfolio'); setSelected(no); };
   const [bulk, setBulk] = useState<{ busy: boolean; done: number; missed: number; error?: string } | null>(null);
-  const [showSoldOut, setShowSoldOut] = useState(false);
   const [pfOpen, setPfOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const { portfolio, setQty } = usePortfolio();
@@ -270,6 +270,11 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   /* ── MY ── */
   /* 마운트 시점 순서를 고정한다 — 수량을 바꿀 때 줄·조각이 튀지 않게 */
   const entries = useStableHoldings(portfolio);
+  /* 담은 목록이 바뀌면 지난 일괄 예약 결과를 버린다. 안 그러면 새 빵을 담아도
+     버튼이 '예약 완료'로 잠긴 채 남는다 */
+  const holdKey = entries.map(e => `${e.no}:${e.qty}`).join(',');
+  const [seenHold, setSeenHold] = useState(holdKey);
+  if (holdKey !== seenHold) { setSeenHold(holdKey); setBulk(null); }
   const pfTotal = entries.reduce((a, b) => a + b.qty, 0);
   /* 하나만 담아도 도넛을 보여준다. '3개부터'는 성급한 판정을 막자는 안이었지만, 담았는데 안 보이는 게 더 이상하다 */
   const actions = pfTotal;
@@ -376,8 +381,13 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
              근거(구간·하락장 보정)는 위 히어로의 '할인 기준 보기'에 접어 두고,
              여기에는 결과만 세운다. 서랍 안에 있으면 아무도 안 연다.
              '모든 빵'이라고 쓰지 않는다 — SKU 보정이 붙어 빵마다 폭이 다르다 ══ */}
+      {/* ══ TODAY ══ */}
       {!holiday && (
-        <div className={`${styles.todayCall} ${styles.reveal}`} style={reveal(0)}>
+      <section id="today" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="오늘의 할인 빵">
+        <div className={styles.eyebrowRow}><span className={styles.eyebrow}>01 / TODAY’S BREAD</span><span className={styles.theme}>{mood.theme}</span></div>
+        {/* 오늘의 결론을 목록 바로 위에 세운다. 컨테이너 밖에 따로 떠 있으면
+            무엇에 대한 결론인지가 끊긴다 — 이 숫자가 아래 목록의 근거다 */}
+        <div className={styles.todayCall}>
           <span className={styles.eyebrow}>
             {phase === 'live'
               ? '지금 마감한다면'
@@ -385,12 +395,6 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           </span>
           <strong>기본 할인 <b>{Math.round(rate * 100)}%</b></strong>
         </div>
-      )}
-
-      {/* ══ TODAY ══ */}
-      {!holiday && (
-      <section id="today" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="오늘의 할인 빵">
-        <div className={styles.eyebrowRow}><span className={styles.eyebrow}>01 / TODAY’S BREAD</span><span className={styles.theme}>{mood.theme}</span></div>
         <header className={styles.cardHead}>
           <h2>{phase === 'live' ? '지금 예상되는 오늘의 할인 빵' : '오늘의 할인 빵'} <small>{offers.length}종 · 각 {offers[0]?.allotment ?? 30}개 · 전부 {Math.round(rate * 100)}%</small></h2>
           <div className={styles.sort} role="group" aria-label="정렬">
@@ -462,22 +466,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           })}
         </ul>
 
-        {today.soldOut.length > 0 && (
-          <>
-            <button type="button" className={styles.more} onClick={() => setShowSoldOut(v => !v)} aria-expanded={showSoldOut}>품절 {today.soldOut.length}종 {showSoldOut ? '접기 ▴' : '보기 ▾'}</button>
-            {showSoldOut && (
-              <ul className={styles.list} data-muted="true">
-                {today.soldOut.map(p => (
-                  <li key={p.productNo}><div className={styles.row}>
-                    <span className={styles.thumb}><ProductPhoto productNo={p.productNo} name={p.name} /></span>
-                    <span className={styles.rowMain}><b>{p.name}</b><small>품절 — 오늘 빵장에 없음</small></span>
-                    <span className={styles.rowPrice}><small><del>{won(p.price)}</del></small></span>
-                  </div></li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
+        {/* 품절 목록을 따로 접어두지 않는다 — '전체' 탭이 품절까지 회색으로
+            보여주므로 같은 것을 두 군데서 말하게 된다 */}
 
         <dl className={styles.roles}>
           <div><dt>할인 폭</dt><dd>오늘 KOSPI <b>변동폭</b> 기준</dd></div>
@@ -492,7 +482,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         <p className={`${styles.lead} ${styles.reveal}`} style={reveal(5)}>먼저 고른 사람이, <b>먼저 가져갑니다.</b></p>
         <section className={`${styles.card} ${styles.reveal}`} style={reveal(5)} aria-label="오늘 많이 산 빵">
           <header className={styles.cardHead}><h2>오늘 많이 산 빵 <small>10초마다 갱신</small></h2></header>
-          <ol className={styles.rankList}>{ranking.map(({ o, n }, i) => <li key={o.product.productNo}><i>{i + 1}</i><b>{o.product.name}</b><small>{n}개 · 남음 {remainingOf(o)}</small></li>)}</ol>
+          <ol className={styles.rankList}>{ranking.map(({ o, n }, i) => <li key={o.product.productNo}><i>{i + 1}</i><b>{o.product.name}</b><small>{n}개</small></li>)}</ol>
         </section>
         </>
       )}
@@ -517,6 +507,9 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
             <Donut slices={slices} onPick={openFromPortfolio} />
             <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen} aria-controls="portfolio-details">내 포트폴리오 {pfOpen ? '접기 ▴' : '펼치기 ▾'}</button>
             {pfOpen && <div id="portfolio-details" className={styles.pop}><Portfolio offers={offers} entries={entries} onBuyAll={buyAll} bulk={bulk} onPick={openFromPortfolio} /></div>}
+            {/* 알림은 담아둔 빵이 있는 자리에서만 권한다 — 페이지 열자마자 묻는 창은
+                대부분 거절당하고, 한 번 거절하면 브라우저가 다시 묻지 않는다 */}
+            <PushToggle />
           </>
         )}
       </section>

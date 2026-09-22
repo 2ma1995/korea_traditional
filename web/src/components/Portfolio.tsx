@@ -37,6 +37,8 @@ export default function Portfolio({ offers, entries, onBuyAll, bulk, onPick }: P
   const units = inToday.reduce((a, r) => a + r.qty, 0);
   const totalList = inToday.reduce((a, r) => a + r.offer.product.price * r.qty, 0);
   const totalToday = inToday.reduce((a, r) => a + r.offer.price * r.qty, 0);
+  /* 이번 담은 목록으로 이미 예약을 마쳤는가 */
+  const done = Boolean(bulk && !bulk.busy && bulk.done > 0);
   const totalSaved = totalList - totalToday;
   const soldOutCount = rows.length - inToday.length;
 
@@ -100,12 +102,18 @@ export default function Portfolio({ offers, entries, onBuyAll, bulk, onPick }: P
 
       {inToday.length > 0 && onBuyAll && (
         <div className={styles.buyAll}>
-          <button type="button" className={styles.primary} disabled={bulk?.busy} onClick={() => onBuyAll(inToday)}>
-            {bulk?.busy ? '예약 중…' : `포트폴리오 구매하기 · ${units}개 ${won(totalToday)}원`}
+          {/* 예약을 마치면 같은 버튼을 다시 누를 수 없게 한다 — 눌린 채로 남아
+              두 번, 세 번 예약이 더 들어가던 것을 막는다. 담은 빵이 바뀌면
+              Market이 bulk를 비워서 다시 살아난다 */}
+          <button type="button" className={styles.primary} disabled={bulk?.busy || done} onClick={() => onBuyAll(inToday)}>
+            {bulk?.busy ? '예약 중…' : done ? '예약 완료' : `포트폴리오 구매하기 · ${units}개 ${won(totalToday)}원`}
           </button>
           {bulk && !bulk.busy && (bulk.done > 0 || bulk.missed > 0) && (
             <p className={styles.buyAllNote}>
-              {bulk.done > 0 && <><b>{bulk.done}개 예약됐습니다.</b> 예약마다 할인코드가 발급됩니다 — 빵을 눌러 확인하세요. </>}
+              {/* 할인이 어떻게 전달되는지는 빵마다 다를 수 있고(판매가 변경·쿠폰·없음),
+                  여기는 그걸 모른다. 그래서 단정하지 않고 상세로 보낸다 —
+                  예전에는 "예약마다 할인코드가 발급됩니다"라고 적어두고 코드를 안 줬다 */}
+              {bulk.done > 0 && <><b>{bulk.done}개 예약됐습니다.</b> 빵을 눌러 결제 안내를 확인하세요. </>}
               {/* 실패 이유를 서버가 말한 그대로 쓴다. 예전에는 무엇이 막았든
                   "물량이 끝났습니다"라고만 해서, 장이 닫힌 것도 품절로 보였다 */}
               {bulk.missed > 0 && <>{bulk.missed}개는 예약하지 못했습니다 — {bulk.error ?? '오늘 물량이 끝났습니다.'}</>}

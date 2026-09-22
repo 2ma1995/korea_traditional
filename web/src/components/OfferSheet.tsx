@@ -249,7 +249,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
               : `${won(payPrice)}원에 구매하기`}
           </button>
         </div>
-        <p className={styles.sheetFine}>개수는 <b>내 관심빵</b>에 저장돼 포트폴리오 비중이 됩니다. 알림 발송(푸시·문자)은 준비 중이에요.</p>
+        <p className={styles.sheetFine}>개수는 <b>내 관심빵</b>에 저장돼 포트폴리오 비중이 됩니다. 담아둔 빵이 할인되는 날 알림을 받으시려면 <b>내 빵 포트폴리오</b>에서 켜 주세요.</p>
       </div>
     </div>
   );

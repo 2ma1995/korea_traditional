@@ -229,6 +229,15 @@
 .couponBox[data-warn='true'] { border-color: var(--muted); background: color-mix(in srgb, var(--muted) 7%, var(--paper)); }
 .couponBox[data-warn='true'] .couponLabel { color: var(--ink); }
 
+/* 알림 켜기 — 담아둔 빵이 있는 자리에만 둔다.
+   안 되는 기기(iPhone 홈화면 미추가·차단됨)에서는 버튼 없이 이유만 남는다 */
+.pushRow { display: flex; align-items: center; flex-wrap: wrap; gap: var(--gap-2); margin-top: var(--gap-3); padding-top: var(--gap-3); border-top: 1px solid var(--line); }
+.pushButton { font: inherit; font-size: 13px; font-weight: 700; min-height: 44px; padding: 0 16px; border: 1px solid var(--dancheong); border-radius: var(--r-pill); background: transparent; color: var(--dancheong); cursor: pointer; white-space: nowrap; }
+.pushButton[data-on='true'] { background: var(--dancheong); color: #fdfbf6; }
+.pushButton:disabled { opacity: .6; cursor: progress; }
+.pushFine { font-size: 12px; line-height: 1.7; color: var(--muted); word-break: keep-all; }
+.pushFine b { color: var(--ink); font-weight: 600; }
+
 /* 자사몰 옵션 선택 — 여기 적힌 값이 곧 결제 금액이다.
    이름은 자사몰 표기를 그대로 쓴다. "베스트 SET(햄치즈+라즈베리 슈크림)(2개)"처럼
    긴 것이 있어 두 줄까지 감기게 두고, 값은 오른쪽에 고정폭으로 세운다. */
