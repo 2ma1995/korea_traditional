@@ -97,7 +97,11 @@ export const saveIpoEnabled = (on: boolean) => saveSetting(IPO_KEY, on);
 export const MAX_DIVIDEND_RATE = 0.15;
 
 /**
- * 오늘 풀 물량의 상한 — 관리자가 **상품마다** 정한다.
+ * 오늘 풀 물량의 상한 — 관리자가 **빵마다, 필요하면 옵션마다** 정한다.
+ *
+ * 자리는 옵션별로 센다(0015). "1개 30 · 3개 30 · 5개 30"인 빵에서 30자리를
+ * 상품 전체로 열면 서른 명이 모두 '5개'를 골라도 통과하는데, 5개짜리 재고는
+ * 30묶음뿐이기 때문이다.
  *
  * 카페24 재고를 그대로 쓰면 "할인가로 몇 개까지 팔 것인가"를 정할 수가 없다.
  * 재고가 300개라고 300개를 5% 할인해 팔 생각은 아니기 때문이다. 그래서 이 값은
@@ -146,30 +150,46 @@ const asCount = (raw: unknown): number | null =>
  * 하나로 묶으면 1,500원짜리 머핀과 42,000원짜리 케이크에 같은 수를 풀게 된다.
  * 여기 없는 상품은 ALLOTMENT_DEFAULT를 쓴다 — 새 빵이 들어와도 0이 되지 않는다.
  */
-const asAllotments = (raw: unknown): Record<number, number> | null => {
+/**
+ * 열쇠는 둘 중 하나다.
+ *   "32"                  이 빵의 모든 옵션에 적용
+ *   "32:P00000BG000G"     이 옵션에만 적용 (빵 값을 이긴다)
+ *
+ * 옵션마다 숫자를 넣게만 하면 여덟 개짜리 상품(대만식 샌드위치)에서 아무도 안 고친다.
+ * 그래서 빵 하나에 한 번 넣으면 전 옵션에 걸리고, 다르게 줄 옵션만 따로 적는다.
+ */
+export type Allotments = Record<string, number>;
+
+const KEY_SHAPE = /^[0-9]+(:[A-Za-z0-9]{1,32})?$/;
+
+const asAllotments = (raw: unknown): Allotments | null => {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const out: Record<number, number> = {};
+  const out: Allotments = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    const productNo = Number(key);
     const count = asCount(value);
-    if (Number.isInteger(productNo) && productNo > 0 && count !== null) out[productNo] = count;
+    if (KEY_SHAPE.test(key) && count !== null) out[key] = count;
   }
   return out;
 };
 
-export const loadAllotments = () => loadSetting(ALLOTMENT_KEY, {} as Record<number, number>, asAllotments);
+export const loadAllotments = () => loadSetting(ALLOTMENT_KEY, {} as Allotments, asAllotments);
 
-/** 이 상품의 물량. 따로 정한 적 없으면 기본값 */
-export const allotmentFor = (byProduct: Record<number, number>, productNo: number) =>
-  byProduct[productNo] ?? ALLOTMENT_DEFAULT;
+/**
+ * 이 옵션에 열어둘 자리 수.
+ *
+ * 옵션값 → 빵값 → 코드 기본값 순으로 찾는다. 새 옵션이 카페24에 생겨도 0이 되지 않는다.
+ */
+export const allotmentFor = (all: Allotments, productNo: number, unit: string | null = null) =>
+  (unit ? all[`${productNo}:${unit}`] : undefined) ?? all[String(productNo)] ?? ALLOTMENT_DEFAULT;
 
-export async function saveAllotmentFor(productNo: unknown, raw: unknown): Promise<Record<number, number>> {
+export async function saveAllotmentFor(productNo: unknown, raw: unknown, unit?: unknown): Promise<Allotments> {
   const no = Number(productNo);
   if (!Number.isInteger(no) || no <= 0) throw new Error('상품 번호가 올바르지 않습니다.');
+  const code = typeof unit === 'string' && /^[A-Za-z0-9]{1,32}$/.test(unit) ? unit : null;
   const value = asCount(typeof raw === 'string' ? Number(raw) : raw);
   if (value === null) throw new Error('물량은 1 이상 1,000 이하의 숫자여야 합니다.');
   const current = await loadAllotments();
-  const next = { ...current.value, [no]: value };
+  const next = { ...current.value, [code ? `${no}:${code}` : String(no)]: value };
   await saveSetting(ALLOTMENT_KEY, next);
   return next;
 }

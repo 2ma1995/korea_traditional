@@ -198,26 +198,30 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
    * 한 빵에서 물량이 끝나면 남은 수량은 더 시도하지 않고 실패로 센다.
    */
   /** 시트에서 한 빵을 산다 — 관심에 담아둔 수량만큼 예약한다(안 담았으면 1개) */
+  /**
+   * 한 빵을 예약한다 — **한 번만**.
+   *
+   * 예전에는 담은 개수만큼 예약을 반복했다. 그런데 0015가 "같은 날 같은 빵은
+   * 한 사람당 한 자리"를 걸면서 두 번째부터 막힌다. 그게 맞는 규칙이다 —
+   * 서른 자리를 한 사람이 다섯 개 먹으면 선착순이라는 말이 뜻을 잃는다.
+   *
+   * 몇 개를 살지는 자사몰에서 정한다. 우리는 자리 하나를 잡아줄 뿐이고,
+   * 담은 개수는 포트폴리오 비중으로만 쓴다.
+   */
   async function buyPicked(offer: TodayOffer) {
-    const qty = Math.max(1, qtyOf(portfolio, offer.product.productNo));
-    for (let i = 0; i < qty; i++) {
-      const { ok } = await buy(offer);
-      if (!ok) break;
-    }
+    await buy(offer);
   }
 
   async function buyAll(list: { offer: TodayOffer; qty: number }[]) {
     setBulk({ busy: true, done: 0, missed: 0 });
     let done = 0, missed = 0, error: string | undefined;
-    for (const { offer, qty } of list) {
-      for (let i = 0; i < qty; i++) {
-        const result = await buy(offer);
-        if (result.ok) { done += 1; continue; }
-        missed += qty - i;
-        /* 첫 실패 이유만 남긴다 — 여러 개가 같은 이유로 막히는 게 보통이다 */
-        error ??= result.error;
-        break;
-      }
+    /* 빵마다 자리 하나씩. 개수만큼 반복하지 않는다 — 한 사람당 한 자리다(0015) */
+    for (const { offer } of list) {
+      const result = await buy(offer);
+      if (result.ok) { done += 1; continue; }
+      missed += 1;
+      /* 첫 실패 이유만 남긴다 — 여러 개가 같은 이유로 막히는 게 보통이다 */
+      error ??= result.error;
     }
     setBulk({ busy: false, done, missed, error });
   }

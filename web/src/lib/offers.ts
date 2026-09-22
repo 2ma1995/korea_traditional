@@ -106,6 +106,8 @@ export interface OfferUnit {
   listPrice: number;
   /** 이 단위의 자사몰 재고. 재고관리를 안 켰으면 null */
   quantity: number | null;
+  /** 이 옵션에 오늘 열어둔 자리 수 — 자사몰 재고와 견줘 작은 쪽이 실제 한도다 */
+  allotment: number;
   sellable: boolean;
 }
 
@@ -150,13 +152,21 @@ const floorTo10 = (won: number) => Math.floor(Math.round(won) / 10) * 10;
  * 깎기 때문이다. 한 번에 절사하면 10원씩 어긋나서, 화면에 적힌 값으로 결제가
  * 안 되는 일이 생긴다.
  */
-export function unitsFor(product: Product, price: number, rate: number): OfferUnit[] {
+export function unitsFor(
+  product: Product,
+  price: number,
+  rate: number,
+  capFor: (unit: string) => number = () => DAILY_ALLOTMENT,
+): OfferUnit[] {
   return (product.options ?? []).map(option => ({
     code: option.code,
     label: option.label,
     price: price + priceAt(option.add, rate).price,
     listPrice: product.price + option.add,
     quantity: option.quantity,
+    /* 자사몰 재고와 관리자가 연 자리 중 작은 쪽. 없는 빵은 팔 수 없고,
+       재고가 많아도 오늘 풀기로 한 만큼만 판다 */
+    allotment: Math.min(option.quantity ?? Infinity, capFor(option.code)),
     sellable: option.sellable,
   }));
 }
@@ -218,7 +228,7 @@ export function buildToday(
   signals: SkuSignals = {},
   /* 관리자가 상품마다 정한 하루 상한. 자사몰 재고와 견줘 작은 쪽이 오늘 물량이 된다.
      표에 없는 상품은 DAILY_ALLOTMENT를 쓴다 — 새 빵이 들어와도 0이 되지 않는다 */
-  caps: Record<number, number> = {},
+  caps: Record<string, number> = {},
 ): TodayMarket {
   const absChangePct = Math.abs(market.kospi.changePct);
   const mood = moodFor(market.kospi.changePct);
@@ -253,11 +263,11 @@ export function buildToday(
            재고가 300개여도 그걸 다 할인가로 팔 생각은 아니고(관리자 상한),
            반대로 재고가 상한보다 적으면 재고가 이긴다 — 없는 빵을 팔 수는 없다.
            자사몰 재고를 못 읽으면 상한만 본다 */
-        allotment: Math.min(product.allotment ?? Infinity, caps[product.productNo] ?? DAILY_ALLOTMENT),
+        allotment: Math.min(product.allotment ?? Infinity, caps[String(product.productNo)] ?? DAILY_ALLOTMENT),
         /* 체결은 폭으로 구분된다 — 그 빵의 폭으로 세야 잔량이 맞는다 */
         filled: filledFor(product.productNo, skuRate),
         badges: badgesFor(product),
-        units: unitsFor(product, price, skuRate),
+        units: unitsFor(product, price, skuRate, unit => caps[`${product.productNo}:${unit}`] ?? caps[String(product.productNo)] ?? DAILY_ALLOTMENT),
       };
     })
     .sort((a, b) => b.saved - a.saved);

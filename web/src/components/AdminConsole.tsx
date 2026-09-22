@@ -25,8 +25,12 @@ export interface PlanSummary {
     productNo: number; name: string; price: number; finalPrice: number;
     /** 자사몰 재고 합. 카페24가 재고관리를 안 켠 상품이면 null */
     stock: number | null;
-    /** 옵션별 재고와 추가금 — 옵션이 값을 바꾸는 상품은 기본가만 봐서는 안 된다 */
-    options: { label: string; quantity: number | null; add: number }[];
+    /** 옵션별 재고·추가금·자리 수 — 옵션이 값을 바꾸는 상품은 기본가만 봐서는 안 된다 */
+    options: {
+      code: string; label: string; quantity: number | null; add: number;
+      /** 이 옵션에만 따로 정해둔 자리 수. 없으면 빵 값을 쓴다 */
+      allotment?: number;
+    }[];
     /** 이 빵에 정한 하루 물량 */
     allotment: number;
     /** 자사몰에서 지금 살 수 있는가. 품절이면 목록에 넣지 못한다 */
@@ -68,18 +72,27 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
   /* 물량은 빵마다 다르다. 1,500원짜리 머핀과 42,000원짜리 케이크에 같은 수를
      풀 이유가 없다. 누르면 그 자리에서 저장한다 — 저장 버튼을 따로 두면
      고쳐놓고 안 누르는 일이 생긴다 */
-  const [caps, setCaps] = useState<Record<number, number>>(
-    () => Object.fromEntries(plan.items.map(item => [item.productNo, item.allotment])),
-  );
-  const [savingCap, setSavingCap] = useState<number | null>(null);
+  /* 열쇠는 "32"(빵 전체) 또는 "32:품목코드"(그 옵션만)다. 옵션마다 숫자를 넣게만
+     하면 여덟 개짜리 상품에서 아무도 안 고친다 — 빵에 한 번 넣으면 전 옵션에 걸리고,
+     다르게 줄 옵션만 따로 적는다 */
+  const [caps, setCaps] = useState<Record<string, number>>(() => ({
+    ...Object.fromEntries(plan.items.map(item => [String(item.productNo), item.allotment])),
+    ...Object.fromEntries(
+      plan.items.flatMap(item => item.options
+        .filter(o => o.allotment !== undefined)
+        .map(o => [`${item.productNo}:${o.code}`, o.allotment as number])),
+    ),
+  }));
+  const [savingCap, setSavingCap] = useState<string | null>(null);
 
-  async function saveCap(productNo: number, next: number) {
+  async function saveCap(productNo: number, next: number, unit?: string) {
+    const key = unit ? `${productNo}:${unit}` : String(productNo);
     const value = Math.min(1000, Math.max(1, next));
-    setCaps(prev => ({ ...prev, [productNo]: value }));
-    setSavingCap(productNo);
+    setCaps(prev => ({ ...prev, [key]: value }));
+    setSavingCap(key);
     await fetch('/api/admin/allotment', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productNo, allotment: value }),
+      body: JSON.stringify({ productNo, allotment: value, unit }),
     }).catch(() => null);
     setSavingCap(null);
   }
@@ -120,7 +133,9 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
   /* 아직 목록에 없는 빵 — '+'로 넣을 수 있다 */
   const addable = plan.pool.filter(item => !rows.some(row => row.productNo === item.productNo));
 
-  const capOf = (productNo: number) => caps[productNo] ?? allotmentDefault;
+  /* 옵션값 → 빵값 → 기본값 (lib/appSettings.allotmentFor와 같은 순서여야 한다) */
+  const capOf = (productNo: number, unit?: string) =>
+    (unit ? caps[`${productNo}:${unit}`] : undefined) ?? caps[String(productNo)] ?? allotmentDefault;
 
   const removeChecked = () => setRows(previous => previous.filter(row => !row.selected));
   const addProduct = (productNo: number) => {
@@ -269,19 +284,19 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                 {/* 이 빵의 하루 물량. 숫자를 직접 치는 것이 먼저고 ± 는 한 건씩 미세 조정이다 —
                     5씩만 움직이면 37건 같은 수를 넣을 방법이 없었다.
                     ± 는 누르는 즉시, 직접 친 값은 칸을 벗어날 때 저장한다 */}
-                <span className={styles.stepper} data-busy={savingCap === row.productNo}>
-                  <span className={styles.stepperLabel}>예약</span>
+                <span className={styles.stepper} data-busy={savingCap === String(row.productNo)}>
+                  <span className={styles.stepperLabel}>{(stockOf(row.productNo)?.options.length ?? 0) > 0 ? '옵션당' : '예약'}</span>
                   <button type="button" aria-label={`${row.name} 물량 한 건 줄이기`}
-                    disabled={capOf(row.productNo) <= 1 || savingCap === row.productNo}
+                    disabled={capOf(row.productNo) <= 1 || savingCap === String(row.productNo)}
                     onClick={() => saveCap(row.productNo, capOf(row.productNo) - 1)}>−</button>
                   <input type="number" min={1} max={1000} aria-label={`${row.name} 물량(건)`}
-                    value={capOf(row.productNo)} disabled={savingCap === row.productNo}
-                    onChange={event => setCaps(previous => ({ ...previous, [row.productNo]: Number(event.target.value) || 1 }))}
+                    value={capOf(row.productNo)} disabled={savingCap === String(row.productNo)}
+                    onChange={event => setCaps(previous => ({ ...previous, [String(row.productNo)]: Number(event.target.value) || 1 }))}
                     onBlur={event => saveCap(row.productNo, Number(event.target.value) || 1)}
                     onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
                   <span className={styles.stepperLabel}>건</span>
                   <button type="button" aria-label={`${row.name} 물량 한 건 늘리기`}
-                    disabled={capOf(row.productNo) >= 1000 || savingCap === row.productNo}
+                    disabled={capOf(row.productNo) >= 1000 || savingCap === String(row.productNo)}
                     onClick={() => saveCap(row.productNo, capOf(row.productNo) + 1)}>+</button>
                 </span>
                 <del>{won(row.price)}원</del>
@@ -307,13 +322,26 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                   if (!opts.length) return null;
                   return (
                     <small className={styles.optionPrices}>
-                      {opts.map(o => (
-                        <span key={o.label}>
-                          {o.label}
-                          {o.add > 0 && <> <b>{won(unitPrice(row, o.add))}원</b></>}
-                          {o.quantity !== null && <> · 재고 {won(o.quantity)}</>}
-                        </span>
-                      ))}
+                      {opts.map(o => {
+                        const key = `${row.productNo}:${o.code}`;
+                        return (
+                          <span key={o.code} className={styles.optionRow}>
+                            <i>{o.label}</i>
+                            {o.add > 0 && <b>{won(unitPrice(row, o.add))}원</b>}
+                            {o.quantity !== null && <span className={styles.stock}>재고 {won(o.quantity)}</span>}
+                            {/* 이 옵션에만 다른 수를 줄 때 쓴다. 비워 두면 빵 값이 그대로 걸린다 */}
+                            <span className={styles.stepper} data-busy={savingCap === key}>
+                              <span className={styles.stepperLabel}>예약</span>
+                              <input type="number" min={1} max={1000} aria-label={`${row.name} ${o.label} 자리 수`}
+                                value={capOf(row.productNo, o.code)} disabled={savingCap === key}
+                                onChange={event => setCaps(previous => ({ ...previous, [key]: Number(event.target.value) || 1 }))}
+                                onBlur={event => saveCap(row.productNo, Number(event.target.value) || 1, o.code)}
+                                onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
+                              <span className={styles.stepperLabel}>건</span>
+                            </span>
+                          </span>
+                        );
+                      })}
                     </small>
                   );
                 })()}

@@ -85,11 +85,19 @@ export async function POST(request: Request) {
      카페24에서 수량을 줄인 순간 화면은 품절인데 서버는 계속 받는다 */
   /* 화면(lib/offers)과 같은 규칙으로 센다 — 자사몰 재고와 관리자 상한 중 작은 쪽.
      여기만 상한을 안 보면 화면이 "물량 끝"이라 해도 서버가 더 받아 준다 */
-  const cap = allotmentFor((await loadAllotments()).value, productNo);
+  const cap = allotmentFor((await loadAllotments()).value, productNo, unit);
   const quantity = Math.min(stock.quantity[productNo] ?? Infinity, cap);
 
   try {
     const result = await tryFill(productNo, depth, quantity, now, await visitorId(), unit);
+    /* 이미 잡고 있다(0015). 물량이 끝난 것과는 다른 일이라 다르게 말해야 한다 —
+       "오늘 물량이 끝났습니다"라고 하면 손님이 자기 자리를 못 찾고 되돌아간다 */
+    if (result.already) {
+      return NextResponse.json(
+        { ok: false as const, already: true as const, error: '오늘 이 빵은 이미 예약하셨어요. 예약한 자리에서 결제해 주세요.' },
+        { status: 409, headers: NO_STORE },
+      );
+    }
     /* 오늘 산 사람에게 공모 청약권 한 장. 구매가 증거금 역할을 한다 (lib/bidRight) */
     await grantBidRight(now);
 

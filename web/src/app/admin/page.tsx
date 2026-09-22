@@ -64,7 +64,12 @@ export default async function AdminPage() {
       stock: stock.quantity[item.product.productNo] ?? null,
       /* 이 빵에 정한 물량. 정한 적 없으면 기본값이 뜬다 */
       allotment: allotmentFor(allotments.value, item.product.productNo),
-      options: (stock.options[item.product.productNo] ?? []).map(o => ({ label: o.label, quantity: o.quantity, add: o.add })),
+      options: (stock.options[item.product.productNo] ?? []).map(o => ({
+        code: o.code, label: o.label, quantity: o.quantity, add: o.add,
+        /* 이 옵션에만 따로 정한 값이 있으면 그것 — 없으면 undefined로 두어
+           화면이 빵 값으로 떨어지게 한다(allotmentFor와 같은 순서) */
+        allotment: allotments.value[`${item.product.productNo}:${o.code}`],
+      })),
       sellable: stock.map[item.product.productNo] ?? item.product.inStock,
     })),
     /* 오늘 목록에 없는 빵 — 관리자가 '+'로 넣을 수 있다 */
@@ -76,7 +81,10 @@ export default async function AdminPage() {
         price: product.price,
         finalPrice: Math.floor((product.price * (1 - instantDepth)) / 10) * 10,
         stock: stock.quantity[product.productNo] ?? null,
-        options: (stock.options[product.productNo] ?? []).map(o => ({ label: o.label, quantity: o.quantity, add: o.add })),
+        options: (stock.options[product.productNo] ?? []).map(o => ({
+          code: o.code, label: o.label, quantity: o.quantity, add: o.add,
+          allotment: allotments.value[`${product.productNo}:${o.code}`],
+        })),
         allotment: allotmentFor(allotments.value, product.productNo),
         sellable: stock.map[product.productNo] ?? product.inStock,
       })),

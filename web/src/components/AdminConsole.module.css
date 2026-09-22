@@ -55,7 +55,11 @@
 /* 옵션별 최종가 — 옵션이 값을 바꾸는 상품은 기본가만 봐서는 손님이 얼마를 내는지
    모른다. 줄 전체를 차지하게 두고(grid-column) 여러 개면 접히게 한다 */
 .optionPrices { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.optionPrices span { white-space: nowrap; }
+.optionRow { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.optionRow i { font-style: normal; }
+.optionRow .stepper { border-color: transparent; }
+.optionRow .stepper input { width: 42px; }
 .optionPrices del { opacity: .7; }
 .optionPrices b { color: var(--ink); font-weight: 600; }
 

@@ -25,7 +25,9 @@ import type { FilledLookup } from '@/lib/orderbook';
 
 /* ── 메모리 폴백. 키는 "날짜:상품:폭" ── */
 const memory = new Map<string, number>();
-const memKey = (day: string, productNo: number, depth: number) => `${day}:${productNo}:${depth.toFixed(3)}`;
+/* 저장소가 없을 때 쓰는 메모리 키. 옵션까지 넣어야 DB와 같은 단위로 센다(0015) */
+const memKey = (day: string, productNo: number, depth: number, unit: string | null = null) =>
+  `${day}:${productNo}:${depth.toFixed(3)}:${unit ?? ''}`;
 
 /**
  * 표가 없는 오류인가.
@@ -66,6 +68,8 @@ export interface FillResult {
   remaining: number;
   /** 체결됐다면 몇 번째였나 */
   slot: number | null;
+  /** 이 사람이 오늘 이 빵을 이미 잡고 있다 — 새 자리를 주지 않는다(0015) */
+  already?: boolean;
   /** 저장소에 남았는가. false면 이번 서버 세션 메모리에만 있다 */
   stored: boolean;
   /** 결제 기한(ISO). 이 시각까지 결제하지 않으면 자리를 반납한다 */
@@ -250,22 +254,31 @@ export async function loadFilled(at: Date = new Date()): Promise<FilledLookup> {
 }
 
 /** 지금 살아 있는 예약 수. 반납된 줄은 안 센다 — 그 자리는 다시 팔 수 있다 */
-async function countFilled(productNo: number, depth: number, day: string): Promise<number> {
+/**
+ * 이 칸에 몇 자리가 나갔나.
+ *
+ * 옵션까지 보고 센다(0015). 자사몰 재고가 품목마다 따로라, 상품 전체로 세면
+ * "1개 30 · 3개 30 · 5개 30"인 빵에서 서른 명이 모두 '5개'를 골라도 통과한다.
+ * 옵션이 없는 상품은 unit이 null이고, 그때는 null인 줄만 센다.
+ */
+async function countFilled(productNo: number, depth: number, day: string, unit: string | null = null): Promise<number> {
   const db = supabase();
-  if (!db) return memory.get(memKey(day, productNo, depth)) ?? 0;
-  const base = db.from('fills').select('id', { count: 'exact', head: true })
+  if (!db) return memory.get(memKey(day, productNo, depth, unit)) ?? 0;
+  let base = db.from('fills').select('id', { count: 'exact', head: true })
     .eq('day', day).eq('product_no', productNo).eq('depth', depth.toFixed(3));
+  if (hasUnit !== false) base = unit ? base.eq('unit', unit) : base.is('unit', null);
   const { count, error } = await (hasExpiry === false ? base : base.neq('settled', 'expired'));
-  if (error && missingColumn(error.code) && hasExpiry !== false) {
-    hasExpiry = false;
-    return countFilled(productNo, depth, day);
+  if (error && missingColumn(error.code)) {
+    /* 0013·0015 전인 DB다. 옵션 없이 예전처럼 센다 */
+    if (hasUnit !== false) { hasUnit = false; return countFilled(productNo, depth, day, unit); }
+    if (hasExpiry !== false) { hasExpiry = false; return countFilled(productNo, depth, day, unit); }
   }
   return count ?? 0;
 }
 
 /** 메모리로 한 자리 잡는다. 수량이 남아 있으면 체결이다 */
-function fillInMemory(productNo: number, depth: number, quantity: number, day: string): FillResult {
-  const key = memKey(day, productNo, depth);
+function fillInMemory(productNo: number, depth: number, quantity: number, day: string, unit: string | null = null): FillResult {
+  const key = memKey(day, productNo, depth, unit);
   const filled = memory.get(key) ?? 0;
   if (filled >= quantity) return { filled: false, remaining: 0, slot: null, stored: false, expiresAt: null, id: null };
   const slot = filled + 1;
@@ -280,6 +293,12 @@ function fillInMemory(productNo: number, depth: number, quantity: number, day: s
  * 채워진 수 + 1을 slot으로 넣는다. 같은 순간 다른 사람이 같은 slot을 넣으면
  * unique 위반(23505)으로 한 명이 튕기고, 튕긴 쪽은 다시 세서 한 번 더 시도한다.
  * 두 번째도 튕기면 그 사이 물량이 끝난 것으로 본다.
+ *
+ * 자리는 **옵션마다** 따로 센다(0015). 자사몰 재고가 품목 단위라, 상품 전체로
+ * 세면 서른 명이 모두 '5개'를 골라도 통과한다.
+ *
+ * 같은 사람이 같은 날 같은 빵을 두 번 잡지는 못한다(0015). 화면은 버튼을 잠그지만
+ * 서버에 방어가 없어, 같은 요청을 두 번 보내면 자리 둘을 먹고 있었다.
  *
  * @param quantity 이 칸의 오늘 배정 수량 — 서버가 계산한 값만 넣는다
  */
@@ -297,10 +316,10 @@ export async function tryFill(
 ): Promise<FillResult> {
   const db = supabase();
   const day = seoulDateString(at);
-  if (!db) return fillInMemory(productNo, depth, quantity, day);
+  if (!db) return fillInMemory(productNo, depth, quantity, day, unit);
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    const filled = await countFilled(productNo, depth, day);
+    const filled = await countFilled(productNo, depth, day, unit);
     if (filled >= quantity) return { filled: false, remaining: 0, slot: null, stored: true, expiresAt: null, id: null };
 
     const slot = filled + 1;
@@ -323,9 +342,14 @@ export async function tryFill(
     if (missingColumn(error.code) && hasUnit !== false && unit) { hasUnit = false; continue; }
     if (missingColumn(error.code) && hasExpiry !== false) { hasExpiry = false; continue; }
     /* 표가 아직 없다 — 마이그레이션 전이다. 품절이라 거짓말하지 않고 메모리로 받는다 */
-    if (missingTable(error.code)) return fillInMemory(productNo, depth, quantity, day);
+    if (missingTable(error.code)) return fillInMemory(productNo, depth, quantity, day, unit);
     if (error.code !== '23505') throw new Error(`체결 저장 실패: ${error.message}`);
-    /* unique 위반 — 누가 먼저 잡았다. 다시 센다 */
+    /* 한 사람 한 자리(0015)에 걸린 것이면 다시 세도 소용없다 — 이미 잡고 있다.
+       다시 세면 매번 새 slot을 만들어 두 번 튕기고 "물량 끝"이라 거짓말한다 */
+    if (/fills_one_per_visitor/.test(`${error.message} ${error.details ?? ''}`)) {
+      return { filled: false, remaining: Math.max(0, quantity - filled), slot: null, stored: true, expiresAt: null, id: null, already: true };
+    }
+    /* 자리 경합 — 누가 먼저 잡았다. 다시 센다 */
   }
 
   return { filled: false, remaining: 0, slot: null, stored: true, expiresAt: null, id: null };

@@ -10,8 +10,10 @@ import styles from './Market.module.css';
  * 빵 하나의 상세 — 바텀시트. 행동은 여기서 한 번.
  * 장중엔 "지금 기준 예상"이고 구매는 확정 뒤에만(테스트 모드 제외). 20시 전엔 🔒.
  *
- * 관심(알림)에 담아둔 수량이 곧 살 개수다 — 버튼에 개수와 그만큼의 총액을 적고,
- * 구매를 누르면 그 수량만큼 예약한다. 담아두지 않았으면 1개로 본다.
+ * 예약은 **자리 하나**다. 고른 자사몰 옵션이 곧 결제 금액이고, 개수만큼 반복하지
+ * 않는다 — 한 사람당 한 자리이기 때문이다(0015). 서른 자리를 한 사람이 다섯 개
+ * 먹으면 선착순이라는 말이 뜻을 잃는다.
+ * 담은 개수(♥)는 포트폴리오 비중으로만 쓴다. 몇 개를 살지는 자사몰에서 정한다.
  */
 export interface Bid {
   status: 'busy' | 'filled' | 'missed';
@@ -79,12 +81,14 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
   const picked = offer.units.find(u => u.code === unit) ?? offer.units[0] ?? null;
   const unitPrice = picked?.price ?? offer.price;
   const unitList = picked?.listPrice ?? offer.product.price;
-  /* 개수만큼 예약이 들어간다(Market.buyPicked가 그만큼 반복한다). 그러니 버튼도
-     그만큼을 적어야 한다 — "2개"로 두고 1개 값을 보여주던 것이 거짓말이었다 */
-  const payPrice = unitPrice * qty;
-  const payList = unitList * qty;
-  /* 실제로 살 수 있는 수 — 자사몰 재고와 오늘 물량 중 작은 쪽 */
-  const stockLeft = Math.min(picked?.quantity ?? Infinity, remaining);
+  /* 예약은 한 자리다 — 개수만큼 반복하지 않는다(0015: 한 사람당 한 자리).
+     그래서 값도 고른 옵션 하나의 값이다. 아래 스테퍼의 개수는 포트폴리오 비중일 뿐,
+     결제 금액과 상관이 없다 — 화면에도 그렇게 적는다 */
+  const payPrice = unitPrice;
+  const payList = unitList;
+  /* 실제로 살 수 있는 수. 옵션마다 자리를 따로 세므로(0015) 고른 옵션 기준이다 —
+     자사몰 재고와 오늘 연 자리 중 작은 쪽을 offers가 이미 계산해 둔다 */
+  const stockLeft = picked ? picked.allotment : remaining;
   const [copied, setCopied] = useState(false);
 
   /* 결제 기한 카운트다운. 자리를 붙들 수 있는 시간이 눈에 보여야 결제로 이어진다.
@@ -152,7 +156,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
             "오늘 90개 한정"이 나왔는데, 90개의 빵이 아니라 90묶음이라 뜻이 애매했다.
             자사몰 재고와 오늘 물량 중 작은 쪽이 실제로 살 수 있는 수다 */}
         <p className={styles.sheetStock}>
-          {picked && picked.quantity !== null
+          {picked
             ? <>{picked.label} · <b>{stockLeft > 0 ? `남음 ${stockLeft}` : '오늘 물량 끝'}</b></>
             : <>오늘 {offer.allotment}건 한정 · <b>{remaining > 0 ? `남음 ${remaining}` : '오늘 물량 끝'}</b></>}
           {watching > 0 && <> · 🔔 알림 {watching}개</>}
@@ -195,7 +199,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
               <div className={styles.couponBox}>
                 <span className={styles.couponLabel}>오늘 가격이 이미 적용돼 있습니다</span>
                 <span className={styles.couponFine}>
-                  막지몰에서 <b>{won(payPrice)}원</b>{qty > 1 && <>({picked?.label ?? '기본'} × {qty})</>} 그대로 결제하시면 됩니다 —
+                  막지몰에서 <b>{won(payPrice)}원</b>{picked && <> ({picked.label})</>} 그대로 결제하시면 됩니다 —
                   코드 입력도, 회원가입도 필요 없습니다.
                 </span>
                 {clock}
@@ -247,7 +251,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
           {left === 'qty' || watching > 0 ? (
             <div className={styles.stepper}>
               <button type="button" onClick={() => onQty(qty - 1)} disabled={qty <= 0} aria-label="개수 줄이기">−</button>
-              <b aria-live="polite">{qty}개</b>
+              <b aria-live="polite">♥ {qty}</b>
               <button type="button" onClick={() => onQty(qty + 1)} disabled={qty >= remaining} aria-label="개수 늘리기">+</button>
             </div>
           ) : (
@@ -262,7 +266,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
               : `${won(payPrice)}원에 구매하기`}
           </button>
         </div>
-        <p className={styles.sheetFine}>개수는 <b>내 관심빵</b>에 저장돼 포트폴리오 비중이 됩니다. 담아둔 빵이 할인되는 날 알림을 받으시려면 <b>내 빵 포트폴리오</b>에서 켜 주세요.</p>
+        <p className={styles.sheetFine}>왼쪽 <b>♥ 숫자</b>는 포트폴리오 비중입니다 — 결제 금액과는 상관없습니다. 예약은 고른 옵션으로 <b>한 자리</b>가 잡히고, 몇 개를 살지는 막지몰에서 정하시면 됩니다. 담아둔 빵이 할인되는 날 알림을 받으시려면 <b>내 빵 포트폴리오</b>에서 켜 주세요.</p>
       </div>
     </div>
   );
