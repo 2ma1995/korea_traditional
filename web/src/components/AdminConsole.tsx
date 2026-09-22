@@ -120,6 +120,8 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
   /* 아직 목록에 없는 빵 — '+'로 넣을 수 있다 */
   const addable = plan.pool.filter(item => !rows.some(row => row.productNo === item.productNo));
 
+  const capOf = (productNo: number) => caps[productNo] ?? allotmentDefault;
+
   const removeChecked = () => setRows(previous => previous.filter(row => !row.selected));
   const addProduct = (productNo: number) => {
     const item = plan.pool.find(entry => entry.productNo === productNo);
@@ -261,18 +263,24 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                     const total = stockOf(row.productNo)?.stock;
                     if (total === null || total === undefined) return '재고 —';
                     /* 재고가 물량보다 적으면 재고가 이긴다 — 없는 빵은 못 판다 */
-                    return `재고 ${won(total)}${total < (caps[row.productNo] ?? allotmentDefault) ? ' ⚠️' : ''}`;
+                    return `재고 ${won(total)}${total < capOf(row.productNo) ? ' ⚠️' : ''}`;
                   })()}
                 </span>
-                {/* 이 빵의 하루 물량. 누르면 그 자리에서 저장된다 */}
+                {/* 이 빵의 하루 물량. 숫자를 직접 치는 것이 먼저고 ± 는 한 건씩 미세 조정이다 —
+                    5씩만 움직이면 37건 같은 수를 넣을 방법이 없었다.
+                    ± 는 누르는 즉시, 직접 친 값은 칸을 벗어날 때 저장한다 */}
                 <span className={styles.stepper} data-busy={savingCap === row.productNo}>
-                  <button type="button" aria-label={`${row.name} 물량 줄이기`}
-                    disabled={(caps[row.productNo] ?? allotmentDefault) <= 1 || savingCap === row.productNo}
-                    onClick={() => saveCap(row.productNo, (caps[row.productNo] ?? allotmentDefault) - 5)}>−</button>
-                  <b aria-live="polite">{caps[row.productNo] ?? allotmentDefault}건</b>
-                  <button type="button" aria-label={`${row.name} 물량 늘리기`}
-                    disabled={(caps[row.productNo] ?? allotmentDefault) >= 1000 || savingCap === row.productNo}
-                    onClick={() => saveCap(row.productNo, (caps[row.productNo] ?? allotmentDefault) + 5)}>+</button>
+                  <button type="button" aria-label={`${row.name} 물량 한 건 줄이기`}
+                    disabled={capOf(row.productNo) <= 1 || savingCap === row.productNo}
+                    onClick={() => saveCap(row.productNo, capOf(row.productNo) - 1)}>−</button>
+                  <input type="number" min={1} max={1000} aria-label={`${row.name} 물량(건)`}
+                    value={capOf(row.productNo)} disabled={savingCap === row.productNo}
+                    onChange={event => setCaps(previous => ({ ...previous, [row.productNo]: Number(event.target.value) || 1 }))}
+                    onBlur={event => saveCap(row.productNo, Number(event.target.value) || 1)}
+                    onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
+                  <button type="button" aria-label={`${row.name} 물량 한 건 늘리기`}
+                    disabled={capOf(row.productNo) >= 1000 || savingCap === row.productNo}
+                    onClick={() => saveCap(row.productNo, capOf(row.productNo) + 1)}>+</button>
                 </span>
                 <del>{won(row.price)}원</del>
                 <b>{won(finalPrice(row))}원</b>

@@ -46,7 +46,10 @@
 .stepper[data-busy='true'] { opacity: .5; }
 .stepper button { font: inherit; font-size: 15px; line-height: 1; width: 30px; height: 30px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
 .stepper button:disabled { opacity: .35; cursor: not-allowed; }
-.stepper b { font-size: 12px; font-weight: 600; min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }
+.stepper input { font: inherit; font-size: 12px; font-weight: 600; width: 52px; text-align: center; font-variant-numeric: tabular-nums;
+  border: 0; background: transparent; color: var(--ink); padding: 6px 0; -moz-appearance: textfield; }
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper input:focus-visible { outline: 2px solid var(--dancheong); outline-offset: -2px; border-radius: 4px; }
 /* 옵션별 최종가 — 옵션이 값을 바꾸는 상품은 기본가만 봐서는 손님이 얼마를 내는지
    모른다. 줄 전체를 차지하게 두고(grid-column) 여러 개면 접히게 한다 */
 .optionPrices { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
