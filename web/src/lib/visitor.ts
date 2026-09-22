@@ -1,5 +1,7 @@
 import { cookies } from 'next/headers';
 
+import { COOKIE_OPTIONS, VISITOR, WELL_FORMED } from '@/lib/visitorCookie';
+
 /**
  * 방문자 표식 — 관심 담기를 사람 단위로 세기 위한 것.
  *
@@ -20,34 +22,21 @@ import { cookies } from 'next/headers';
  *    이미 같은 한계를 안고 있다. 다만 표본 20개 미만이면 전환율을 아예 쓰지
  *    않으므로(skuAdjust.MIN_DEMAND_SAMPLE) 한두 번의 반복으로는 폭이 안 움직인다.
  *
- * 쿠키를 굽는 호출이라 라우트 핸들러에서만 부른다 — 서버 컴포넌트 렌더 중에는
- * Next가 쿠키 쓰기를 막는다.
+ * 표식을 굽는 곳은 proxy.ts(첫 방문)와 라우트 핸들러의 visitorId()(빠져나간 경우)
+ * 둘이다. 서버 컴포넌트 렌더 중에는 Next가 쿠키 쓰기를 막으므로 읽기만 한다.
  */
-
-const VISITOR = 'bm_v';
-
-/** 30일. 집계 창이 7일이라 그보다 넉넉하면 되고, 더 길게 들고 있을 이유가 없다 */
-const MAX_AGE = 60 * 60 * 24 * 30;
-
-const OPTIONS = {
-  httpOnly: true,
-  sameSite: 'lax',
-  secure: process.env.NODE_ENV === 'production',
-  path: '/',
-  maxAge: MAX_AGE,
-} as const;
-
-/** UUID v4 모양만 받는다. 손으로 넣은 값으로 표를 더럽히지 않게 */
-const WELL_FORMED = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
  * 이미 발급된 표식만 읽는다. 없으면 null이다.
  *
  * 서버 컴포넌트는 쿠키를 쓸 수 없다 — visitorId()를 부르면 발급을 시도하다
  * "Cookies can only be modified in a Server Action or Route Handler"로 렌더가 죽는다.
- * 화면을 그리는 쪽(page.tsx의 출석 기록)은 이 함수를 쓴다. 표식은 첫 예약·관심
- * 담기 같은 라우트 핸들러에서 발급되므로, 처음 들어온 사람은 그날 출석이 안 잡힌다 —
- * 점수 한 항목이 하루 늦게 붙을 뿐이라 감수한다.
+ * 화면을 그리는 쪽(page.tsx의 출석 기록)은 이 함수를 쓴다.
+ *
+ * 그래서 발급은 proxy.ts가 맡는다. 라우트 핸들러(첫 예약·관심 담기)에서만 발급하던
+ * 때에는 **둘러보기만 하는 사람에게 표식이 영영 안 생겼다**. 출석은 주간 활동점수
+ * 세 항목 중 하나인데(lib/dividend), 그 점수를 받을 수 있는 사람이 이미 담거나 산
+ * 사람뿐이라 출석이 독립된 신호 노릇을 못 했다. 지금은 첫 방문에 표식이 붙는다.
  */
 export async function currentVisitorId(): Promise<string | null> {
   const jar = await cookies();
@@ -61,6 +50,6 @@ export async function visitorId(): Promise<string> {
   const seen = jar.get(VISITOR)?.value ?? '';
   if (WELL_FORMED.test(seen)) return seen;
   const fresh = crypto.randomUUID();
-  jar.set(VISITOR, fresh, OPTIONS);
+  jar.set(VISITOR, fresh, COOKIE_OPTIONS);
   return fresh;
 }
