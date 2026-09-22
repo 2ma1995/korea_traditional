@@ -36,6 +36,27 @@ const memKey = (day: string, productNo: number, depth: number) => `${day}:${prod
  * 뜻이므로 예외로 터뜨리지 않고 메모리로 받는다. 그 밖의 오류는 진짜 문제라 던진다.
  */
 const missingTable = (code?: string) => code === 'PGRST205' || code === '42P01' || code === 'PGRST202';
+/** 열이 없다 — 0012를 아직 안 돌렸다는 뜻이다. 기한 없이 예전처럼 동작한다 */
+const missingColumn = (code?: string) => code === '42703' || code === 'PGRST204';
+
+/** 0012를 돌렸는가. 한 번 확인하면 들고 있는다 — 매 요청마다 두 번 물어볼 이유가 없다 */
+let hasExpiry: boolean | null = null;
+/**
+ * 결제 기한 — 예약하고 이만큼 안에 결제하지 않으면 자리를 반납한다.
+ *
+ * 왜 1시간인가. 예약이 결제가 아니라서, 안 살 사람이 자리를 붙들면 살 사람이
+ * 못 산다. 카페24 재고까지 줄이면 그 손해가 자사몰로 나간다.
+ * 자정까지 기다리면 늦은 예약은 8시간을 묶는다 — 선착순이 이름뿐이 된다.
+ */
+export const HOLD_MINUTES = 60;
+
+/** 기한은 빵장 마감(24:00 KST)을 넘지 않는다 — 닫힌 뒤에 결제할 곳이 없다 */
+export function expiryFor(at: Date = new Date()): Date {
+  const hold = new Date(at.getTime() + HOLD_MINUTES * 60_000);
+  const seoulMidnight = new Date(`${seoulDateString(at)}T00:00:00+09:00`);
+  const close = new Date(seoulMidnight.getTime() + 24 * 60 * 60_000);
+  return hold < close ? hold : close;
+}
 
 export interface FillResult {
   filled: boolean;
@@ -45,6 +66,10 @@ export interface FillResult {
   slot: number | null;
   /** 저장소에 남았는가. false면 이번 서버 세션 메모리에만 있다 */
   stored: boolean;
+  /** 결제 기한(ISO). 이 시각까지 결제하지 않으면 자리를 반납한다 */
+  expiresAt: string | null;
+  /** 예약 줄의 id. 발급한 할인코드를 붙일 때 쓴다 */
+  id: number | null;
 }
 
 /** "productNo:depth" → 오늘 체결 수. 클라이언트가 그대로 받아 잔량을 계산한다 */
@@ -53,12 +78,17 @@ export async function loadFilledCounts(at: Date = new Date()): Promise<Record<st
   const db = supabase();
   if (!db) return memoryCounts(day);
 
-  const { data, error } = await db
-    .from('fills')
-    .select('product_no, depth')
-    .eq('day', day);
+  const base = db.from('fills').select('product_no, depth').eq('day', day);
+  /* 반납된 줄은 빼고 센다 — 그 자리는 다시 팔 수 있다 */
+  const { data, error } = await (hasExpiry === false ? base : base.neq('settled', 'expired'));
 
-  if (error || !data) return memoryCounts(day);
+  if (error) {
+    /* 0012 전이면 settled 열이 없다. 기한 없이 예전처럼 전부 센다 */
+    if (missingColumn(error.code) && hasExpiry !== false) { hasExpiry = false; return loadFilledCounts(at); }
+    return memoryCounts(day);
+  }
+  if (!data) return memoryCounts(day);
+  hasExpiry ??= true;
 
   const counts: Record<string, number> = {};
   for (const row of data as { product_no: number; depth: number | string }[]) {
@@ -158,6 +188,18 @@ function memoryCounts(day: string): Record<string, number> {
  * 저장소가 없으면 메모리로 센다. 여기서 빈 값을 주면 Supabase 없는 로컬에서는
  * 수요·재고 보정이 늘 0이라 확인할 방법이 없다.
  */
+/**
+ * 예약 줄에 발급한 할인코드를 붙인다.
+ *
+ * 코드는 예약이 잡힌 뒤에 발급되므로(api/fill) insert 시점에는 모른다.
+ * 나중에 "이 예약이 결제됐나"를 이 코드로 확인한다(lib/settle).
+ */
+export async function attachCoupon(id: number, code: string): Promise<void> {
+  const db = supabase();
+  if (!db) return;
+  await db.from('fills').update({ coupon_code: code }).eq('id', id);
+}
+
 export async function loadFilledWindow(from: string, to: string): Promise<Record<number, number>> {
   const db = supabase();
   if (!db) return memoryWindow(from, to);
@@ -194,15 +236,17 @@ export async function loadFilled(at: Date = new Date()): Promise<FilledLookup> {
   return (productNo, depth) => counts[`${productNo}:${depth.toFixed(3)}`] ?? 0;
 }
 
+/** 지금 살아 있는 예약 수. 반납된 줄은 안 센다 — 그 자리는 다시 팔 수 있다 */
 async function countFilled(productNo: number, depth: number, day: string): Promise<number> {
   const db = supabase();
   if (!db) return memory.get(memKey(day, productNo, depth)) ?? 0;
-  const { count } = await db
-    .from('fills')
-    .select('id', { count: 'exact', head: true })
-    .eq('day', day)
-    .eq('product_no', productNo)
-    .eq('depth', depth.toFixed(3));
+  const base = db.from('fills').select('id', { count: 'exact', head: true })
+    .eq('day', day).eq('product_no', productNo).eq('depth', depth.toFixed(3));
+  const { count, error } = await (hasExpiry === false ? base : base.neq('settled', 'expired'));
+  if (error && missingColumn(error.code) && hasExpiry !== false) {
+    hasExpiry = false;
+    return countFilled(productNo, depth, day);
+  }
   return count ?? 0;
 }
 
@@ -210,10 +254,11 @@ async function countFilled(productNo: number, depth: number, day: string): Promi
 function fillInMemory(productNo: number, depth: number, quantity: number, day: string): FillResult {
   const key = memKey(day, productNo, depth);
   const filled = memory.get(key) ?? 0;
-  if (filled >= quantity) return { filled: false, remaining: 0, slot: null, stored: false };
+  if (filled >= quantity) return { filled: false, remaining: 0, slot: null, stored: false, expiresAt: null, id: null };
   const slot = filled + 1;
   memory.set(key, slot);
-  return { filled: true, remaining: quantity - slot, slot, stored: false };
+  /* 메모리 폴백에는 기한이 없다 — 저장소가 없으면 반납 처리도 못 한다 */
+  return { filled: true, remaining: quantity - slot, slot, stored: false, expiresAt: null, id: null };
 }
 
 /**
@@ -241,19 +286,30 @@ export async function tryFill(
 
   for (let attempt = 0; attempt < 2; attempt++) {
     const filled = await countFilled(productNo, depth, day);
-    if (filled >= quantity) return { filled: false, remaining: 0, slot: null, stored: true };
+    if (filled >= quantity) return { filled: false, remaining: 0, slot: null, stored: true, expiresAt: null, id: null };
 
     const slot = filled + 1;
-    const { error } = await db
-      .from('fills')
-      .insert({ day, product_no: productNo, depth: depth.toFixed(3), slot, visitor });
+    const expires = expiryFor(at);
+    const row: Record<string, unknown> = { day, product_no: productNo, depth: depth.toFixed(3), slot, visitor };
+    /* 0012 전이면 열이 없다 — 기한 없이 예전처럼 넣는다 */
+    if (hasExpiry !== false) row.expires_at = expires.toISOString();
 
-    if (!error) return { filled: true, remaining: quantity - slot, slot, stored: true };
+    const { data, error } = await db.from('fills').insert(row).select('id').single();
+
+    if (!error) {
+      hasExpiry ??= true;
+      return {
+        filled: true, remaining: quantity - slot, slot, stored: true,
+        expiresAt: hasExpiry === false ? null : expires.toISOString(),
+        id: (data as { id: number } | null)?.id ?? null,
+      };
+    }
+    if (missingColumn(error.code) && hasExpiry !== false) { hasExpiry = false; continue; }
     /* 표가 아직 없다 — 마이그레이션 전이다. 품절이라 거짓말하지 않고 메모리로 받는다 */
     if (missingTable(error.code)) return fillInMemory(productNo, depth, quantity, day);
     if (error.code !== '23505') throw new Error(`체결 저장 실패: ${error.message}`);
     /* unique 위반 — 누가 먼저 잡았다. 다시 센다 */
   }
 
-  return { filled: false, remaining: 0, slot: null, stored: true };
+  return { filled: false, remaining: 0, slot: null, stored: true, expiresAt: null, id: null };
 }
