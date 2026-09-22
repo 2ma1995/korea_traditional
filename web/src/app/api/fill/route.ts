@@ -30,6 +30,10 @@ const bad = (error: string, status = 400) =>
   NextResponse.json({ ok: false as const, error }, { status, headers: NO_STORE });
 
 /** 오늘 상품·칸별 체결 수. 화면이 5초마다 불러 잔량 막대를 줄인다 */
+/* 매 요청마다 새로 센다. 이 파일의 다른 라우트들과 같은 규칙이고(api/stock·api/health),
+   응답 헤더의 no-store는 브라우저에게 하는 말이라 서버 쪽 캐시를 대신하지 못한다. */
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   /* 손님이 화면을 여는 것이 곧 타이머다 — 기한 지난 예약을 여기서 정리한다.
      Vercel 무료 플랜 크론은 하루 한 번이라 1시간 주기를 맡길 수 없다(lib/settle) */

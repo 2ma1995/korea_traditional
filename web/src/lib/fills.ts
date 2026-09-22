@@ -42,6 +42,10 @@ const missingTable = (code?: string) => code === 'PGRST205' || code === '42P01' 
 const missingColumn = (code?: string) => code === '42703' || code === 'PGRST204';
 
 /** 0012를 돌렸는가. 한 번 확인하면 들고 있는다 — 매 요청마다 두 번 물어볼 이유가 없다 */
+/* 자리를 몇 칸까지 밀어 올려 볼 것인가. 물량(보통 30)보다 넉넉히 두되 무한은 아니다 —
+   진짜로 다 찬 경우에는 quantity에서 먼저 걸려 나가므로 이 값에 닿지 않는다 */
+const MAX_ATTEMPTS = 60;
+
 let hasExpiry: boolean | null = null;
 /** 0013(fills.unit) 전인 DB를 만나면 false가 되어, 품목 없이 예전처럼 넣는다 */
 let hasUnit: boolean | null = null;
@@ -291,8 +295,12 @@ function fillInMemory(productNo: number, depth: number, quantity: number, day: s
  * 체결을 시도한다.
  *
  * 채워진 수 + 1을 slot으로 넣는다. 같은 순간 다른 사람이 같은 slot을 넣으면
- * unique 위반(23505)으로 한 명이 튕기고, 튕긴 쪽은 다시 세서 한 번 더 시도한다.
- * 두 번째도 튕기면 그 사이 물량이 끝난 것으로 본다.
+ * unique 위반(23505)으로 한 명이 튕기고, 튕긴 쪽은 **다음 칸으로 한 칸 올라가** 다시 넣는다.
+ *
+ * 튕길 때마다 다시 세면 안 된다. 밀린 사람들이 같은 값을 읽어 또 같은 자리로 몰리고,
+ * 두 번 만에 포기하게 해두면 자리가 남았는데 아무도 못 들어간다 —
+ * 쉰 명이 서른 자리에 달려들 때 열두 명만 통과하던 것이 그 때문이었다
+ * (scripts/race-test.mjs로 잡았다).
  *
  * 자리는 **옵션마다** 따로 센다(0015). 자사몰 재고가 품목 단위라, 상품 전체로
  * 세면 서른 명이 모두 '5개'를 골라도 통과한다.
@@ -318,11 +326,13 @@ export async function tryFill(
   const day = seoulDateString(at);
   if (!db) return fillInMemory(productNo, depth, quantity, day, unit);
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const filled = await countFilled(productNo, depth, day, unit);
-    if (filled >= quantity) return { filled: false, remaining: 0, slot: null, stored: true, expiresAt: null, id: null };
+  /* 처음 한 번만 세고, 부딪히면 다음 자리로 한 칸씩 올라간다.
+     매번 다시 세면 경합에 밀린 사람들이 같은 자리로 또 몰려 아무도 못 들어간다 */
+  let slot = (await countFilled(productNo, depth, day, unit)) + 1;
 
-    const slot = filled + 1;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (slot > quantity) return { filled: false, remaining: 0, slot: null, stored: true, expiresAt: null, id: null };
+
     const expires = expiryFor(at);
     const row: Record<string, unknown> = { day, product_no: productNo, depth: depth.toFixed(3), slot, visitor };
     if (hasUnit !== false && unit) row.unit = unit;
@@ -347,9 +357,12 @@ export async function tryFill(
     /* 한 사람 한 자리(0015)에 걸린 것이면 다시 세도 소용없다 — 이미 잡고 있다.
        다시 세면 매번 새 slot을 만들어 두 번 튕기고 "물량 끝"이라 거짓말한다 */
     if (/fills_one_per_visitor/.test(`${error.message} ${error.details ?? ''}`)) {
-      return { filled: false, remaining: Math.max(0, quantity - filled), slot: null, stored: true, expiresAt: null, id: null, already: true };
+      return { filled: false, remaining: Math.max(0, quantity - slot + 1), slot: null, stored: true, expiresAt: null, id: null, already: true };
     }
-    /* 자리 경합 — 누가 먼저 잡았다. 다시 센다 */
+    /* 자리 경합 — 누가 먼저 잡았다. 그 자리는 이제 확실히 찼으니 다음 칸으로 올라간다.
+       여기서 다시 세면 밀린 사람들이 같은 값을 읽어 또 같은 자리로 몰린다 —
+       쉰 명이 서른 자리에 달려들 때 열두 명만 들어가던 것이 그 때문이었다 */
+    slot += 1;
   }
 
   return { filled: false, remaining: 0, slot: null, stored: true, expiresAt: null, id: null };
