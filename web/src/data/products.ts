@@ -163,7 +163,7 @@ export const PRODUCTS: Product[] = [
     productNo: 27,
     name: '대만식 샌드위치',
     fullName: '촉촉폭신 막지 수제 대만식 샌드위치',
-    price: 2400,
+    price: 2600,
     glutenFree: false,
     line: 'meal',
     label: '직접 만든 식빵·호밀빵 / 슈크림·체다·화이트치즈',
