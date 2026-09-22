@@ -25,7 +25,13 @@ import { depthFor, marketHours, type FilledLookup, type MarketHours } from '@/li
  * 원산지("국내산 쌀")로는 가르지 않는다 — 쌀가루가 국내산이 아니다(products.ts 주석).
  */
 
-/** 오늘 각 빵의 한정 수량. 기업 협의 값 — 관리자 입력 화면은 다음 단계 */
+/**
+ * 카페24가 수량을 말해주지 않을 때 쓰는 기본값.
+ *
+ * ⚠️ 기업이 확인해 준 값이 아니다. 문서를 뒤져도 30의 근거는 없고,
+ *    설계도 §9가 "기업이 그 가격에 풀 수량을 30개로 설정"이라고 **제안**했을 뿐이다.
+ *    진짜 수량은 카페24 재고관리에서 온다(lib/stock) — 거기서 켜면 이 값은 안 쓰인다.
+ */
 export const DAILY_ALLOTMENT = 30;
 
 /** 'all' = 전 상품 같은 폭 · 'line' = 오르면 식사형(meal), 내리면 달달한(sweet) 라인.
@@ -200,7 +206,9 @@ export function buildToday(
         inventoryBonus,
         price,
         saved,
-        allotment: DAILY_ALLOTMENT,
+        /* 카페24가 재고관리를 켠 상품이면 그 수량, 아니면 코드 기본값.
+           손으로 적은 30이 자사몰과 따로 놀지 않게 한다 */
+        allotment: product.allotment ?? DAILY_ALLOTMENT,
         /* 체결은 폭으로 구분된다 — 그 빵의 폭으로 세야 잔량이 맞는다 */
         filled: filledFor(product.productNo, skuRate),
         badges: badgesFor(product),

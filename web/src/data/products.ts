@@ -61,6 +61,11 @@ export interface Product {
    * 손으로 확인하는 값이라 재입고를 놓친다. 카페24 재고 연동이 다음 단계다.
    */
   inStock: boolean;
+  /**
+   * 오늘 풀 수량. 카페24 재고관리를 켠 상품이면 그 수량이 들어온다(lib/stock).
+   * 여기 목록에는 적지 않는다 — 손으로 적으면 또 묵는다. 없으면 DAILY_ALLOTMENT.
+   */
+  allotment?: number;
   /** 원료 바스켓 — 값은 게임 레시피 필요 개수이자 원가 비중의 대리값 (추정치) */
   recipe: Partial<Record<IngredientCode, number>>;
 }

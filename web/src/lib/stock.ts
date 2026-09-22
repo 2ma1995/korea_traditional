@@ -35,6 +35,14 @@ export type StockSource = 'cafe24' | 'shop' | 'code';
 export interface StockReport {
   /** productNo → 지금 살 수 있는가 */
   map: Record<number, boolean>;
+  /**
+   * productNo → 카페24가 관리 중인 실재고 수량.
+   *
+   * 재고관리를 켠(use_inventory='T') 상품만 들어온다. 안 켠 상품은 아예 없고,
+   * 그러면 호출부가 코드 기본값(DAILY_ALLOTMENT)으로 떨어진다 —
+   * 카페24가 0을 말한 것과 "말한 적 없는 것"은 다르다.
+   */
+  quantity: Record<number, number>;
   source: StockSource;
   /** 조회 시각 (epoch ms) */
   at: number;
@@ -72,7 +80,17 @@ function sellable(product: Cafe24ListItem): boolean {
   return managed.some(variant => (variant.quantity ?? 0) > 0);
 }
 
-async function fromCafe24(): Promise<Record<number, boolean> | null> {
+/**
+ * 재고관리를 켠 옵션들의 수량 합. 안 켰으면 null —
+ * 그때는 우리가 정한 기본값을 쓴다(카페24가 "0개"라고 말한 게 아니다).
+ */
+function managedQuantity(product: Cafe24ListItem): number | null {
+  const managed = (product.variants ?? []).filter(variant => variant.use_inventory === 'T');
+  if (!managed.length) return null;
+  return managed.reduce((sum, variant) => sum + (variant.quantity ?? 0), 0);
+}
+
+async function fromCafe24(): Promise<{ map: Record<number, boolean>; quantity: Record<number, number> } | null> {
   if (!cafe24Config()) return null;
   const nos = PRODUCTS.map(product => product.productNo).join(',');
   const data = await adminApi<{ products?: Cafe24ListItem[] }>(
@@ -80,7 +98,15 @@ async function fromCafe24(): Promise<Record<number, boolean> | null> {
   );
   const list = data?.products;
   if (!Array.isArray(list) || !list.length) return null;
-  return Object.fromEntries(list.map(product => [product.product_no, sellable(product)]));
+
+  const map: Record<number, boolean> = {};
+  const quantity: Record<number, number> = {};
+  for (const product of list) {
+    map[product.product_no] = sellable(product);
+    const q = managedQuantity(product);
+    if (q !== null) quantity[product.product_no] = q;
+  }
+  return { map, quantity };
 }
 
 /* ── 2순위: 자사몰 진열 목록 ───────────────────────────────────── */
@@ -141,7 +167,7 @@ export async function fetchStock(): Promise<StockReport> {
     try {
       try {
         const api = await fromCafe24();
-        if (api) return keep({ map: api, source: 'cafe24', at: Date.now(), note: null });
+        if (api) return keep({ map: api.map, quantity: api.quantity, source: 'cafe24', at: Date.now(), note: null });
         notes.push(cafe24Config() ? '카페24: 응답에 상품이 없음' : '카페24: 환경변수 없음');
       } catch (error) {
         notes.push(`카페24: ${reason(error)}`);
@@ -149,7 +175,8 @@ export async function fetchStock(): Promise<StockReport> {
 
       try {
         const shop = await fromShop();
-        if (shop) return keep({ map: shop, source: 'shop', at: Date.now(), note: notes.join(' · ') || null });
+        /* 진열 목록 HTML은 품절 배지만 읽는다 — 수량은 알 수 없다 */
+        if (shop) return keep({ map: shop, quantity: {}, source: 'shop', at: Date.now(), note: notes.join(' · ') || null });
         notes.push('자사몰: 목록에서 품절 배지를 못 읽음');
       } catch (error) {
         notes.push(`자사몰: ${reason(error)}`);
@@ -158,6 +185,7 @@ export async function fetchStock(): Promise<StockReport> {
       /* 실패도 5분 물고 있는다 — 외부가 죽었을 때 매 요청마다 재시도하지 않게 */
       return keep({
         map: Object.fromEntries(PRODUCTS.map(product => [product.productNo, product.inStock])),
+        quantity: {},
         source: 'code',
         at: Date.now(),
         note: notes.join(' · '),
@@ -174,6 +202,11 @@ export async function fetchStock(): Promise<StockReport> {
 export function applyStock(products: Product[], report: StockReport): Product[] {
   return products.map(product => {
     const live = report.map[product.productNo];
-    return live === undefined || live === product.inStock ? product : { ...product, inStock: live };
+    const quantity = report.quantity[product.productNo];
+    const inStock = live === undefined ? product.inStock : live;
+    /* 수량은 카페24가 말해준 상품만 붙는다. 없으면 필드를 만들지 않아
+       호출부가 코드 기본값(DAILY_ALLOTMENT)으로 떨어진다 */
+    if (inStock === product.inStock && quantity === undefined) return product;
+    return { ...product, inStock, ...(quantity === undefined ? {} : { allotment: quantity }) };
   });
 }

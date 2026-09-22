@@ -25,6 +25,8 @@ export async function GET() {
         price: product.price,
         code: product.inStock,
         live: report.map[product.productNo] ?? null,
+        /* 카페24가 재고관리를 켠 상품만 숫자가 온다. null이면 코드 기본값을 쓴다 */
+        quantity: report.quantity[product.productNo] ?? null,
         /* 코드 값과 다르면 products.ts를 고칠 거리가 된다 */
         stale: product.productNo in report.map && report.map[product.productNo] !== product.inStock,
       })),
