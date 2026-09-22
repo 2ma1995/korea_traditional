@@ -77,8 +77,12 @@ const shopUrl = shopProductUrl;
 export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, left, canBid, unit, onNext, onBuy, onQty, onUnit, onClose }: Props) {
   /* 고른 단위가 곧 결제 금액이다. 선택지가 없는 상품은 기본가 그대로 */
   const picked = offer.units.find(u => u.code === unit) ?? offer.units[0] ?? null;
-  const payPrice = picked?.price ?? offer.price;
-  const payList = picked?.listPrice ?? offer.product.price;
+  const unitPrice = picked?.price ?? offer.price;
+  const unitList = picked?.listPrice ?? offer.product.price;
+  /* 개수만큼 예약이 들어간다(Market.buyPicked가 그만큼 반복한다). 그러니 버튼도
+     그만큼을 적어야 한다 — "2개"로 두고 1개 값을 보여주던 것이 거짓말이었다 */
+  const payPrice = unitPrice * qty;
+  const payList = unitList * qty;
   const [copied, setCopied] = useState(false);
 
   /* 결제 기한 카운트다운. 자리를 붙들 수 있는 시간이 눈에 보여야 결제로 이어진다.
@@ -184,7 +188,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
               <div className={styles.couponBox}>
                 <span className={styles.couponLabel}>오늘 가격이 이미 적용돼 있습니다</span>
                 <span className={styles.couponFine}>
-                  막지몰에서 <b>{won(payPrice)}원</b> 그대로 결제하시면 됩니다 —
+                  막지몰에서 <b>{won(payPrice)}원</b>{qty > 1 && <>({picked?.label ?? '기본'} × {qty})</>} 그대로 결제하시면 됩니다 —
                   코드 입력도, 회원가입도 필요 없습니다.
                 </span>
                 {clock}
@@ -231,9 +235,11 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
         )}
 
         <div className={styles.sheetActions}>
-          {left === 'qty' ? (
+          {/* 이미 담아둔 빵이면 어디서 열었든 개수를 조절하게 한다 — 목록에서 열었다고
+              '관심 담김'만 보여주면, 담은 개수를 바꾸려고 포트폴리오까지 가야 한다 */}
+          {left === 'qty' || watching > 0 ? (
             <div className={styles.stepper}>
-              <button type="button" onClick={() => onQty(qty - 1)} disabled={qty <= 1} aria-label="개수 줄이기">−</button>
+              <button type="button" onClick={() => onQty(qty - 1)} disabled={qty <= 0} aria-label="개수 줄이기">−</button>
               <b aria-live="polite">{qty}개</b>
               <button type="button" onClick={() => onQty(qty + 1)} disabled={qty >= remaining} aria-label="개수 늘리기">+</button>
             </div>
