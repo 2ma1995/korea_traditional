@@ -23,9 +23,23 @@ import { supabase } from '@/lib/supabase';
  * 않아 오류 메시지로 역추적했다). 아래 주석의 ⚠️ 표시가 그때 걸렸던 것들이다.
  */
 
+/**
+ * 쿠폰으로는 전달하지 않기로 했다 (2026-09-22 결정).
+ *
+ * 카페24 할인코드는 회원 전용이다(available_user='M'). 비회원은 코드를 받아도 못 쓰고,
+ * 쓸 수 있는 사람도 결제창에서 코드를 옮겨 적어야 한다. 빵 한 개를 사는 흐름에
+ * 그 단계를 넣으면 전환이 깎인다.
+ *
+ * 환경변수 기본값에만 기대지 않고 코드에서 막는다 — DISCOUNT_DELIVERY=coupon 한 줄로
+ * 되살아나면 결정이 지켜지지 않는다. 되살리려면 여기를 true로 바꾼다.
+ * 발급 로직과 카페24 필드 확인값은 아래에 그대로 둔다. 판매가 변경 승인이 끝내 안 나면
+ * 쿠폰이 유일한 수단이라, 지우지 않고 꺼만 둔다.
+ */
+export const COUPON_ENABLED = false;
+
 /* 할인 전달 방식이 'coupon'일 때만 발급한다. 'price' 모드에서 같이 발급하면
    이미 내린 판매가에 코드가 또 먹어 원가 밑으로 간다(lib/discountDelivery) */
-const enabled = () => discountDelivery() === 'coupon' && process.env.COUPON !== 'off';
+const enabled = () => COUPON_ENABLED && discountDelivery() === 'coupon' && process.env.COUPON !== 'off';
 
 /**
  * 코드를 쓸 수 있는 기간(일).
