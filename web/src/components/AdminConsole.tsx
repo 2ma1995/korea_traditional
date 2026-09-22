@@ -29,6 +29,8 @@ export interface PlanSummary {
     options: { label: string; quantity: number | null }[];
     /** 이 빵에 정한 하루 물량 */
     allotment: number;
+    /** 자사몰에서 지금 살 수 있는가. 품절이면 목록에 넣지 못한다 */
+    sellable: boolean;
   }[];
   /**
    * 오늘 목록에 없는 빵 — '+'로 넣을 수 있는 후보다.
@@ -207,14 +209,28 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
 
         {adding && (
           <ul className={styles.addList}>
-            {addable.map(item => (
-              <li key={item.productNo}>
-                <button type="button" onClick={() => { addProduct(item.productNo); setAdding(false); }}>
-                  <b>{item.name}</b>
-                  <small>{won(item.price)}원 · 재고 {item.stock === null ? '—' : won(item.stock)}</small>
-                </button>
-              </li>
-            ))}
+            {addable.map(item => {
+              /* 지금 못 파는 빵은 넣지 못한다. 넣어봤자 손님 화면에서 걸러지고,
+                 자사몰 판매가만 바뀐 채 아무도 못 산다.
+                 막힌 이유를 구분해서 적는다 — "재고를 넣으세요"라고만 하면,
+                 재고 240개를 두고 판매중지해 둔 빵 앞에서 관리자가 헤맨다 */
+              const outOfStock = item.stock === 0;
+              const blocked = outOfStock || !item.sellable;
+              return (
+                <li key={item.productNo}>
+                  <button type="button" disabled={blocked}
+                    onClick={() => { addProduct(item.productNo); setAdding(false); }}>
+                    <b>{item.name}</b>
+                    <small>{won(item.price)}원 · 재고 {item.stock === null ? '관리 안 함' : won(item.stock)}</small>
+                    {blocked && (
+                      <em className={styles.addBlocked}>
+                        {outOfStock ? '카페24에서 재고를 넣어 주세요' : '카페24에서 판매중으로 바꿔 주세요'}
+                      </em>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
 

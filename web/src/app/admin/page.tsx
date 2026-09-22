@@ -66,6 +66,7 @@ export default async function AdminPage() {
       /* 이 빵에 정한 물량. 정한 적 없으면 기본값이 뜬다 */
       allotment: allotmentFor(allotments.value, item.product.productNo),
       options: (stock.options[item.product.productNo] ?? []).map(o => ({ label: o.label, quantity: o.quantity })),
+      sellable: stock.map[item.product.productNo] ?? item.product.inStock,
     })),
     /* 오늘 목록에 없는 빵 — 관리자가 '+'로 넣을 수 있다 */
     pool: applyStock(PRODUCTS, stock)
@@ -78,6 +79,7 @@ export default async function AdminPage() {
         stock: stock.quantity[product.productNo] ?? null,
         options: (stock.options[product.productNo] ?? []).map(o => ({ label: o.label, quantity: o.quantity })),
         allotment: allotmentFor(allotments.value, product.productNo),
+        sellable: stock.map[product.productNo] ?? product.inStock,
       })),
     soldOutCount: daily.soldOut.length,
   };
