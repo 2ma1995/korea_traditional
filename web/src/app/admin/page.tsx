@@ -92,9 +92,11 @@ export default async function AdminPage() {
     </header>
     <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} instantDepth={instantDepth} allotmentDefault={ALLOTMENT_DEFAULT} />
     <TierSettings initial={tiers} maxRate={MAX_DISCOUNT_RATE} />
-    <IpoSettings initial={ipo.value} stored={ipo.stored} />
     <DividendSettings initial={dividend} maxRate={MAX_DIVIDEND_RATE} />
-    <IpoRounds initial={seasons.rounds} stored={seasons.stored} />
+    {/* 공모 관련은 한데 모은다. 회차 관리는 공모주를 켰을 때만 — 꺼둔 기능의 폼이
+        화면 절반을 차지하면, 오늘 할 일(가격 반영)이 그만큼 아래로 밀린다 */}
+    <IpoSettings initial={ipo.value} stored={ipo.stored} />
+    {ipo.value && <IpoRounds initial={seasons.rounds} stored={seasons.stored} />}
     <Cafe24Panel links={links} />
   </main>;
 }

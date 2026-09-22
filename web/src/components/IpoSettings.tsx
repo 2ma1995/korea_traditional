@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './AdminConsole.module.css';
 
 /**
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function IpoSettings({ initial, stored }: Props) {
+  const router = useRouter();
   const [enabled, setEnabled] = useState(initial);
   const [persisted, setPersisted] = useState(stored);
   const [message, setMessage] = useState('');
@@ -41,6 +43,8 @@ export default function IpoSettings({ initial, stored }: Props) {
       setEnabled(json.enabled);
       setPersisted(json.stored);
       setMessage(json.enabled ? '공모주를 켰습니다. 손님 화면에 NEXT 섹션이 보입니다.' : '공모주를 껐습니다. 손님 화면에서 NEXT 섹션이 사라집니다.');
+      /* 아래 회차 관리는 서버가 이 값을 보고 그린다 — 다시 그려야 같이 사라진다 */
+      router.refresh();
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : String(cause));
     } finally {
