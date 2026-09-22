@@ -41,6 +41,8 @@ const missingColumn = (code?: string) => code === '42703' || code === 'PGRST204'
 
 /** 0012를 돌렸는가. 한 번 확인하면 들고 있는다 — 매 요청마다 두 번 물어볼 이유가 없다 */
 let hasExpiry: boolean | null = null;
+/** 0013(fills.unit) 전인 DB를 만나면 false가 되어, 품목 없이 예전처럼 넣는다 */
+let hasUnit: boolean | null = null;
 /**
  * 결제 기한 — 예약하고 이만큼 안에 결제하지 않으면 자리를 반납한다.
  *
@@ -290,6 +292,8 @@ export async function tryFill(
      없으면 null로 들어간다 — 선착순 경합은 (day, product_no, depth, slot)이 막으므로
      표식이 없어도 체결 자체는 그대로 동작한다 */
   visitor: string | null = null,
+  /* 자사몰 품목코드. 재고는 품목 단위로 세므로, 반납할 때 되돌릴 대상도 이것이다(0013) */
+  unit: string | null = null,
 ): Promise<FillResult> {
   const db = supabase();
   const day = seoulDateString(at);
@@ -302,6 +306,7 @@ export async function tryFill(
     const slot = filled + 1;
     const expires = expiryFor(at);
     const row: Record<string, unknown> = { day, product_no: productNo, depth: depth.toFixed(3), slot, visitor };
+    if (hasUnit !== false && unit) row.unit = unit;
     /* 0012 전이면 열이 없다 — 기한 없이 예전처럼 넣는다 */
     if (hasExpiry !== false) row.expires_at = expires.toISOString();
 
@@ -315,6 +320,7 @@ export async function tryFill(
         id: (data as { id: number } | null)?.id ?? null,
       };
     }
+    if (missingColumn(error.code) && hasUnit !== false && unit) { hasUnit = false; continue; }
     if (missingColumn(error.code) && hasExpiry !== false) { hasExpiry = false; continue; }
     /* 표가 아직 없다 — 마이그레이션 전이다. 품절이라 거짓말하지 않고 메모리로 받는다 */
     if (missingTable(error.code)) return fillInMemory(productNo, depth, quantity, day);

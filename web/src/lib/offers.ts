@@ -85,6 +85,26 @@ export interface TodayOffer {
   filled: number;
   /** 왜 이 빵인지 — 상품 자체의 이유 */
   badges: string[];
+  /**
+   * 자사몰이 파는 단위와 그 단위의 오늘 값. 선택지가 없으면 빈 배열이다.
+   *
+   * 값을 부분마다 따로 절사하는 것이 중요하다 — 자사몰이 그렇게 계산한다.
+   * 판매가와 추가금은 카페24에서 별개 필드라 각각 10원 단위로 내려간다
+   * (lib/priceSync). 합쳐서 한 번에 절사하면 11,590원이 되어 자사몰의
+   * 11,580원과 10원 어긋난다. 화면이 적은 값으로 결제돼야 한다.
+   */
+  units: OfferUnit[];
+}
+
+export interface OfferUnit {
+  /** 카페24 품목코드 — 예약이 이 단위로 간다 */
+  code: string;
+  label: string;
+  /** 이 단위의 오늘 값 */
+  price: number;
+  /** 이 단위의 정가 */
+  listPrice: number;
+  sellable: boolean;
 }
 
 export interface TodayMarket {
@@ -121,6 +141,23 @@ export interface TodayMarket {
 const floorTo10 = (won: number) => Math.floor(Math.round(won) / 10) * 10;
 
 /** 폭이 정해졌을 때의 오늘 가격. 장중엔 실시간 폭으로 '지금 예상'을 그리는 데 쓴다 */
+/**
+ * 자사몰 옵션에 오늘 값을 매긴다.
+ *
+ * 기본가와 추가금을 **각각** 절사해 더한다 — 자사몰이 두 필드를 따로 들고 따로
+ * 깎기 때문이다. 한 번에 절사하면 10원씩 어긋나서, 화면에 적힌 값으로 결제가
+ * 안 되는 일이 생긴다.
+ */
+export function unitsFor(product: Product, price: number, rate: number): OfferUnit[] {
+  return (product.options ?? []).map(option => ({
+    code: option.code,
+    label: option.label,
+    price: price + priceAt(option.add, rate).price,
+    listPrice: product.price + option.add,
+    sellable: option.sellable,
+  }));
+}
+
 export function priceAt(listPrice: number, rate: number) {
   const price = floorTo10(listPrice * (1 - rate));
   return { price, saved: listPrice - price };
@@ -212,6 +249,7 @@ export function buildToday(
         /* 체결은 폭으로 구분된다 — 그 빵의 폭으로 세야 잔량이 맞는다 */
         filled: filledFor(product.productNo, skuRate),
         badges: badgesFor(product),
+        units: unitsFor(product, price, skuRate),
       };
     })
     .sort((a, b) => b.saved - a.saved);

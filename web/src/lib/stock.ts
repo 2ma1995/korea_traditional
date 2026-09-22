@@ -1,6 +1,8 @@
 import { shopListUrl } from '@/lib/shop';
 import { PRODUCTS, type Product } from '@/data/products';
 import { adminApi, cafe24Config } from '@/lib/cafe24';
+import { seoulDateString } from '@/lib/market';
+import { supabase } from '@/lib/supabase';
 
 /**
  * 재고 — 지금 자사몰에서 살 수 있는가.
@@ -33,6 +35,30 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 
 export type StockSource = 'cafe24' | 'shop' | 'code';
 
+/**
+ * 자사몰이 실제로 파는 단위 — 옵션 하나.
+ *
+ * 빵장이 "− 1 +"로 아무 개수나 받던 것을 이걸로 바꾼다. 자사몰에 없는 단위를 팔면
+ * 화면 금액과 결제 금액이 어긋나고(11개 = 46,970원 vs 40,730원), 손님이 자사몰에서
+ * 옵션을 손수 조합해야 한다.
+ *
+ * 옵션 축은 상품마다 다르다 — 수량(1/3/5개)인 것도, 맛(피칸/초코)인 것도,
+ * 구성(1box/2box)인 것도, 아예 없는 것도 있다. 그래서 뜻을 해석하지 않고
+ * 자사몰 이름을 그대로 보여준다.
+ */
+export interface ShopOption {
+  /** 카페24 품목코드. 재고 조정이 이 단위로 간다 */
+  code: string;
+  /** 자사몰에 적힌 그대로 — "3개", "피칸", "베스트 SET(햄치즈+라즈베리 슈크림)(2개)" */
+  label: string;
+  /** 정가에 더해지는 금액(원). 할인은 화면이 건다 */
+  add: number;
+  /** 이 옵션의 재고. 재고관리를 안 켰으면 null — "0개"와 "말한 적 없음"은 다르다 */
+  quantity: number | null;
+  /** 지금 살 수 있는가 */
+  sellable: boolean;
+}
+
 export interface StockReport {
   /** productNo → 지금 살 수 있는가 */
   map: Record<number, boolean>;
@@ -44,6 +70,14 @@ export interface StockReport {
    * 카페24가 0을 말한 것과 "말한 적 없는 것"은 다르다.
    */
   quantity: Record<number, number>;
+  /**
+   * productNo → 자사몰 옵션. 옵션이 하나뿐인(=선택지가 없는) 상품은 빈 배열이다.
+   *
+   * add는 **정가 기준 추가금**이다. 15:30 반영이 돌고 나면 카페24가 들고 있는 값은
+   * 이미 깎인 값이라, 그대로 쓰면 화면이 두 번 깎는다. 그래서 오늘 반영 기록
+   * (daily_plans)에 적어둔 원가로 덮어쓴다 — lib/priceSync가 거기 남긴다.
+   */
+  options: Record<number, ShopOption[]>;
   source: StockSource;
   /** 조회 시각 (epoch ms) */
   at: number;
@@ -54,6 +88,9 @@ export interface StockReport {
 /* ── 1순위: 카페24 Admin API ──────────────────────────────────── */
 
 interface Cafe24Variant {
+  variant_code?: string;
+  options?: { name?: string; value?: string }[] | null;
+  additional_amount?: string;
   quantity?: number;
   use_inventory?: string;
   selling?: string;
@@ -91,7 +128,63 @@ function managedQuantity(product: Cafe24ListItem): number | null {
   return managed.reduce((sum, variant) => sum + (variant.quantity ?? 0), 0);
 }
 
-async function fromCafe24(): Promise<{ map: Record<number, boolean>; quantity: Record<number, number> } | null> {
+/**
+ * 옵션 목록. 선택지가 하나뿐이면 빈 배열 — 고를 것이 없으면 화면에 띄울 이유가 없다.
+ *
+ * 이름은 손대지 않는다. 축이 수량인지 맛인지 구성인지 상품마다 달라서, 해석하려 들면
+ * "3개 set"과 "2box"와 "4가지맛 SET (4개)"를 전부 다르게 잘못 읽는다.
+ */
+function shopOptions(product: Cafe24ListItem): ShopOption[] {
+  const variants = product.variants ?? [];
+  if (variants.length < 2) return [];
+  return variants
+    .filter(variant => variant.variant_code)
+    .map(variant => ({
+      code: variant.variant_code as string,
+      label: (variant.options ?? []).map(o => o?.value ?? '').filter(Boolean).join(' · '),
+      add: Number(variant.additional_amount) || 0,
+      quantity: variant.use_inventory === 'T' ? (variant.quantity ?? 0) : null,
+      /* 재고관리를 안 켠 옵션은 수량으로 막지 않는다 — 카페24가 0이라 말한 게 아니다 */
+      sellable: variant.display !== 'F' && variant.selling !== 'F'
+        && (variant.use_inventory !== 'T' || (variant.quantity ?? 0) > 0),
+    }))
+    .filter(option => option.label);
+}
+
+/**
+ * 오늘 반영해둔 원가 추가금으로 덮어쓴다.
+ *
+ * 15:30 반영이 돌면 카페24의 추가금은 이미 깎인 값이다. 화면은 정가에 할인을 걸어
+ * 보여주므로, 그 값을 그대로 쓰면 두 번 깎여 자사몰보다 싸게 적힌다.
+ * priceSync가 daily_plans에 원가를 적어두니 그것으로 되돌려 읽는다.
+ * 기록이 없으면(반영 전) 카페24 값이 곧 원가다.
+ */
+async function withOriginalSurcharge(options: Record<number, ShopOption[]>, at: Date) {
+  const db = supabase();
+  if (!db) return options;
+  const { data, error } = await db
+    .from('daily_plans')
+    .select('items')
+    .eq('plan_date', seoulDateString(at))
+    .maybeSingle();
+  if (error || !data?.items) return options;
+
+  const original = new Map<string, number>();
+  for (const item of data.items as { variants?: { code: string; originalAmount: string }[] }[]) {
+    for (const v of item.variants ?? []) original.set(v.code, Number(v.originalAmount) || 0);
+  }
+  if (!original.size) return options;
+
+  for (const list of Object.values(options)) {
+    for (const option of list) {
+      const was = original.get(option.code);
+      if (was !== undefined) option.add = was;
+    }
+  }
+  return options;
+}
+
+async function fromCafe24(at: Date): Promise<{ map: Record<number, boolean>; quantity: Record<number, number>; options: Record<number, ShopOption[]> } | null> {
   if (!cafe24Config()) return null;
   const nos = PRODUCTS.map(product => product.productNo).join(',');
   const data = await adminApi<{ products?: Cafe24ListItem[] }>(
@@ -102,12 +195,15 @@ async function fromCafe24(): Promise<{ map: Record<number, boolean>; quantity: R
 
   const map: Record<number, boolean> = {};
   const quantity: Record<number, number> = {};
+  const options: Record<number, ShopOption[]> = {};
   for (const product of list) {
     map[product.product_no] = sellable(product);
     const q = managedQuantity(product);
     if (q !== null) quantity[product.product_no] = q;
+    const opts = shopOptions(product);
+    if (opts.length) options[product.product_no] = opts;
   }
-  return { map, quantity };
+  return { map, quantity, options: await withOriginalSurcharge(options, at) };
 }
 
 /* ── 2순위: 자사몰 진열 목록 ───────────────────────────────────── */
@@ -159,7 +255,7 @@ function keep(report: StockReport): StockReport {
 
 const reason = (error: unknown) => (error instanceof Error ? error.message : String(error)).slice(0, 160);
 
-export async function fetchStock(): Promise<StockReport> {
+export async function fetchStock(at: Date = new Date()): Promise<StockReport> {
   if (cached && Date.now() - cached.at < TTL_MS) return cached.report;
   if (inFlight) return inFlight;
 
@@ -167,8 +263,8 @@ export async function fetchStock(): Promise<StockReport> {
     const notes: string[] = [];
     try {
       try {
-        const api = await fromCafe24();
-        if (api) return keep({ map: api.map, quantity: api.quantity, source: 'cafe24', at: Date.now(), note: null });
+        const api = await fromCafe24(at);
+        if (api) return keep({ map: api.map, quantity: api.quantity, options: api.options, source: 'cafe24', at: Date.now(), note: null });
         notes.push(cafe24Config() ? '카페24: 응답에 상품이 없음' : '카페24: 환경변수 없음');
       } catch (error) {
         notes.push(`카페24: ${reason(error)}`);
@@ -177,7 +273,8 @@ export async function fetchStock(): Promise<StockReport> {
       try {
         const shop = await fromShop();
         /* 진열 목록 HTML은 품절 배지만 읽는다 — 수량은 알 수 없다 */
-        if (shop) return keep({ map: shop, quantity: {}, source: 'shop', at: Date.now(), note: notes.join(' · ') || null });
+        /* HTML에서는 옵션을 못 읽는다 — 선택지 없이 단일 구매로 떨어진다 */
+        if (shop) return keep({ map: shop, quantity: {}, options: {}, source: 'shop', at: Date.now(), note: notes.join(' · ') || null });
         notes.push('자사몰: 목록에서 품절 배지를 못 읽음');
       } catch (error) {
         notes.push(`자사몰: ${reason(error)}`);
@@ -187,6 +284,7 @@ export async function fetchStock(): Promise<StockReport> {
       return keep({
         map: Object.fromEntries(PRODUCTS.map(product => [product.productNo, product.inStock])),
         quantity: {},
+        options: {},
         source: 'code',
         at: Date.now(),
         note: notes.join(' · '),
@@ -207,7 +305,13 @@ export function applyStock(products: Product[], report: StockReport): Product[] 
     const inStock = live === undefined ? product.inStock : live;
     /* 수량은 카페24가 말해준 상품만 붙는다. 없으면 필드를 만들지 않아
        호출부가 코드 기본값(DAILY_ALLOTMENT)으로 떨어진다 */
-    if (inStock === product.inStock && quantity === undefined) return product;
-    return { ...product, inStock, ...(quantity === undefined ? {} : { allotment: quantity }) };
+    const options = report.options[product.productNo];
+    if (inStock === product.inStock && quantity === undefined && !options) return product;
+    return {
+      ...product,
+      inStock,
+      ...(quantity === undefined ? {} : { allotment: quantity }),
+      ...(options ? { options } : {}),
+    };
   });
 }

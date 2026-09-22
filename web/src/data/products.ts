@@ -30,6 +30,13 @@ export type IngredientCode =
 export interface Product {
   /** 카페24 product_no */
   productNo: number;
+  /**
+   * 자사몰이 파는 단위 — 카페24에서 읽어 온다(lib/stock). 여기 적지 않는다.
+   *
+   * 선택지가 하나뿐인 상품에는 없다. 옵션 축이 상품마다 달라서(수량·맛·구성)
+   * 코드가 뜻을 정하지 않고 자사몰 이름을 그대로 보여준다.
+   */
+  options?: import('@/lib/stock').ShopOption[];
   /** 표시명 (짧게) */
   name: string;
   /** 사이트 정식 상품명 */

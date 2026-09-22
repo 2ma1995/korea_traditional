@@ -229,6 +229,22 @@
 .couponBox[data-warn='true'] { border-color: var(--muted); background: color-mix(in srgb, var(--muted) 7%, var(--paper)); }
 .couponBox[data-warn='true'] .couponLabel { color: var(--ink); }
 
+/* 자사몰 옵션 선택 — 여기 적힌 값이 곧 결제 금액이다.
+   이름은 자사몰 표기를 그대로 쓴다. "베스트 SET(햄치즈+라즈베리 슈크림)(2개)"처럼
+   긴 것이 있어 두 줄까지 감기게 두고, 값은 오른쪽에 고정폭으로 세운다. */
+.units { display: grid; gap: var(--gap-1); margin-top: var(--gap-3); padding: 0; border: 0; }
+.units legend { font-size: 13px; font-weight: 700; color: var(--ink); padding: 0 0 var(--gap-2); }
+.unit { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--gap-2);
+  min-height: 52px; padding: var(--pad-1) var(--pad-2); border: 1px solid var(--line);
+  border-radius: var(--r-control); background: var(--paper); cursor: pointer; }
+.unit[data-picked='true'] { border-color: var(--dancheong); background: color-mix(in srgb, var(--dancheong) 5%, var(--paper)); }
+.unit[data-out='true'] { cursor: not-allowed; opacity: .5; }
+.unit input { width: 18px; height: 18px; accent-color: var(--dancheong); }
+.unitName { font-size: 14px; line-height: 1.5; word-break: keep-all; }
+.unitPrice { display: grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.unitPrice b { font-size: 15px; font-weight: 700; color: var(--ink); }
+.unitPrice del { font-size: 12px; color: var(--muted); }
+
 .sheetNote { font-size: 13px; line-height: 1.8; margin-top: 12px; padding: 12px 16px; background: var(--background); border-radius: var(--r-card); word-break: keep-all; }
 .sheetNote b { font-weight: 700; }
 .sheetNote a { color: var(--down); border-bottom: 1px solid currentColor; }

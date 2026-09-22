@@ -14,7 +14,7 @@ import type { DiscountTier } from '@/data/indicators';
 import type { IpoRound } from '@/lib/ipo';
 import type { WeeklyScore } from '@/lib/dividend';
 import type { WeekReport } from '@/lib/fills';
-import { badgesFor, DAILY_ALLOTMENT, moodFor, priceAt, rateFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
+import { badgesFor, DAILY_ALLOTMENT, moodFor, priceAt, rateFor, unitsFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
 import { withSkuBonus } from '@/lib/skuAdjust';
 import { OPEN_AT } from '@/lib/orderbook';
 import { qtyOf, usePortfolio, useStableHoldings } from '@/lib/portfolioStore';
@@ -89,6 +89,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const k = useKospiLive({ value: kospi.value, changePct: kospi.changePct, marketOpen: kospi.marketOpen, live: kospi.live, points });
   const [filled, setFilled] = useState<Record<string, number>>({});
   const [bids, setBids] = useState<Record<number, Bid>>({});
+  /* 상품번호 → 고른 자사몰 품목코드 */
+  const [units, setUnits] = useState<Record<number, string>>({});
   /* 처음에는 전체를 보여준다 — 라인을 켜면서 오늘 진열이 4~6종으로 줄었는데,
      들어오자마자 그것만 보이면 막지에 빵이 그것뿐인 것처럼 읽힌다 */
   const [sort, setSort] = useState<Sort>('all');
@@ -165,7 +167,10 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
     const no = offer.product.productNo;
     setBids(prev => ({ ...prev, [no]: { status: 'busy', slot: null } }));
     try {
-      const res = await fetch('/api/fill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productNo: no, depth: offer.rate }) });
+      /* 자사몰 재고는 품목 단위로 관리된다 — 어느 옵션을 잡았는지 같이 보내야
+         "5개"를 예약해놓고 "1개" 재고를 깎는 일이 안 생긴다(lib/inventory) */
+      const res = await fetch('/api/fill', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productNo: no, depth: offer.rate, unit: unitOf(offer) }) });
       const json = await res.json();
       if (!json?.ok) {
         const error = String(json?.error ?? '예약에 실패했습니다.');
@@ -217,6 +222,16 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
     setBulk({ busy: false, done, missed, error });
   }
 
+  /**
+   * 상품마다 고른 자사몰 옵션. 안 골랐으면 첫 판매중 옵션이다 —
+   * 선택을 강요하지 않되, 예약이 엉뚱한 품목으로 가지 않게 기본값을 정해 둔다.
+   */
+  function unitOf(offer: TodayOffer): string | null {
+    const picked = units[offer.product.productNo];
+    if (picked && offer.units.some(u => u.code === picked && u.sellable)) return picked;
+    return offer.units.find(u => u.sellable)?.code ?? null;
+  }
+
   /* '전체'는 오늘 라인 밖·품절까지 막지의 모든 빵을 보여준다. 라인이 뜻을 만들지만,
      "다른 빵도 있나?"라는 질문에 답할 곳이 없으면 진열이 좁아 보인다.
      오늘 진열에 없는 빵은 정가 그대로고, 카드가 라인 밖·품절임을 밝힌다 */
@@ -226,6 +241,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
     return {
       product, onLine: false, rate: 0, demandBonus: 0, inventoryBonus: 0,
       price: product.price, saved: 0, allotment: DAILY_ALLOTMENT, filled: 0, badges: badgesFor(product),
+      /* 오늘 진열 밖이라 폭이 0이다 — 옵션도 정가 그대로 */
+      units: unitsFor(product, product.price, 0),
     };
   });
 
@@ -537,8 +554,11 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           canBuy={canBuy} lockNote={lockNote}
           left={sheetFrom === 'portfolio' ? 'qty' : 'watch'}
           canBid={ipoOn && ipo.canBid && !ipo.bidFor}
+          unit={unitOf(selectedOffer)}
           onNext={() => { setSelected(null); scrollTo('next'); }}
-          onBuy={() => buyPicked(selectedOffer)} onQty={next => setQty(selectedOffer.product.productNo, next)} onClose={() => setSelected(null)} />
+          onBuy={() => buyPicked(selectedOffer)} onQty={next => setQty(selectedOffer.product.productNo, next)}
+          onUnit={code => setUnits(prev => ({ ...prev, [selectedOffer.product.productNo]: code }))}
+          onClose={() => setSelected(null)} />
       )}
     </div>
   );

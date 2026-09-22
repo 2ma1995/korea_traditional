@@ -218,6 +218,14 @@ alter table fills alter column slot drop not null;
 create index if not exists fills_live_idx on fills (day, product_no, settled);
 
 
+-- ── 0013 · 예약이 잡은 자사몰 품목 ────────────────────────────────────────────
+--
+-- 자사몰은 품목(variant) 단위로 재고를 센다. 모닝롤은 1개/3개/5개가 각각 다른
+-- 품목이고, 대만식 샌드위치는 여덟이다. 어느 품목을 잡았는지 안 남기면 재고
+-- 조정이 늘 첫 품목으로 간다 — "5개"를 예약하고 "1개" 재고를 깎는다.
+alter table fills add column if not exists unit text;
+comment on column fills.unit is '카페24 품목코드(variant_code). 0013 이전 기록은 null';
+
 -- ── 권한 · RLS ──────────────────────────────────────────────────────────────
 -- RLS는 정책 없이 켜 둔다. anon 키로는 아무것도 안 보이고 service_role만 통과한다.
 -- 서버만 이 표들을 읽고 쓴다(lib/supabase.ts).
@@ -281,7 +289,8 @@ select * from (
   from (values
     ('ipo_bids', 'mode',    'ipo_bids.mode',    '0006', '회차 모드 — 없으면 청약 insert 실패'),
     ('ipo_bids', 'member',  'ipo_bids.member',  '0006', '청약자 — lib/ipo.ts'),
-    ('fills',    'visitor', 'fills.visitor',    '0010', '구매 표식 — 주간 활동점수')
+    ('fills',    'visitor', 'fills.visitor',    '0010', '구매 표식 — 주간 활동점수'),
+    ('fills',    'unit',    'fills.unit',       '0013', '자사몰 품목 — lib/inventory.ts')
   ) as want(tbl, col, label, made_by, used_by)
   left join information_schema.columns col
     on  col.table_schema = 'public'

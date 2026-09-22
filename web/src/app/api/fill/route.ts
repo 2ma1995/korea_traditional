@@ -17,7 +17,7 @@ import { priceSyncActive } from '@/lib/priceSync';
 import { sweepExpired } from '@/lib/settle';
 
 /**
- * 한정 호가 체결 — POST { productNo, depth }
+ * 한정 호가 체결 — POST { productNo, depth, unit? }
  *
  * 클라이언트가 보낸 것은 상품 번호와 할인 폭뿐이다. 수량·개장 여부·오늘 열린
  * 폭은 전부 서버가 다시 계산한다. 화면을 거치지 않고 부를 수 있는 경로라
@@ -37,7 +37,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  let body: { productNo?: unknown; depth?: unknown };
+  let body: { productNo?: unknown; depth?: unknown; unit?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -47,6 +47,9 @@ export async function POST(request: Request) {
   const productNo = Number(body.productNo);
   const depth = Number(body.depth);
   const product = PRODUCTS.find(item => item.productNo === productNo);
+  /* 자사몰 품목코드. 형태만 확인하고 값은 안 믿는다 — 실제로 그 상품의 품목인지는
+     카페24가 판정한다(lib/inventory). 없으면 첫 품목으로 간다 */
+  const unit = typeof body.unit === 'string' && /^[A-Za-z0-9]{1,32}$/.test(body.unit) ? body.unit : null;
   if (!product) return bad('없는 상품입니다.');
   if (!Number.isFinite(depth) || depth <= 0 || depth >= 1) return bad('할인 폭이 올바르지 않습니다.');
   const now = new Date();
@@ -82,7 +85,7 @@ export async function POST(request: Request) {
   const quantity = stock.quantity[productNo] ?? DAILY_ALLOTMENT;
 
   try {
-    const result = await tryFill(productNo, depth, quantity, now, await visitorId());
+    const result = await tryFill(productNo, depth, quantity, now, await visitorId(), unit);
     /* 오늘 산 사람에게 공모 청약권 한 장. 구매가 증거금 역할을 한다 (lib/bidRight) */
     await grantBidRight(now);
 
@@ -96,7 +99,7 @@ export async function POST(request: Request) {
       if (coupon && result.id !== null) await attachCoupon(result.id, coupon.code);
       /* 자사몰 재고도 같이 줄인다 — 그래야 31번째는 자사몰에서도 품절이다(설계도 §9).
          실패해도 예약은 살린다. fills가 정본이고 카페24는 따라가는 그림자다 */
-      await adjustInventory(productNo, -1);
+      await adjustInventory(productNo, -1, unit);
     }
 
     /* 화면이 뭘 보여줄지는 **실제로 할인이 전달되는 방식**이 정한다.

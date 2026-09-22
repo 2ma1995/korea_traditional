@@ -29,6 +29,8 @@ export async function GET() {
         quantity: report.quantity[product.productNo] ?? null,
         /* 코드 값과 다르면 products.ts를 고칠 거리가 된다 */
         stale: product.productNo in report.map && report.map[product.productNo] !== product.inStock,
+        /* 자사몰이 파는 단위. 화면의 선택지가 여기서 온다 — 비어 있으면 선택지 없이 단일 구매다 */
+        options: report.options[product.productNo] ?? [],
       })),
     },
     { headers: { 'Cache-Control': 'no-store, max-age=0' } },

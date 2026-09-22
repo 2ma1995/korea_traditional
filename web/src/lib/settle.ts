@@ -33,7 +33,7 @@ const THROTTLE_MS = 30_000;
 let lastRun = 0;
 let inFlight: Promise<SweepResult> | null = null;
 
-interface Row { id: number; product_no: number; coupon_code: string | null }
+interface Row { id: number; product_no: number; coupon_code: string | null; unit?: string | null }
 
 export async function sweepExpired(at: Date = new Date()): Promise<SweepResult> {
   if (Date.now() - lastRun < THROTTLE_MS) return EMPTY;
@@ -46,7 +46,7 @@ export async function sweepExpired(at: Date = new Date()): Promise<SweepResult> 
 
     const { data, error } = await db
       .from('fills')
-      .select('id, product_no, coupon_code')
+      .select('id, product_no, coupon_code, unit')
       .eq('settled', 'open')
       .lt('expires_at', at.toISOString())
       .limit(50); // 한 요청이 오래 붙들지 않게 — 남으면 다음 요청이 마저 한다
@@ -67,7 +67,8 @@ export async function sweepExpired(at: Date = new Date()): Promise<SweepResult> 
 
       /* 자리를 반납한다. slot을 비워야 그 번호를 다음 사람이 쓸 수 있다(0012) */
       await db.from('fills').update({ settled: 'expired', slot: null }).eq('id', row.id);
-      await adjustInventory(row.product_no, +1);
+      /* 잡았던 그 품목으로 돌려놓는다 — 첫 품목에 얹으면 재고가 옮겨 붙는다 */
+      await adjustInventory(row.product_no, +1, row.unit ?? null);
       await revokeHere(db, row.coupon_code);
       result.expired += 1;
     }

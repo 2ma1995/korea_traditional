@@ -65,13 +65,20 @@ interface Props {
   onBuy: () => void;
   /** 스테퍼 — 목표 수량으로 맞춘다 */
   onQty: (qty: number) => void;
+  /** 고른 자사몰 옵션의 품목코드. 선택지가 없는 상품이면 null */
+  unit: string | null;
+  onUnit: (code: string) => void;
   onClose: () => void;
 }
 
 const won = (n: number) => n.toLocaleString('ko-KR');
 const shopUrl = shopProductUrl;
 
-export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, left, canBid, onNext, onBuy, onQty, onClose }: Props) {
+export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, left, canBid, unit, onNext, onBuy, onQty, onUnit, onClose }: Props) {
+  /* 고른 단위가 곧 결제 금액이다. 선택지가 없는 상품은 기본가 그대로 */
+  const picked = offer.units.find(u => u.code === unit) ?? offer.units[0] ?? null;
+  const payPrice = picked?.price ?? offer.price;
+  const payList = picked?.listPrice ?? offer.product.price;
   const [copied, setCopied] = useState(false);
 
   /* 결제 기한 카운트다운. 자리를 붙들 수 있는 시간이 눈에 보여야 결제로 이어진다.
@@ -140,10 +147,31 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
           {watching > 0 && <> · 🔔 알림 {watching}개</>}
         </p>
 
+        {/* 자사몰이 파는 단위를 그대로 고르게 한다. 빵장에서만 통하는 개수를 받으면
+            (예전의 "− 11 +") 화면 금액과 결제 금액이 어긋나고, 손님이 자사몰에서
+            옵션을 손수 조합해야 한다. 이름은 자사몰 표기를 손대지 않고 쓴다 —
+            축이 수량인지 맛인지 구성인지 상품마다 다르다 */}
+        {offer.units.length > 0 && (
+          <fieldset className={styles.units}>
+            <legend>어떤 걸로 하시겠어요?</legend>
+            {offer.units.map(u => (
+              <label key={u.code} className={styles.unit} data-picked={u.code === picked?.code} data-out={!u.sellable}>
+                <input type="radio" name={`unit-${offer.product.productNo}`} value={u.code}
+                  checked={u.code === picked?.code} disabled={!u.sellable}
+                  onChange={() => onUnit(u.code)} />
+                <span className={styles.unitName}>{u.label}</span>
+                <span className={styles.unitPrice}>
+                  {u.sellable ? <><b>{won(u.price)}원</b>{u.listPrice > u.price && <del>{won(u.listPrice)}원</del>}</> : '품절'}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+
         {bid?.status === 'filled' && (
           <>
             <p className={styles.sheetNote}>
-              <b>예약됐습니다 · {bid.slot}번째.</b>
+              <b>예약됐습니다 · {bid.slot}번째.</b>{picked && <> · {picked.label}</>}
               {bid.stored === false && <><br />⚠️ 저장소가 연결되지 않아 이번 서버 세션의 메모리에만 기록됩니다.</>}
             </p>
 
@@ -156,7 +184,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
               <div className={styles.couponBox}>
                 <span className={styles.couponLabel}>오늘 가격이 이미 적용돼 있습니다</span>
                 <span className={styles.couponFine}>
-                  막지몰에서 <b>{won(offer.price)}원</b> 그대로 결제하시면 됩니다 —
+                  막지몰에서 <b>{won(payPrice)}원</b> 그대로 결제하시면 됩니다 —
                   코드 입력도, 회원가입도 필요 없습니다.
                 </span>
                 {clock}
@@ -180,7 +208,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
                 <span className={styles.couponLabel}>⚠️ 자사몰에서는 아직 정가로 보입니다</span>
                 <span className={styles.couponFine}>
                   <b>자리는 잡혔습니다.</b> 다만 오늘 가격을 적용할 준비가 안 돼 있어,
-                  지금 결제하시면 정가 {won(offer.product.price)}원으로 결제됩니다.
+                  지금 결제하시면 정가 {won(payList)}원으로 결제됩니다.
                   잠시 뒤 다시 확인해 주세요.
                 </span>
                 {clock}
@@ -218,7 +246,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
           <button type="button" className={styles.primary}
             disabled={!canBuy || remaining <= 0 || bid?.status === 'busy' || bid?.status === 'filled'} onClick={onBuy}>
             {bid?.status === 'busy' ? '예약 중…' : bid?.status === 'filled' ? '예약 완료' : !canBuy ? lockNote : remaining <= 0 ? '오늘 물량 끝'
-              : `${won(offer.price * qty)}원에 구매하기`}
+              : `${won(payPrice)}원에 구매하기`}
           </button>
         </div>
         <p className={styles.sheetFine}>개수는 <b>내 관심빵</b>에 저장돼 포트폴리오 비중이 됩니다. 알림 발송(푸시·문자)은 준비 중이에요.</p>

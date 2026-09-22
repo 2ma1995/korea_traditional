@@ -50,7 +50,7 @@ export interface InventoryResult {
  * 실패해도 던지지 않는다 — 예약을 되돌리는 것이 재고가 하나 어긋나는 것보다 나쁘다.
  * 호출부는 note를 로그로 흘리고 넘어간다.
  */
-export async function adjustInventory(productNo: number, delta: number): Promise<InventoryResult> {
+export async function adjustInventory(productNo: number, delta: number, variantCode?: string | null): Promise<InventoryResult> {
   if (!enabled()) return { changed: false, quantity: null, note: 'INVENTORY_SYNC 꺼짐' };
   if (!cafe24Config()) return { changed: false, quantity: null, note: '카페24 환경변수 없음' };
 
@@ -58,9 +58,11 @@ export async function adjustInventory(productNo: number, delta: number): Promise
     const codes = await variantCodes(productNo);
     if (!codes.length) return { changed: false, quantity: null, note: '옵션을 찾지 못함' };
 
-    /* 옵션이 여럿이면 첫 옵션만 건드린다. 막지 상품은 옵션이 하나뿐이고,
-       여러 옵션에 나눠 쓰면 어느 쪽을 줄일지가 또 하나의 결정이 된다 */
-    const code = codes[0];
+    /* 손님이 고른 품목을 깎는다. 막지 상품은 옵션이 하나뿐이라고 보고 첫 품목만
+       건드리던 때가 있었는데, 실제로는 모닝롤이 셋(1/3/5개)이고 대만식 샌드위치가
+       여덟이다 — "5개"를 예약해놓고 "1개" 재고를 깎고 있었다.
+       모르면(0013 이전 기록·선택지 없는 상품) 예전처럼 첫 품목으로 간다 */
+    const code = variantCode && codes.includes(variantCode) ? variantCode : codes[0];
     const path = `/api/v2/admin/products/${productNo}/variants/${code}/inventories`;
 
     const now = await adminApi<{ inventory?: { use_inventory?: string; quantity?: number } }>(path);
