@@ -229,12 +229,22 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
     };
   });
 
-  /* 품절은 어떤 정렬이든 맨 뒤다 — 살 수 없는 빵이 위에 있으면 진열이 아니라 목록이 된다 */
+  /* 탭마다 묻는 게 다르다.
+       인기순  오늘 많이 나간 순      — 남들이 뭘 샀나
+       관심순  내가 담아둔 순         — 내 것부터
+       전체    오늘 할인 큰 순        — 목록이지 순위가 아니다
+
+     어느 탭이든 두 가지가 먼저다. 살 수 없는 빵(품절)은 맨 뒤로, 오늘 할인 대상이
+     아닌 빵(라인 밖)은 그 앞으로. 살 수 있는 것이 위에 오지 않으면 진열이 아니다. */
+  const byTab = (a: TodayOffer, b: TodayOffer) => {
+    if (sort === 'watched') return qtyOf(portfolio, b.product.productNo) - qtyOf(portfolio, a.product.productNo) || b.saved - a.saved;
+    if (sort === 'popular') return filledOf(b) - filledOf(a) || b.saved - a.saved;
+    return b.saved - a.saved || a.product.price - b.product.price;
+  };
   const sorted = [...shelf].sort((a, b) =>
     Number(b.product.inStock) - Number(a.product.inStock)
-    || (sort === 'watched'
-      ? qtyOf(portfolio, b.product.productNo) - qtyOf(portfolio, a.product.productNo) || b.saved - a.saved
-      : filledOf(b) - filledOf(a) || b.saved - a.saved));
+    || Number(b.saved > 0) - Number(a.saved > 0)
+    || byTab(a, b));
   /* 정렬 결과는 순위로만 쓴다 — 화면 배치는 위 목록에서 CSS order가 한다 */
   const rankOf = new Map(sorted.map((o, idx) => [o.product.productNo, idx]));
   const ranking = offers.map(o => ({ o, n: filledOf(o) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
@@ -382,7 +392,9 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         <ul className={styles.grid}>
           {shelf.map((o, i) => {
             const no = o.product.productNo, remaining = remainingOf(o), n = qtyOf(portfolio, no);
-            const ranked = sort === 'popular' ? filledOf(o) > 0 : n > 0;
+            /* 메달은 순위가 있는 탭에서만. 전체는 목록이라 1·2·3등이 없다.
+               그리고 셀 것이 0이면 메달을 붙이지 않는다 — 아무도 안 산 날의 🥇은 거짓말이다 */
+            const ranked = sort === 'popular' ? filledOf(o) > 0 : sort === 'watched' ? n > 0 : false;
             const step = stepOf.get(no) ?? i;      // 등장·사진·가격 굴림에 쓰는 고정 순서
             const rank = rankOf.get(no) ?? i;      // 지금 정렬에서 몇 번째로 보이는가
             return (
