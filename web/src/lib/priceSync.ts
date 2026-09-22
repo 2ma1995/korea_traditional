@@ -224,7 +224,7 @@ export async function restoreToday(at: Date = new Date()): Promise<SyncReport> {
  * 품목 조회가 실패하면 빈 배열을 준다. 판매가는 이미 바뀌었으므로 여기서 예외를
  * 던지면 그 상품이 '건너뜀'으로 기록되고, **바꾼 가격의 복원 근거가 사라진다**.
  */
-async function discountVariants(cafe24No: number, rate: number) {
+export async function discountVariants(cafe24No: number, rate: number) {
   const changed: NonNullable<SyncItem['variants']> = [];
   let variants;
   try {

@@ -1,5 +1,6 @@
 import { requireAdmin } from '@/lib/adminAuth';
 import { getProduct, setProductPrice } from '@/lib/cafe24';
+import { discountVariants } from '@/lib/priceSync';
 import { loadProductLinks } from '@/lib/settings';
 import { requireSupabase } from '@/lib/supabase';
 import { MAX_DISCOUNT_RATE } from '@/data/indicators';
@@ -59,6 +60,10 @@ export async function POST(request: Request) {
         rate,
         originalPrice: before.price,
         newPrice: after.price,
+        /* 옵션 추가금도 같은 비율로 깎는다. 여기서 빼먹으면 이 버튼과 15:30 크론이
+           서로 다른 일을 한다 — 기본가만 깎인 날에는 "5개"를 고른 손님이 5%가
+           아니라 1.2%만 할인받는다(lib/cafe24.setVariantAmount) */
+        variants: await discountVariants(cafe24No, rate),
       });
     } catch (cause) {
       skipped.push({

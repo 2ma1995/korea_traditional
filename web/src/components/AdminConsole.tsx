@@ -25,8 +25,8 @@ export interface PlanSummary {
     productNo: number; name: string; price: number; finalPrice: number;
     /** 자사몰 재고 합. 카페24가 재고관리를 안 켠 상품이면 null */
     stock: number | null;
-    /** 옵션별 재고 — 합계만 보면 "90개"가 90묶음인지 90개인지 알 수 없다 */
-    options: { label: string; quantity: number | null }[];
+    /** 옵션별 재고와 추가금 — 옵션이 값을 바꾸는 상품은 기본가만 봐서는 안 된다 */
+    options: { label: string; quantity: number | null; add: number }[];
     /** 이 빵에 정한 하루 물량 */
     allotment: number;
     /** 자사몰에서 지금 살 수 있는가. 품절이면 목록에 넣지 못한다 */
@@ -105,6 +105,10 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
 
   /** 10원 단위 절사 — 서버(publish 라우트)와 같은 규칙이어야 금액이 어긋나지 않는다 */
   const finalPrice = (row: PlanRow) => Math.floor((row.price * (1 - row.rate)) / 10) * 10;
+  /* 옵션까지 더한 최종가. 자사몰이 기본가와 추가금을 **따로** 깎으므로 여기도 따로
+     절사해 더한다 — 합쳐서 한 번에 깎으면 10원씩 어긋난다(lib/priceSync) */
+  const unitPrice = (row: PlanRow, add: number) =>
+    finalPrice(row) + Math.floor((add * (1 - row.rate)) / 10) * 10;
   const setRow = (productNo: number, patch: Partial<PlanRow>) =>
     setRows(previous => previous.map(row => (row.productNo === productNo ? { ...row, ...patch } : row)));
   /* 목록에 있는 것이 곧 반영 대상이다 */
@@ -285,6 +289,22 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                 {row.rate !== row.suggested && (
                   <small className={styles.adjusted}>제안 {Math.round(row.suggested * 100)}%</small>
                 )}
+                {/* 옵션이 값을 바꾸는 상품은 기본가만 봐서는 손님이 얼마를 내는지 모른다.
+                    추가금도 같은 비율로 깎이므로(lib/priceSync.discountVariants)
+                    어느 옵션을 골라도 할인율은 같다 — 그걸 눈으로 확인하는 자리다 */}
+                {(() => {
+                  const opts = (stockOf(row.productNo)?.options ?? []).filter(o => o.add > 0);
+                  if (!opts.length) return null;
+                  return (
+                    <small className={styles.optionPrices}>
+                      {opts.map(o => (
+                        <span key={o.label}>
+                          {o.label} <del>{won(row.price + o.add)}</del> <b>{won(unitPrice(row, o.add))}원</b>
+                        </span>
+                      ))}
+                    </small>
+                  );
+                })()}
                 {shopPrices[row.productNo] && (
                   <small className={styles.shopPrice}>
                     {shopPrices[row.productNo].startsWith('오류')

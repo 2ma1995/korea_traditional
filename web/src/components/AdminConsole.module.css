@@ -47,6 +47,13 @@
 .stepper button { font: inherit; font-size: 15px; line-height: 1; width: 30px; height: 30px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
 .stepper button:disabled { opacity: .35; cursor: not-allowed; }
 .stepper b { font-size: 12px; font-weight: 600; min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }
+/* 옵션별 최종가 — 옵션이 값을 바꾸는 상품은 기본가만 봐서는 손님이 얼마를 내는지
+   모른다. 줄 전체를 차지하게 두고(grid-column) 여러 개면 접히게 한다 */
+.optionPrices { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.optionPrices span { white-space: nowrap; }
+.optionPrices del { opacity: .7; }
+.optionPrices b { color: var(--ink); font-weight: 600; }
+
 /* 자사몰 재고 — 읽기 전용. 물량보다 적으면 ⚠️로 표시한다(재고가 이긴다) */
 .stock { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
@@ -131,7 +138,8 @@
 .outline:disabled { border-color: var(--line); color: var(--muted); }
 
 /* ── 할인안 행 (선택 + 할인율 조정) ── */
-.planRow { gap: 12px; }
+/* 옵션별 최종가가 아래 줄로 내려가야 하므로 접히게 둔다 */
+.planRow { gap: 12px; flex-wrap: wrap; }
 .planRow[data-off='true'] { opacity: .45; }
 .planRow input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--dancheong); flex-shrink: 0; }
 .rowName { flex: 1; }
