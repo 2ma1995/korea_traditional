@@ -77,13 +77,27 @@ const apiBase = (mallId: string) => `https://${mallId}.cafe24api.com`;
  *    등록돼 있어야 하고, 등록된 뒤 다시 인증해야(/api/cafe24/authorize) 토큰에 붙는다.
  *    없는 권한을 요청하면 인증 화면에서 거절된다.
  */
-export const SCOPES = [
+const BASE_SCOPES = [
   'mall.read_product',
   'mall.write_product',
   'mall.read_promotion',
   'mall.write_promotion',
-  'mall.read_order',
 ] as const;
+
+/**
+ * 주문 조회는 **앱에 등록된 뒤에만** 요청한다.
+ *
+ * 2026-09-22에 그냥 넣었다가 인증이 통째로 막혔다 —
+ *   invalid_scope: The scope added by Cafe24 Developers is invalid.
+ * 카페24는 앱에 없는 권한을 요청하면 인증 화면을 아예 안 띄운다. 그래서 이 값을
+ * 코드에 박아두면, 토큰이 만료돼 재인증해야 할 때 아무도 로그인할 수 없게 된다.
+ * refresh_token은 2주짜리라 그 사고는 반드시 온다.
+ *
+ * 기업이 개발자센터에서 권한을 켜면 CAFE24_ORDER_SCOPE=on 을 넣고 재인증한다.
+ */
+export const SCOPES = process.env.CAFE24_ORDER_SCOPE === 'on'
+  ? ([...BASE_SCOPES, 'mall.read_order'] as const)
+  : BASE_SCOPES;
 
 /** 인증을 시작할 주소. state는 CSRF 방지용으로 호출부가 쿠키에 함께 심는다. */
 export function authorizeUrl(state: string): string {
