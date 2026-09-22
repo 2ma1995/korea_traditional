@@ -292,3 +292,41 @@ export async function setProductPrice(productNo: number, price: number): Promise
   });
   return data.product;
 }
+
+/** 품목 — 옵션 하나에 붙는 추가금을 들고 있다 */
+export interface Cafe24Variant {
+  variant_code: string;
+  /** 기본 판매가에 더해지는 금액. "7700.00" 같은 문자열이다 */
+  additional_amount: string;
+}
+
+/**
+ * 상품의 품목 목록.
+ *
+ * 막지의 빵은 수량을 옵션으로 판다 — 1개는 추가금 0원, 3개는 +7,700원 식이다.
+ * 그래서 **판매가만 깎으면 3개를 고른 손님은 거의 할인을 못 받는다**(아래 setVariantAmount).
+ */
+export async function getVariants(productNo: number): Promise<Cafe24Variant[]> {
+  const data = await adminApi<{ variants: Cafe24Variant[] }>(`/api/v2/admin/products/${productNo}/variants`);
+  return data.variants ?? [];
+}
+
+/**
+ * 품목 추가금 변경.
+ *
+ * 이게 없으면 할인이 수량에 따라 묽어진다. 4,500원짜리를 5% 깎아 4,270원으로
+ * 만들어도, 3개 옵션(+7,700원)을 고르면 12,200원이 11,970원이 되어 실효 1.9%다.
+ * 5개(+14,700원)면 1.2%까지 떨어진다 — 많이 살수록 덜 깎이는 역진적 구조다.
+ * 추가금도 같은 비율로 깎아야 "오늘 5% 할인"이 옵션과 무관하게 참이 된다.
+ */
+export async function setVariantAmount(
+  productNo: number,
+  variantCode: string,
+  amount: number,
+): Promise<Cafe24Variant> {
+  const data = await adminApi<{ variant: Cafe24Variant }>(
+    `/api/v2/admin/products/${productNo}/variants/${variantCode}`,
+    { method: 'PUT', body: { shop_no: 1, request: { additional_amount: amount.toFixed(2) } } },
+  );
+  return data.variant;
+}

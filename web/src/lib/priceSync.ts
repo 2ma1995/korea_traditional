@@ -1,6 +1,6 @@
 import { MAX_DISCOUNT_RATE } from '@/data/indicators';
 import { PRODUCTS, type Product } from '@/data/products';
-import { getProduct, setProductPrice } from '@/lib/cafe24';
+import { getProduct, getVariants, setProductPrice, setVariantAmount } from '@/lib/cafe24';
 import { getMarketSnapshot, seoulDateString } from '@/lib/market';
 import { rateFor } from '@/lib/offers';
 import { loadProductLinks, loadTiers } from '@/lib/settings';
@@ -67,6 +67,13 @@ export interface SyncItem {
   /** 바꾸기 전 자사몰 판매가. 복원의 근거 */
   originalPrice: string;
   newPrice: string;
+  /**
+   * 같이 깎은 옵션 추가금. 실제로 바꾼 것만 들어간다 — 복원의 근거다.
+   *
+   * 0011 이전 기록에는 이 열이 없다. 그때 걸어둔 할인을 복원할 때 undefined가
+   * 되어야 하므로 선택값이다(restoreToday에서 ?? []로 받는다).
+   */
+  variants?: { code: string; originalAmount: string; newAmount: string }[];
 }
 
 export interface SyncReport {
@@ -125,6 +132,7 @@ export async function publishToday(at: Date = new Date()): Promise<SyncReport> {
         rate,
         originalPrice: before.price,
         newPrice: after.price,
+        variants: await discountVariants(cafe24No, rate),
       });
     } catch (cause) {
       report.skipped.push({
@@ -180,6 +188,12 @@ export async function restoreToday(at: Date = new Date()): Promise<SyncReport> {
   for (const item of items) {
     try {
       const after = await setProductPrice(item.cafe24ProductNo, Number(item.originalPrice));
+      /* 추가금을 먼저 되돌리든 나중이든 상관없지만, 하나라도 실패하면 그 상품은
+         건너뜀으로 간다 — 판매가만 정가로 돌아가고 추가금이 깎인 채 남으면
+         내일 할인이 그 위에서 또 걸린다 */
+      for (const v of item.variants ?? []) {
+        await setVariantAmount(item.cafe24ProductNo, v.code, Number(v.originalAmount));
+      }
       report.applied.push({ ...item, newPrice: after.price });
     } catch (cause) {
       report.skipped.push({
@@ -195,6 +209,41 @@ export async function restoreToday(at: Date = new Date()): Promise<SyncReport> {
     .eq('plan_date', date);
 
   return report;
+}
+
+/**
+ * 옵션 추가금도 같은 비율로 깎는다.
+ *
+ * 막지는 수량을 옵션으로 판다(1개 / 3개 +7,700원 / 5개 +14,700원). 판매가만 깎으면
+ * 깎인 금액이 고정이라 **많이 살수록 할인율이 떨어진다** — 4,500원을 5% 깎아도
+ * 3개면 실효 1.9%, 5개면 1.2%다. 추가금도 깎아야 "오늘 5%"가 옵션과 무관해진다.
+ *
+ * 추가금이 0인 품목(기본 수량)은 건너뛴다 — 깎을 것이 없는데 쓰기를 날릴 이유가 없다.
+ * 옵션이 없는 상품은 목록이 비어 그대로 지나간다.
+ *
+ * 품목 조회가 실패하면 빈 배열을 준다. 판매가는 이미 바뀌었으므로 여기서 예외를
+ * 던지면 그 상품이 '건너뜀'으로 기록되고, **바꾼 가격의 복원 근거가 사라진다**.
+ */
+async function discountVariants(cafe24No: number, rate: number) {
+  const changed: NonNullable<SyncItem['variants']> = [];
+  let variants;
+  try {
+    variants = await getVariants(cafe24No);
+  } catch {
+    return changed;
+  }
+  for (const v of variants) {
+    const amount = Number(v.additional_amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    try {
+      const after = await setVariantAmount(cafe24No, v.variant_code, floorTo10(amount * (1 - rate)));
+      changed.push({ code: v.variant_code, originalAmount: v.additional_amount, newAmount: after.additional_amount });
+    } catch {
+      /* 이 품목만 정가로 남는다. 나머지는 계속 깎는다 — 하나 때문에 전부 멈추면
+         이미 내려간 판매가와 더 어긋난다 */
+    }
+  }
+  return changed;
 }
 
 /** 스위치가 꺼져 있을 때 — 바꾸지 않고 "무엇을 바꿀 것인가"만 만든다 */
