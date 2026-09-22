@@ -100,8 +100,17 @@ export const AOV_KEY = 'dividend_aov';
 export const DIVIDEND_RATE_KEY = 'dividend_rate';
 export const DIVIDEND_BUDGET_KEY = 'dividend_budget';
 
-/** 상품가 분포(1,500~42,000원)와 배송비를 감안한 임시값. 실측 붙으면 교체한다 */
-export const AOV_DEFAULT = 20000;
+/**
+ * 평균 객단가 — 임시값. 실측이 붙으면 교체한다.
+ *
+ * 8,000원인 이유는 발표덱에 맞췄기 때문이다. 덱 8장이 주간 최대 800P를 제안하고
+ * 9장이 "주문금액의 10%까지 사용"이라 하니, 목표 할인율 10%를 그대로 두면
+ * 객단가가 8,000원이어야 800P가 나온다. 빵 두세 개 값이라 액수 자체도 그럴듯하다.
+ *
+ * ⚠️ 관측값이 아니다. 덱 17장이 "한 달 판매 집계 원본"을 보완 자료로 요구하는 이유가
+ *    이것이다 — 기업이 카페24 주문 이력을 주면 그 값으로 갈아끼운다.
+ */
+export const AOV_DEFAULT = 8000;
 /** 평일 할인 기대값 약 15%의 3분의 2. 평일이 유리한 날이 연 192일(78%)이 되는 지점 */
 export const DIVIDEND_RATE_DEFAULT = 0.10;
 export const DIVIDEND_BUDGET_DEFAULT = 500000;
@@ -122,7 +131,14 @@ export interface DividendPolicy {
   budget: number;
   /** 3점(만점) 유저가 한 주에 받는 최대 배당 */
   weeklyMax: number;
-  /** 점수별 지급액 — 1·2·3점. 만점의 50 / 80 / 100% */
+  /**
+   * 점수별 지급액 — 1·2·3점. 만점의 37.5 / 62.5 / 100%.
+   *
+   * 발표덱 8장의 BASIC 300P · PLUS 500P · PRIME 800P에 맞춘 비율이다.
+   * 덱은 점수 구간(2–3점 / 4–5점 / 6점 이상)으로 등급을 나누지만 그건 항목이
+   * 다섯일 때 이야기고, 실제로 셀 수 있는 항목은 셋이라(lib/dividend) 1·2·3점이
+   * 그대로 세 등급이 된다. 금액은 덱과 같다.
+   */
   tiers: [number, number, number];
   stored: boolean;
 }
@@ -137,7 +153,7 @@ export async function loadDividendPolicy(): Promise<DividendPolicy> {
     rate: rate.value,
     budget: budget.value,
     weeklyMax,
-    tiers: [step(0.5), step(0.8), weeklyMax],
+    tiers: [step(0.375), step(0.625), weeklyMax],
     stored: aov.stored && rate.stored && budget.stored,
   };
 }
