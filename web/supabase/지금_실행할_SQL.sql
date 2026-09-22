@@ -1,10 +1,11 @@
 -- ============================================================================
--- 지금 실행할 SQL — 0005 ~ 0010 한 장
+-- 지금 실행할 SQL — 0005 ~ 0012 한 장
 --
 --   어디서   Supabase 대시보드 → SQL Editor → 붙여넣고 Run
 --   무엇을   예약(fills) · 공모 청약(ipo_bids) · 관심 담기(watches)
 --            운영 스위치(app_settings) · 공모 회차(ipo_rounds · ipo_candidates)
---            주말 배당 재료(fills.visitor · visits)
+--            주말 배당 재료(fills.visitor · visits) · 할인코드(coupons)
+--            예약 결제 기한(fills.expires_at · settled)
 --   왜       없으면 전부 **서버 메모리에만** 저장된다. 서버가 재시작되면 사라진다.
 --            화면은 정상 동작하고 "이번 서버 세션의 메모리에만 기록됩니다"라고 밝힌다.
 --
@@ -162,6 +163,61 @@ comment on table visits is '거래일 출석. (day, visitor) unique로 하루 1�
 create index if not exists visits_visitor_day_idx on visits (visitor, day);
 alter table visits enable row level security;
 
+-- ── 0011 · 할인코드 ────────────────────────────────────────────────────────
+-- 설계도 최상단의 문제를 푸는 자리다 — "싸다고 보여주고 정가로 보낸다."
+-- 예약이 잡히면 그 폭만큼의 코드를 카페24에서 발급해 손님에게 준다.
+-- 자사몰 판매가는 건드리지 않는다.
+--
+-- §9는 쿠폰을 "회원 계정에 발급되는 구조라 로그인 없이는 못 쓴다"고 접었는데,
+-- 2026-09-22에 체험몰에서 확인한 결과 절반만 맞았다 — 발급에는 회원 식별이
+-- 필요 없고, 손님은 자사몰에서 코드를 입력하면 된다.
+--
+-- 개인 식별 값은 없다. 누가 받았는지는 자사몰 주문이 안다.
+create table if not exists coupons (
+  id         bigserial   primary key,
+  day        date        not null,
+  product_no integer     not null,
+  code       text        not null unique,
+  -- 정가 대비 할인 폭. 0.300 = 30%
+  rate       numeric(4,3) not null check (rate > 0 and rate < 1),
+  -- 카페24가 매긴 번호. 회수·조회할 때 쓴다
+  cafe24_no  integer,
+  expires_on date        not null,
+  created_at timestamptz not null default now()
+);
+
+comment on table coupons is '예약 시 발급한 카페24 할인코드. 개인 식별 값 없음';
+
+create index if not exists coupons_day_idx on coupons (day, product_no);
+
+
+-- ── 0012 · 예약 결제 기한 ───────────────────────────────────────────────────
+-- 예약은 결제가 아니다. 결제하지 않은 사람이 자리를 붙들면 살 사람이 못 사고,
+-- 자사몰 재고까지 차감하면 그 손해가 빵장 밖으로 나간다.
+-- 그래서 예약에 1시간 기한을 준다(단 빵장 마감 24:00을 넘기지 않는다).
+--   결제함    할인코드의 issued_count가 1  → 확정
+--   미결제    1시간이 지나도 0           → 자리 반납 · 카페24 재고 복원 · 코드 삭제
+--
+-- 정리는 크론이 아니라 요청이 들어올 때 한다. Vercel 무료 플랜 크론은 하루 한 번만
+-- 돌아 1시간 주기를 맡길 수 없고, 빵장은 장중에 사람이 계속 들어와 그 방문이 타이머가 된다.
+alter table fills add column if not exists expires_at  timestamptz;
+alter table fills add column if not exists settled     text not null default 'open';
+alter table fills add column if not exists coupon_code text;
+
+comment on column fills.expires_at  is '결제 기한. 지나고 미결제면 자리를 반납한다';
+comment on column fills.settled     is 'open · paid · expired';
+comment on column fills.coupon_code is '이 예약에 발급된 할인코드. 결제 확인에 쓴다';
+
+-- ⚠️ slot에서 not null을 뗀다.
+-- slot은 (day, product_no, depth, slot) unique로 선착순 경합을 막는 장치인데(0005),
+-- 반납으로 번호가 비면 다음 사람이 같은 번호에서 튕긴다 — 자리가 남았는데도.
+-- 반납한 줄은 slot을 null로 비운다. Postgres는 unique에서 null을 서로 다른 값으로 보므로
+-- 여러 줄이 null이어도 충돌하지 않고, 줄은 남아 "몇 명이 예약만 하고 안 샀나"를 답한다.
+alter table fills alter column slot drop not null;
+
+create index if not exists fills_live_idx on fills (day, product_no, settled);
+
+
 -- ── 권한 · RLS ──────────────────────────────────────────────────────────────
 -- RLS는 정책 없이 켜 둔다. anon 키로는 아무것도 안 보이고 service_role만 통과한다.
 -- 서버만 이 표들을 읽고 쓴다(lib/supabase.ts).
@@ -175,6 +231,7 @@ alter table watches        enable row level security;
 alter table app_settings   enable row level security;
 alter table ipo_rounds     enable row level security;
 alter table ipo_candidates enable row level security;
+alter table coupons        enable row level security;
 
 commit;
 
@@ -200,6 +257,7 @@ select * from (
     ('app_settings',   '0008', '운영 스위치 — lib/appSettings.ts'),
     ('ipo_rounds',     '0009', '공모 회차 — lib/ipo.ts'),
     ('ipo_candidates', '0009', '후보 빵 — lib/ipo.ts'),
+  ('coupons',        '0011', '할인코드 — lib/coupon.ts'),
     ('visits',         '0010', '거래일 출석 — lib/visits.ts'),
     ('daily_plans',    '0001', '자사몰 가격 복원 — lib/priceSync.ts'),
     ('cafe24_tokens',  '0001', '카페24 토큰 — lib/cafe24.ts'),

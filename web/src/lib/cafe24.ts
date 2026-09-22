@@ -65,12 +65,24 @@ export function requireCafe24Config(): Cafe24Config {
 
 const apiBase = (mallId: string) => `https://${mallId}.cafe24api.com`;
 
-/** 개발자센터에서 앱에 준 권한과 같아야 한다 — 상품(가격), 프로모션(쿠폰). */
+/**
+ * 개발자센터에서 앱에 준 권한과 같아야 한다 — 상품(가격·재고), 프로모션(쿠폰), 주문.
+ *
+ * 주문 읽기는 "예약했는데 결제를 취소한 경우"를 잡으려고 넣었다.
+ * 할인코드의 issued_count로 '결제 안 함'은 알 수 있지만, 결제 후 취소했을 때
+ * 그 값이 되돌아오는지 확인되지 않았다. 되돌려 줄 재고를 놓치면 그 자리는
+ * 아무도 못 산다.
+ *
+ * ⚠️ 여기에 적는다고 권한이 생기지 않는다. 개발자센터의 앱에 그 권한이
+ *    등록돼 있어야 하고, 등록된 뒤 다시 인증해야(/api/cafe24/authorize) 토큰에 붙는다.
+ *    없는 권한을 요청하면 인증 화면에서 거절된다.
+ */
 export const SCOPES = [
   'mall.read_product',
   'mall.write_product',
   'mall.read_promotion',
   'mall.write_promotion',
+  'mall.read_order',
 ] as const;
 
 /** 인증을 시작할 주소. state는 CSRF 방지용으로 호출부가 쿠키에 함께 심는다. */

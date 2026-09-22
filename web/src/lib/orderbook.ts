@@ -37,6 +37,17 @@ export const OPEN_AT = `${String(OPEN_HOUR).padStart(2, '0')}:${String(OPEN_MINU
  */
 export const ALWAYS_OPEN = false;
 
+/**
+ * 실제로 상시 개장인가.
+ *
+ * 위 상수를 true로 바꿔 테스트하다 그대로 커밋되면 배포본이 24시간 열린다 —
+ * 인수인계 문서가 경고한 사고다. 그래서 환경변수로도 열 수 있게 한다.
+ * 로컬 .env.local에 MARKET_ALWAYS_OPEN=on 을 넣으면 커밋할 파일이 없다.
+ *
+ * ⚠️ Vercel 환경변수에는 넣지 말 것. 배포본이 휴장일에도 열린다.
+ */
+export const alwaysOpen = () => ALWAYS_OPEN || process.env.MARKET_ALWAYS_OPEN === 'on';
+
 export interface Tick {
   /** 정가 대비 할인 폭 (0.05 = 5%) */
   depth: number;
@@ -105,7 +116,7 @@ export interface PickWindow {
  * 테스트 중에는 열어둔다(ALWAYS_OPEN). 화면에 그 사실을 표시한다.
  */
 export function pickWindow(at: Date = new Date()): PickWindow {
-  if (ALWAYS_OPEN) return { open: true, reason: 'test' };
+  if (alwaysOpen()) return { open: true, reason: 'test' };
   const { hour, weekday } = seoulParts(at);
   if (weekday === 'Sat' || weekday === 'Sun') return { open: false, reason: 'holiday' };
   return hour < PICK_CLOSE_HOUR ? { open: true, reason: 'open' } : { open: false, reason: 'closed' };
@@ -123,7 +134,7 @@ export function marketHours(at: Date = new Date()): MarketHours {
   const nowLabel = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
   /* 테스트 중에는 요일·시간을 보지 않는다. 판정 로직 자체는 그대로 남겨둔다 */
-  if (ALWAYS_OPEN) return { open: true, reason: 'test', nowLabel };
+  if (alwaysOpen()) return { open: true, reason: 'test', nowLabel };
 
   if (weekday === 'Sat' || weekday === 'Sun') {
     return { open: false, reason: 'holiday', nowLabel };

@@ -20,7 +20,7 @@ interface Props {
   /** 담은 수량만큼 예약한다. Market이 실제 요청을 보낸다 */
   onBuyAll?: (list: { offer: TodayOffer; qty: number }[]) => void;
   /** 예약 진행·결과 — Market이 들고 있다 */
-  bulk?: { busy: boolean; done: number; missed: number } | null;
+  bulk?: { busy: boolean; done: number; missed: number; error?: string } | null;
   /** 한 빵만 보고 싶을 때 */
   onPick?: (productNo: number) => void;
 }
@@ -105,9 +105,10 @@ export default function Portfolio({ offers, entries, onBuyAll, bulk, onPick }: P
           </button>
           {bulk && !bulk.busy && (bulk.done > 0 || bulk.missed > 0) && (
             <p className={styles.buyAllNote}>
-              {bulk.done > 0 && <><b>{bulk.done}개 예약됐습니다.</b> 자사몰에서 결제해 주세요. </>}
-              {bulk.missed > 0 && <>{bulk.missed}개는 오늘 물량이 끝났습니다.</>}
-              <br />오늘 가격 적용은 쿠폰이 필요해 기업 확인 중입니다.
+              {bulk.done > 0 && <><b>{bulk.done}개 예약됐습니다.</b> 예약마다 할인코드가 발급됩니다 — 빵을 눌러 확인하세요. </>}
+              {/* 실패 이유를 서버가 말한 그대로 쓴다. 예전에는 무엇이 막았든
+                  "물량이 끝났습니다"라고만 해서, 장이 닫힌 것도 품절로 보였다 */}
+              {bulk.missed > 0 && <>{bulk.missed}개는 예약하지 못했습니다 — {bulk.error ?? '오늘 물량이 끝났습니다.'}</>}
             </p>
           )}
         </div>
