@@ -23,6 +23,20 @@
 .planTop strong { font-size: 17px; font-weight: 600; letter-spacing: -.015em; }
 .rate { font-size: 26px; font-weight: 600; color: var(--hong); letter-spacing: -.02em; }
 .reason { font-size: 12px; color: var(--muted); line-height: 1.9; margin-top: 8px; }
+/* 목록에 빵을 넣고 빼는 자리. 오늘 라인이 자동으로 고르지만 기업 요청으로 바뀐다 */
+.rateBlock { display: grid; justify-items: end; gap: 8px; }
+.listTools { display: inline-flex; gap: 2px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.listTools button { font: inherit; font-size: 16px; line-height: 1; width: 34px; height: 34px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.listTools button:hover:not(:disabled) { background: var(--background); }
+.listTools button:disabled { opacity: .3; cursor: not-allowed; }
+
+/* '+'로 여는 후보 목록 */
+.addList { list-style: none; margin: 12px 0 0; padding: 12px; border: 1px dashed var(--line); border-radius: 8px; display: grid; gap: 4px; background: var(--background); }
+.addList button { font: inherit; display: flex; align-items: baseline; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
+.addList button:hover { background: var(--paper); }
+.addList b { font-size: 13px; font-weight: 600; }
+.addList small { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
 /* 물량 조절 — 빵마다 따로 정한다. 누르면 그 자리에서 저장된다 */
 .stepper { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
 .stepper[data-busy='true'] { opacity: .5; }

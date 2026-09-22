@@ -10,7 +10,8 @@ import IpoRounds from '@/components/IpoRounds';
 import { ALLOTMENT_DEFAULT, allotmentFor, loadAllotments, loadDividendPolicy, loadIpoEnabled, MAX_DIVIDEND_RATE } from '@/lib/appSettings';
 import { listRounds } from '@/lib/ipo';
 import { loadProductLinks, loadTiers } from '@/lib/settings';
-import { fetchStock } from '@/lib/stock';
+import { PRODUCTS } from '@/data/products';
+import { applyStock, fetchStock } from '@/lib/stock';
 import { MAX_DISCOUNT_RATE } from '@/data/indicators';
 import { buildDailyPlan } from '@/lib/discount';
 import { getMarketSnapshot } from '@/lib/market';
@@ -66,6 +67,18 @@ export default async function AdminPage() {
       allotment: allotmentFor(allotments.value, item.product.productNo),
       options: (stock.options[item.product.productNo] ?? []).map(o => ({ label: o.label, quantity: o.quantity })),
     })),
+    /* 오늘 목록에 없는 빵 — 관리자가 '+'로 넣을 수 있다 */
+    pool: applyStock(PRODUCTS, stock)
+      .filter(product => !daily.items.some(item => item.product.productNo === product.productNo))
+      .map(product => ({
+        productNo: product.productNo,
+        name: product.name,
+        price: product.price,
+        finalPrice: Math.floor((product.price * (1 - instantDepth)) / 10) * 10,
+        stock: stock.quantity[product.productNo] ?? null,
+        options: (stock.options[product.productNo] ?? []).map(o => ({ label: o.label, quantity: o.quantity })),
+        allotment: allotmentFor(allotments.value, product.productNo),
+      })),
     soldOutCount: daily.soldOut.length,
   };
 

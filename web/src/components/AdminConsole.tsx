@@ -30,6 +30,13 @@ export interface PlanSummary {
     /** 이 빵에 정한 하루 물량 */
     allotment: number;
   }[];
+  /**
+   * 오늘 목록에 없는 빵 — '+'로 넣을 수 있는 후보다.
+   *
+   * 오늘 라인(상승=식사형 / 하락=달달)이 자동으로 고르지만, 기업이 "이건 오늘
+   * 빼자"거나 "이것도 넣자"고 할 수 있다. 그때 코드를 고치게 할 수는 없다.
+   */
+  pool: PlanSummary['items'];
   soldOutCount: number;
 }
 
@@ -75,14 +82,19 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
     setSavingCap(null);
   }
 
+  /* 목록에 있으면 반영 대상이다. 체크는 '지금 고른 것'이고 −로 빼는 데 쓴다.
+     예전에는 체크가 곧 반영 여부였는데, 빼려면 체크를 풀어 목록에 남겨두는 수밖에
+     없어서 "무엇을 반영하는가"가 한눈에 안 보였다 */
   const [rows, setRows] = useState<PlanRow[]>(() => plan.items.map(item => ({
     productNo: item.productNo,
     name: item.name,
     price: item.price,
     suggested: instantDepth,
     rate: instantDepth,
-    selected: true,
+    selected: false,
   })));
+  /* '+'를 눌렀을 때 뜨는 후보 목록 */
+  const [adding, setAdding] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState('');
   /* 자사몰의 현재 판매가. 반영은 이 값을 기준으로 계산되므로 우리 정가와 다를 수 있다. */
@@ -93,9 +105,25 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
   const finalPrice = (row: PlanRow) => Math.floor((row.price * (1 - row.rate)) / 10) * 10;
   const setRow = (productNo: number, patch: Partial<PlanRow>) =>
     setRows(previous => previous.map(row => (row.productNo === productNo ? { ...row, ...patch } : row)));
-  const chosen = rows.filter(row => row.selected);
-  /* 상품번호로 재고를 찾는다. plan.items가 정본이고 rows는 화면 상태다 */
-  const stockOf = (productNo: number) => plan.items.find(item => item.productNo === productNo);
+  /* 목록에 있는 것이 곧 반영 대상이다 */
+  const chosen = rows;
+  const checked = rows.filter(row => row.selected);
+  /* 상품번호로 재고를 찾는다. 오늘 목록과 후보 양쪽을 본다 */
+  const catalog = [...plan.items, ...plan.pool];
+  const stockOf = (productNo: number) => catalog.find(item => item.productNo === productNo);
+  /* 아직 목록에 없는 빵 — '+'로 넣을 수 있다 */
+  const addable = plan.pool.filter(item => !rows.some(row => row.productNo === item.productNo));
+
+  const removeChecked = () => setRows(previous => previous.filter(row => !row.selected));
+  const addProduct = (productNo: number) => {
+    const item = plan.pool.find(entry => entry.productNo === productNo);
+    if (!item) return;
+    setRows(previous => [...previous, {
+      productNo: item.productNo, name: item.name, price: item.price,
+      suggested: instantDepth, rate: instantDepth, selected: false,
+    }]);
+    setCaps(previous => ({ ...previous, [item.productNo]: item.allotment }));
+  };
 
   /** 자사몰의 현재 판매가를 불러온다. 반영 전에 "무엇이 얼마로 바뀌는지"를 눈으로 보기 위한 것. */
   const checkShopPrices = async () => {
@@ -163,8 +191,32 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
             <strong>{plan.headline}</strong>
             <p className={styles.reason}>{plan.reason}</p>
           </div>
-          <span className={styles.rate}>−{Math.round(instantDepth * 100)}%</span>
+          <div className={styles.rateBlock}>
+            <span className={styles.rate}>−{Math.round(instantDepth * 100)}%</span>
+            {/* 오늘 라인이 자동으로 고르지만, 기업이 "이건 빼자"고 할 수 있다.
+                그때마다 코드를 고치게 할 수는 없어 여기서 넣고 뺀다 */}
+            <div className={styles.listTools}>
+              <button type="button" onClick={() => setAdding(open => !open)}
+                disabled={!addable.length} aria-expanded={adding}
+                title={addable.length ? '빵 추가' : '더 넣을 빵이 없습니다'}>＋</button>
+              <button type="button" onClick={removeChecked} disabled={!checked.length}
+                title={checked.length ? `고른 ${checked.length}종 빼기` : '뺄 빵을 체크하세요'}>−</button>
+            </div>
+          </div>
         </div>
+
+        {adding && (
+          <ul className={styles.addList}>
+            {addable.map(item => (
+              <li key={item.productNo}>
+                <button type="button" onClick={() => { addProduct(item.productNo); setAdding(false); }}>
+                  <b>{item.name}</b>
+                  <small>{won(item.price)}원 · 재고 {item.stock === null ? '—' : won(item.stock)}</small>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
 
         <ul className={styles.planItems}>
@@ -175,7 +227,7 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                 <input
                   type="checkbox"
                   checked={row.selected}
-                  aria-label={`${row.name} 포함`}
+                  aria-label={`${row.name} 고르기 (− 로 빼기)`}
                   onChange={() => setRow(row.productNo, { selected: !row.selected })}
                 />
                 <span className={styles.rowName}>
