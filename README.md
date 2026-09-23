@@ -142,6 +142,7 @@ deck/             발표덱 (HTML · PDF)
 - [`web/supabase/지금_실행할_SQL.sql`](./web/supabase/지금_실행할_SQL.sql) — DB 준비 한 장 + 확인 쿼리
 - [`deck/MAKJI_Bread_Market_v5.html`](./deck/) — 발표덱 (발표용 · 화살표로 넘김)
 - [`deck/MAKJI_Bread_Market_v5_figma.html`](./deck/) — Figma 반입용 (18장 세로 배치)
+- [`docs/빵장_세팅_가이드.md`](./docs/빵장_세팅_가이드.md) — **기업 전달용.** Supabase · 카페24 · Vercel 세팅과 환경변수, 개발 지식 없이 따라 하는 순서
 - [`docs/인수인계/`](./docs/인수인계/) — 날짜별 인수인계. 새 세션은 가장 최근 것부터
 - [`docs/설계/팀공유_빵장_설계도.md`](./docs/설계/팀공유_빵장_설계도.md) — 지금 어떻게 돌고 있나
 - [`docs/설계/할인율_구간_실측검증.md`](./docs/설계/할인율_구간_실측검증.md) — 코스피 5년 분포 집계
