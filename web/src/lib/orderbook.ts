@@ -83,22 +83,62 @@ export interface MarketHours {
    깎인 값이다. 90개 조합 중 8개에서 이렇게 어긋났다. */
 const floorTo10 = (won: number) => Math.floor(Math.round(won) / 10) * 10;
 
-/** KST 기준 시/분/요일. 서버가 UTC라 직접 환산한다. */
+/** KST 기준 시/분/요일/날짜. 서버가 UTC라 직접 환산한다. */
 function seoulParts(at: Date) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     weekday: 'short',
-    hour12: false,
+    /* hour12:false는 자정을 '24'로 준다 — 00:30이 24:30이 되어 자정 뒤 한 시간 동안 '열림'으로 판정됐다 */
+    hourCycle: 'h23',
   }).formatToParts(at);
   const get = (type: string) => parts.find(part => part.type === type)?.value ?? '';
   return {
     hour: Number(get('hour')),
     minute: Number(get('minute')),
     weekday: get('weekday'),
+    /** YYYY-MM-DD (KST 달력) */
+    date: `${get('year')}-${get('month')}-${get('day')}`,
   };
 }
+
+/**
+ * 한국거래소 휴장일 중 평일인 날 (KST 날짜). 코스피가 쉬는 날은 빵장도 쉰다.
+ *
+ * 2026 — 한국거래소 휴장일 공고 17일 그대로(6/3 지방선거 · 7/17 제헌절 포함).
+ * 2027 — 거래소 공고(매년 12월) 전이라 우주항공청 2027년 월력요항으로 셌다.
+ *        대체공휴일까지 넣었고, 12/31은 해마다 쉬는 연말 휴장이다.
+ *
+ * 선거일·임시공휴일은 그때그때 지정되니 공고가 나면 여기에 한 줄 넣는다.
+ * ponytail: 손으로 적는 달력이라 2028년부터는 비어 있다 — 비어 있으면 평일은 전부
+ *   개장으로 본다(예전과 같다). 거래소가 12월에 다음 해를 공고하면 그 해를 붙인다.
+ */
+export const KRX_HOLIDAYS: ReadonlySet<string> = new Set([
+  // 2026
+  '2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18', '2026-03-02',
+  '2026-05-01', '2026-05-05', '2026-05-25', '2026-06-03', '2026-07-17',
+  '2026-08-17', '2026-09-24', '2026-09-25', '2026-10-05', '2026-10-09',
+  '2026-12-25', '2026-12-31',
+  // 2027
+  '2027-01-01', '2027-02-08', '2027-02-09', '2027-03-01', '2027-05-03',
+  '2027-05-05', '2027-05-13', '2027-07-19', '2027-08-16', '2027-09-14',
+  '2027-09-15', '2027-09-16', '2027-10-04', '2027-10-11', '2027-12-27',
+  '2027-12-31',
+]);
+
+/** 주말이거나 거래소 휴장일인가 — 코스피가 안 열리는 날 */
+const isClosedDay = ({ weekday, date }: { weekday: string; date: string }) =>
+  weekday === 'Sat' || weekday === 'Sun' || KRX_HOLIDAYS.has(date);
+
+/** 토·일인가. 평일 공휴일과 구분해야 하는 곳(주말 배당)이 쓴다 */
+export const isWeekend = (at: Date = new Date()) => {
+  const { weekday } = seoulParts(at);
+  return weekday === 'Sat' || weekday === 'Sun';
+};
 
 /** 종목 선택 마감 시각 (KST). 주식장이 열리기 전에 골라야 결과를 보고 고를 수 없다 */
 export const PICK_CLOSE_HOUR = 9;
@@ -117,26 +157,27 @@ export interface PickWindow {
  */
 export function pickWindow(at: Date = new Date()): PickWindow {
   if (alwaysOpen()) return { open: true, reason: 'test' };
-  const { hour, weekday } = seoulParts(at);
-  if (weekday === 'Sat' || weekday === 'Sun') return { open: false, reason: 'holiday' };
-  return hour < PICK_CLOSE_HOUR ? { open: true, reason: 'open' } : { open: false, reason: 'closed' };
+  const parts = seoulParts(at);
+  if (isClosedDay(parts)) return { open: false, reason: 'holiday' };
+  return parts.hour < PICK_CLOSE_HOUR ? { open: true, reason: 'open' } : { open: false, reason: 'closed' };
 }
 
 /**
  * 개장 판정.
  *
- * 주말은 KOSPI가 열리지 않으므로 빵장도 쉰다. 매일 열면 평일 습관이 약해지고,
- * "주식시장이 쉬는 날은 빵장도 쉽니다"가 규칙으로 더 선명하다.
- * 공휴일 판정은 아직 없다 — 달력 데이터가 필요하다.
+ * 주말·공휴일은 KOSPI가 열리지 않으므로 빵장도 쉰다(KRX_HOLIDAYS). 매일 열면 평일
+ * 습관이 약해지고, "주식시장이 쉬는 날은 빵장도 쉽니다"가 규칙으로 더 선명하다.
+ * 개장 크론·예약 API·화면이 전부 여기를 본다 — 휴장일 판정은 이 한 곳에서 한다.
  */
 export function marketHours(at: Date = new Date()): MarketHours {
-  const { hour, minute, weekday } = seoulParts(at);
+  const parts = seoulParts(at);
+  const { hour, minute } = parts;
   const nowLabel = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
   /* 테스트 중에는 요일·시간을 보지 않는다. 판정 로직 자체는 그대로 남겨둔다 */
   if (alwaysOpen()) return { open: true, reason: 'test', nowLabel };
 
-  if (weekday === 'Sat' || weekday === 'Sun') {
+  if (isClosedDay(parts)) {
     return { open: false, reason: 'holiday', nowLabel };
   }
   if (hour * 60 + minute < OPEN_HOUR * 60 + OPEN_MINUTE) return { open: false, reason: 'before', nowLabel };

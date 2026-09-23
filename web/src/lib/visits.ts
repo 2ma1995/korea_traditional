@@ -1,4 +1,5 @@
 import { seoulDateString } from '@/lib/market';
+import { KRX_HOLIDAYS } from '@/lib/orderbook';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -36,20 +37,23 @@ export async function recordVisit(visitor: string, at: Date = new Date()): Promi
   /* 그 밖의 실패는 삼킨다. 출석 한 건 때문에 화면이 죽으면 안 된다 */
 }
 
-/** [from, to) 구간에 이 사람이 며칠 왔나. 거래일만 세도록 호출부가 구간을 자른다 */
+/** [from, to) 구간에 이 사람이 며칠 왔나. 주말은 호출부가 구간으로 자르고, 평일 휴장일은 여기서 뺀다 */
 export async function countVisits(visitor: string, from: string, to: string): Promise<number> {
   const db = supabase();
   if (!db) return [...memory].filter(key => {
     const day = key.slice(0, 10);
-    return key.endsWith(`:${visitor}`) && day >= from && day < to;
+    return key.endsWith(`:${visitor}`) && day >= from && day < to && !KRX_HOLIDAYS.has(day);
   }).length;
 
-  const { count, error } = await db
+  let query = db
     .from('visits')
     .select('id', { count: 'exact', head: true })
     .eq('visitor', visitor)
     .gte('day', from)
     .lt('day', to);
+  const closed = [...KRX_HOLIDAYS].filter(day => day >= from && day < to);
+  if (closed.length) query = query.not('day', 'in', `(${closed.join(',')})`);
+  const { count, error } = await query;
 
   if (error) return 0;
   return count ?? 0;

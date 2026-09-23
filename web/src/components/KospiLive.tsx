@@ -5,6 +5,7 @@ import Flip from '@/components/Flip';
 import KospiChart, { type ChartBread } from '@/components/KospiChart';
 import type { DiscountTier } from '@/data/indicators';
 import type { Mood } from '@/lib/offers';
+import { KRX_HOLIDAYS } from '@/lib/orderbook';
 import type { KospiLive as Live } from '@/lib/useKospiLive';
 import styles from './Market.module.css';
 
@@ -46,11 +47,12 @@ const fmt = (n: number) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2,
 const kstNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
 const atToday = (h: number, m: number) => (kst: Date) => { const d = new Date(kst); d.setHours(h, m, 0, 0); return d; };
 const atMidnight = (kst: Date) => { const d = new Date(kst); d.setHours(24, 0, 0, 0); return d; };
-/** 다음 거래일 09:00 — 주말은 건너뛴다. 공휴일 달력은 아직 없다 */
+/** 다음 거래일 09:00 — 주말과 거래소 휴장일은 건너뛴다. kst는 KST 벽시계라 로컬 필드가 곧 KST 날짜다 */
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const nextLive = (kst: Date) => {
   const d = new Date(kst); d.setHours(9, 0, 0, 0);
   if (d <= kst) d.setDate(d.getDate() + 1);
-  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  while (d.getDay() === 0 || d.getDay() === 6 || KRX_HOLIDAYS.has(ymd(d))) d.setDate(d.getDate() + 1);
   return d;
 };
 

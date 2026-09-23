@@ -34,7 +34,7 @@ export interface KospiLive {
 
 /* 30초 — 매초 굴러가는 숫자는 정신없다는 지적. 장중 코스피는 30초에 한 번 바뀐다 */
 const TICK_MS = 30_000, SERIES_MS = 60_000, TIMEOUT_MS = 5000, KEEP = 10;
-const clock = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+const clock = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
 
 export function useKospiLive(initial: Omit<KospiLive, 'ticks' | 'seq' | 'dir'>): KospiLive {
   const [state, setState] = useState<KospiLive>({ ...initial, ticks: [], seq: 0, dir: null });

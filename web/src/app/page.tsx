@@ -5,7 +5,7 @@ import { weeklyScoreFor } from '@/lib/dividend';
 import { loadFilled, loadSoldCounts, loadWeekReport } from '@/lib/fills';
 import { fetchKospiHistory, getMarketSnapshot, seoulDateString } from '@/lib/market';
 import { buildToday } from '@/lib/offers';
-import { OPEN_AT } from '@/lib/orderbook';
+import { isWeekend, OPEN_AT } from '@/lib/orderbook';
 import { loadTiers } from '@/lib/settings';
 import { bidState } from '@/lib/bidRight';
 import { loadAllotments, loadIpoEnabled } from '@/lib/appSettings';
@@ -40,16 +40,17 @@ export default async function BreadMarketPage() {
   const products = applyStock(PRODUCTS, withSold(stock, await loadSoldCounts(now)));
   const today = buildToday(market, tiers, filled, now, products, signals, allotments.value);
 
-  /* 휴장일(주말)에는 가격이 움직이지 않는다. 대신 이번 주 빵장이 어땠는지를 보여준다.
+  /* 휴장일(주말·공휴일)에는 가격이 움직이지 않는다. 대신 이번 주 빵장이 어땠는지를 보여준다.
      fills에 visitor가 없어 개인 기록은 못 만든다 — 시장 전체 결산으로 쓴다.
-     평일에는 쓰지 않으므로 그때만 조회한다 */
-  const weekend = today.hours.reason === 'holiday';
+     평일에는 쓰지 않으므로 그때만 조회한다.
+     배당은 토요일에 주는 것이라 점수는 주말에만 — 수요일 공휴일에 반쪽 주의 배당액을 띄우지 않는다 */
+  const holiday = today.hours.reason === 'holiday';
   const weekAgo = new Date(now);
   weekAgo.setDate(weekAgo.getDate() - 7);
-  const [week, score] = weekend
+  const [week, score] = holiday
     ? await Promise.all([
         loadWeekReport(seoulDateString(weekAgo), seoulDateString(now)),
-        weeklyScoreFor(visitor, now),
+        isWeekend(now) ? weeklyScoreFor(visitor, now) : null,
       ])
     : [null, null];
 

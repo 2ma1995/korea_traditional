@@ -119,7 +119,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const canBuy = today.hours.open && (phase !== 'live' || test);
   const lockNote = today.hours.reason === 'holiday' ? '다음 거래일에 열려요' : phase === 'live' ? `${OPEN_AT} 확정과 함께 열려요` : phase === 'locked' ? `🔒 ${OPEN_AT} 공개` : phase === 'closed' ? `다음 거래일 ${OPEN_AT}에 열려요` : '휴장';
   const openAt = OPEN_AT;
-  /* 휴장일 — 주말이다. 가격이 움직이지 않으니 화면이 할 말이 달라진다 */
+  /* 휴장일 — 주말·공휴일이다. 가격이 움직이지 않으니 화면이 할 말이 달라진다 */
   const holiday = today.hours.reason === 'holiday';
 
   /* 표시 가격은 실시간 폭으로. 실제 예약은 서버 확정 폭(today.rate)으로 간다 */
@@ -387,7 +387,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
               )}
             </ul>
           ) : (
-            <p className={styles.empty}>이번 주에는 체결된 예약이 없었어요. <b>월요일 {OPEN_AT}</b>에 새 장이 열립니다.</p>
+            <p className={styles.empty}>이번 주에는 체결된 예약이 없었어요. <b>다음 거래일 {OPEN_AT}</b>에 새 장이 열립니다.</p>
           )}
           <p className={styles.hint}>
             빵장은 <b>주식시장이 열리는 날</b>만 엽니다. 휴장일에는 할인 대신 정가로 판매하고,
