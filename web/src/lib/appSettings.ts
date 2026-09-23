@@ -188,10 +188,32 @@ export async function saveAllotmentFor(productNo: unknown, raw: unknown, unit?: 
   const code = typeof unit === 'string' && /^[A-Za-z0-9]{1,32}$/.test(unit) ? unit : null;
   const value = asCount(typeof raw === 'string' ? Number(raw) : raw);
   if (value === null) throw new Error('물량은 1 이상 1,000 이하의 숫자여야 합니다.');
-  const current = await loadAllotments();
-  const next = { ...current.value, [code ? `${no}:${code}` : String(no)]: value };
-  await saveSetting(ALLOTMENT_KEY, next);
-  return next;
+  const entry = { [code ? `${no}:${code}` : String(no)]: value };
+
+  const db = supabase();
+  if (!db) {
+    const next = { ...(asAllotments(memory.get(ALLOTMENT_KEY)) ?? {}), ...entry };
+    memory.set(ALLOTMENT_KEY, next);
+    return next;
+  }
+  /* 읽고-고쳐-쓰기라 관리자 둘이 동시에 저장하면 한쪽이 묻혔다. updated_at이
+     읽은 그대로일 때만 쓰고, 그 사이 누가 바꿨으면 다시 읽어 합친다 */
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data, error } = await db.from('app_settings').select('value, updated_at').eq('key', ALLOTMENT_KEY).maybeSingle();
+    if (error) {
+      if (missingTable(error.code)) { await saveSetting(ALLOTMENT_KEY, entry); return entry; }
+      throw new Error(`설정 읽기 실패: ${error.message}`);
+    }
+    const next = { ...(asAllotments(data?.value) ?? {}), ...entry };
+    const stamp = new Date().toISOString();
+    const { data: written, error: writeError } = data
+      ? await db.from('app_settings').update({ value: next, updated_at: stamp })
+        .eq('key', ALLOTMENT_KEY).eq('updated_at', data.updated_at).select('key')
+      : await db.from('app_settings').insert({ key: ALLOTMENT_KEY, value: next, updated_at: stamp }).select('key');
+    if (writeError && writeError.code !== '23505') throw new Error(`설정 저장 실패: ${writeError.message}`);
+    if (written?.length) return next;
+  }
+  throw new Error('다른 관리자가 동시에 저장하고 있습니다. 잠시 뒤 다시 저장하세요.');
 }
 
 export const loadAov = () => loadSetting(AOV_KEY, AOV_DEFAULT, asMoney(1_000_000));

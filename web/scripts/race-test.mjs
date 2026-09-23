@@ -1,6 +1,7 @@
 /**
  * 동시 예약 시험 — 선착순 잠금이 진짜로 막는지 본다.
  *
+ *   FILL_PER_IP=0 npm run dev 로 띄운 뒤(한 IP 자리 한도를 꺼야 쉰 명이 된다)
  *   node scripts/race-test.mjs [사람수]
  *   node scripts/race-test.mjs --clean     시험이 남긴 예약을 지운다
  *

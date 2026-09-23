@@ -28,3 +28,15 @@ npm-debug.log*
 /graft/
 .vercel
 .env*
+
+# 루트의 기획·발표 산출물 — Public 저장소라 올리지 않는다. 덱 원본은 deck/에 있다.
+# (루트 .md는 인수인계·설계도처럼 일부러 올리는 것이 있어 막지 않았다 — git add 전에 확인)
+/*.pdf
+/*.docx
+/기업연계_세호/
+/기업연계_현지/
+
+# 개인 도구 설정
+/.claude/
+/.mcp.json
+/.ignore

@@ -297,6 +297,21 @@ export async function fetchStock(at: Date = new Date()): Promise<StockReport> {
   return inFlight;
 }
 
+/** 오늘 팔려서 이미 카페24 재고에서 빠진 수를 되돌려 더한다 — 한도를 한 번만 세려고(lib/fills.loadSoldCounts) */
+export function withSold(report: StockReport, sold: Record<number, { total: number; byUnit: Record<string, number> }>): StockReport {
+  const quantity = { ...report.quantity };
+  const options = { ...report.options };
+  for (const [key, entry] of Object.entries(sold)) {
+    const productNo = Number(key);
+    if (quantity[productNo] !== undefined) quantity[productNo] += entry.total;
+    if (options[productNo]) {
+      options[productNo] = options[productNo].map(option => option.quantity === null ? option
+        : { ...option, quantity: option.quantity + (entry.byUnit[option.code] ?? 0) });
+    }
+  }
+  return { ...report, quantity, options };
+}
+
 /** 조회한 재고를 상품 목록에 덮어쓴다. 모르는 상품은 코드 값을 그대로 둔다. */
 export function applyStock(products: Product[], report: StockReport): Product[] {
   return products.map(product => {

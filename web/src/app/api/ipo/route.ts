@@ -66,7 +66,8 @@ export async function POST(request: Request) {
   if (mine.bidFor) return bad('오늘은 이미 청약했습니다.', 409);
   if (!mine.canBid) return bad('오늘 빵을 사면 청약할 수 있어요.', 403);
 
-  const counts = await bidIpo(round, candidate, member);
+  const counts = await bidIpo(round, candidate, member, mine.fillId ?? null);
+  if ('refused' in counts) return bad(counts.refused, 409);
   await spendBidRight(candidate, now);
   return NextResponse.json(
     { ok: true as const, round, ...counts, canBid: false, bidFor: candidate },

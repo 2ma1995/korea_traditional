@@ -221,13 +221,21 @@ export async function saveRound(input: RoundInput): Promise<{ id: string; stored
     throw new Error(`회차 저장 실패: ${error.message}`);
   }
 
-  await db.from('ipo_candidates').delete().eq('round_id', id);
+  /* 새 목록을 먼저 넣고, 빠진 후보만 지운다. 지우고 넣으면 넣기가 실패했을 때
+     (중복 id 등) 회차의 후보가 통째로 사라진다 */
   if (candidates.length) {
-    const { error: cErr } = await db.from('ipo_candidates').insert(candidates.map((c, i) => ({
+    const { error: cErr } = await db.from('ipo_candidates').upsert(candidates.map((c, i) => ({
       round_id: id, id: c.id, name: c.name, note: c.note || null,
       product_no: c.productNo, allotment: c.allotment, sort: i,
-    })));
+    })), { onConflict: 'round_id,id' });
     if (cErr) throw new Error(`후보 저장 실패: ${cErr.message}`);
+  }
+  const keep = new Set(candidates.map(c => c.id));
+  const { data: before } = await db.from('ipo_candidates').select('id').eq('round_id', id);
+  const stale = (before ?? []).map(row => row.id as string).filter(cid => !keep.has(cid));
+  if (stale.length) {
+    const { error: dErr } = await db.from('ipo_candidates').delete().eq('round_id', id).in('id', stale);
+    if (dErr) throw new Error(`빠진 후보 정리 실패: ${dErr.message}`);
   }
   return { id, stored: true };
 }
@@ -271,7 +279,7 @@ export async function loadIpoCounts(round: IpoRound): Promise<IpoCounts> {
  *   이 서비스에는 로그인이 없어 손님이 직접 적는다. 목적이 끝나면(쿠폰 발급)
  *   지워야 하는 개인정보다(0009 주석).
  */
-export async function bidIpo(round: IpoRound, candidate: string, member: string): Promise<IpoCounts> {
+export async function bidIpo(round: IpoRound, candidate: string, member: string, fillId: number | null = null): Promise<IpoCounts | { refused: string }> {
   const db = supabase();
   if (!db) {
     const counts = memCounts.get(round.id) ?? {};
@@ -279,6 +287,19 @@ export async function bidIpo(round: IpoRound, candidate: string, member: string)
     memCounts.set(round.id, counts);
     return loadIpoCounts(round);
   }
-  await db.from('ipo_bids').insert({ round: round.id, candidate, demo: false, member });
+  /* 구매가 증거금이다 — 청약권을 준 예약이 결제 없이 반납됐으면 받지 않는다 */
+  if (fillId === null) return { refused: '오늘 빵을 사면 청약할 수 있어요.' };
+  const { data: fill } = await db.from('fills').select('settled').eq('id', fillId).maybeSingle();
+  if (!fill || fill.settled === 'expired') return { refused: '결제하지 않고 반납된 예약이라 청약권이 사라졌어요.' };
+
+  const row = { round: round.id, candidate, demo: false, member, fill_id: fillId };
+  let { error } = await db.from('ipo_bids').insert(row);
+  /* 0016 전인 DB — 서명이 위조는 막으니 한 예약 한 청약 없이 예전처럼 넣는다 */
+  if (error && (error.code === '42703' || error.code === 'PGRST204')) {
+    ({ error } = await db.from('ipo_bids').insert({ ...row, fill_id: undefined }));
+  }
+  /* 같은 예약으로 두 번째 청약 — 쿠키를 되돌려 다시 냈거나 동시에 두 번 눌렀다 */
+  if (error?.code === '23505') return { refused: '오늘은 이미 청약했습니다.' };
+  if (error) throw new Error(`청약 저장 실패: ${error.message}`);
   return loadIpoCounts(round);
 }

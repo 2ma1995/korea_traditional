@@ -1,10 +1,8 @@
 import { requireAdmin } from '@/lib/adminAuth';
-import { getProduct, setProductPrice } from '@/lib/cafe24';
-import { discountVariants } from '@/lib/priceSync';
-import { loadProductLinks } from '@/lib/settings';
-import { requireSupabase } from '@/lib/supabase';
+import { seoulDateString } from '@/lib/market';
+import { applyPrices, priceSyncActive } from '@/lib/priceSync';
 import { MAX_DISCOUNT_RATE } from '@/data/indicators';
-import { PRODUCTS } from '@/data/products';
+import { PRODUCTS, type Product } from '@/data/products';
 
 /**
  * 오늘의 할인안을 자사몰에 반영한다.
@@ -13,15 +11,9 @@ import { PRODUCTS } from '@/data/products';
  * 관리자가 조정할 수 있어야 재고·기업 요청 같은 현실을 반영할 수 있다.
  * 다만 상한은 기업 확인값이라 여기서 다시 막는다. 화면을 우회해도 뚫리지 않게.
  *
- * 반영 전 자사몰의 원래 판매가를 함께 저장한다. 카페24는 이전 값을
- * 보관해 주지 않으므로, 우리가 적어두지 않으면 되돌릴 방법이 없다.
+ * 바꾸고 원가를 적는 일은 15:30 크론과 같은 함수(lib/priceSync.applyPrices)가 한다.
+ * 따로 두었더니 이 버튼만 스위치·중복 반영·서울 날짜를 안 보고 있었다.
  */
-
-/** 원 단위 절사 — 화면에 쓰는 규칙과 같아야 한다. */
-/* 10원 단위 절사. Math.round를 먼저 거치는 이유 — 21000 * (1 - 0.3)이 IEEE754에서
-   14699.999999999998이 되어 그냥 내리면 14,690원이 된다. 30% 할인인데 10원이 더
-   깎인 값이다. 90개 조합 중 8개에서 이렇게 어긋났다. */
-const floorTo10 = (won: number) => Math.floor(Math.round(won) / 10) * 10;
 
 interface Item { productNo: number; rate: number }
 
@@ -29,69 +21,37 @@ export async function POST(request: Request) {
   const denied = await requireAdmin();
   if (denied) return denied;
 
-  const body = (await request.json().catch(() => ({}))) as { items?: Item[]; date?: string };
-  const items = body.items ?? [];
+  /* 스위치가 꺼져 있으면 자정 복원도 꺼져 있다 — 여기서 바꾸면 할인가가 영영 남는다 */
+  if (!priceSyncActive()) {
+    return Response.json({ error: '가격 동기화 스위치가 꺼져 있습니다(DISCOUNT_DELIVERY=price, PRICE_SYNC=on). 자정 복원이 돌지 않아 반영하지 않습니다.' }, { status: 409 });
+  }
+
+  const body = (await request.json().catch(() => ({}))) as { items?: Item[] };
+  const items = Array.isArray(body.items) ? body.items : [];
   if (!items.length) return Response.json({ error: '반영할 제품이 없습니다.' }, { status: 400 });
 
-  const links = await loadProductLinks();
-  const applied: unknown[] = [];
-  const skipped: unknown[] = [];
-
+  const rows: { product: Product; rate: number }[] = [];
+  const unknown: { productNo: number; name: string; reason: string }[] = [];
   for (const item of items) {
-    const product = PRODUCTS.find(p => p.productNo === item.productNo);
-    if (!product) { skipped.push({ productNo: item.productNo, reason: '없는 제품' }); continue; }
-
-    const rate = Math.min(Math.max(item.rate, 0), MAX_DISCOUNT_RATE);
-    /* products.ts의 productNo는 makji.kr의 실제 카페24 상품번호다.
-       그래서 실제 몰에서는 연결표 없이 그대로 쓰면 맞다.
-       연결표는 상품번호가 다른 체험몰을 위한 우회로다. */
-    const cafe24No = links[item.productNo] ?? item.productNo;
-
-    try {
-      /* 할인은 자사몰의 현재 판매가를 기준으로 건다. products.ts 정가로 계산하면
-         자사몰 가격이 그 사이 바뀌었을 때 엉뚱한 금액이 걸린다. */
-      const before = await getProduct(cafe24No);
-      const target = floorTo10(Number(before.price) * (1 - rate));
-      const after = await setProductPrice(cafe24No, target);
-      applied.push({
-        productNo: item.productNo,
-        name: product.name,
-        cafe24ProductNo: cafe24No,
-        rate,
-        originalPrice: before.price,
-        newPrice: after.price,
-        /* 옵션 추가금도 같은 비율로 깎는다. 여기서 빼먹으면 이 버튼과 15:30 크론이
-           서로 다른 일을 한다 — 기본가만 깎인 날에는 "5개"를 고른 손님이 5%가
-           아니라 1.2%만 할인받는다(lib/cafe24.setVariantAmount) */
-        variants: await discountVariants(cafe24No, rate),
-      });
-    } catch (cause) {
-      skipped.push({
-        productNo: item.productNo,
-        name: product.name,
-        reason: cause instanceof Error ? cause.message : String(cause),
-      });
+    const product = PRODUCTS.find(p => p.productNo === item?.productNo);
+    const rate = Number(item?.rate);
+    if (!product || !Number.isFinite(rate)) {
+      unknown.push({ productNo: Number(item?.productNo), name: product?.name ?? '', reason: '없는 제품이거나 할인율이 숫자가 아닙니다' });
+      continue;
     }
+    rows.push({ product, rate: Math.min(Math.max(rate, 0), MAX_DISCOUNT_RATE) });
   }
 
-  // 원래 가격은 여기 적어둔 것이 유일한 기록이다
-  try {
-    const db = requireSupabase();
-    await db.from('daily_plans').upsert({
-      plan_date: body.date ?? new Date().toISOString().slice(0, 10),
-      rate: items[0]?.rate ?? 0,
-      headline: '관리자 반영',
-      items: applied,
-      status: applied.length ? 'published' : 'failed',
-      approved_at: new Date().toISOString(),
-      cafe24_note: skipped.length ? `건너뜀 ${skipped.length}건` : null,
-    }, { onConflict: 'plan_date' });
-  } catch (cause) {
-    return Response.json({
-      applied, skipped,
-      warning: `자사몰 반영은 됐지만 기록 저장에 실패했습니다 — 되돌리기 값을 잃을 수 있습니다: ${cause instanceof Error ? cause.message : String(cause)}`,
-    });
-  }
+  /* 날짜는 서버가 서울 기준으로 정한다 — UTC로 적으면 00~09시에 어제 기록을 덮고
+     자정 복원이 오늘 기록을 못 찾는다 */
+  const result = await applyPrices(seoulDateString(), rows, {
+    rate: rows[0]?.rate ?? 0, changePct: null, headline: '관리자 반영', reason: null, approvedBy: 'admin',
+  });
+  if (result.refused) return Response.json({ error: result.refused }, { status: 409 });
 
-  return Response.json({ applied, skipped });
+  return Response.json({
+    applied: result.applied,
+    skipped: [...unknown, ...result.skipped],
+    ...(result.note ? { warning: result.note } : {}),
+  });
 }

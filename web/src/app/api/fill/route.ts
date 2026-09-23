@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { grantBidRight } from '@/lib/bidRight';
 import { PRODUCTS } from '@/data/products';
@@ -8,8 +9,8 @@ import { demandBonusFor, inventoryBonusFor, skuRateFor } from '@/lib/skuAdjust';
 import { loadSkuSignals } from '@/lib/skuSignals';
 import { currentVisitorId, visitorId } from '@/lib/visitor';
 import { loadTiers } from '@/lib/settings';
-import { fetchStock } from '@/lib/stock';
-import { attachCoupon, loadFilledCounts, loadMyReservations, tryFill, type MyReservation } from '@/lib/fills';
+import { fetchStock, withSold } from '@/lib/stock';
+import { attachCoupon, loadFilledCounts, loadMyReservations, loadSoldCounts, tryFill, type MyReservation } from '@/lib/fills';
 import { issueCoupon } from '@/lib/coupon';
 import { adjustInventory } from '@/lib/inventory';
 import { allotmentFor, loadAllotments } from '@/lib/appSettings';
@@ -52,6 +53,21 @@ export async function GET() {
   } catch (cause) {
     return bad(cause instanceof Error ? cause.message : '예약 내역을 불러오지 못했습니다.', 503);
   }
+}
+
+/**
+ * 한 IP가 한 빵에 쥘 수 있는 자리 수. 기본 5 — 집·사무실·통신사 공유 IP를 생각해 넉넉히 둔다.
+ * 0이면 끈다. scripts/race-test.mjs는 한 컴퓨터에서 쉰 명을 흉내 내므로 FILL_PER_IP=0으로 돌린다.
+ * IP는 원문을 남기지 않고 서버 비밀로 해시한다.
+ */
+function ipGuard(request: Request): { hash: string; limit: number } | null {
+  const limit = Number(process.env.FILL_PER_IP ?? 5);
+  if (!Number.isFinite(limit) || limit <= 0) return null;
+  /* Vercel은 x-forwarded-for 첫 값을 실제 접속 IP로 덮어쓴다 */
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip');
+  if (!ip) return null;
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  return { hash: createHmac('sha256', secret).update(`ip:${ip}`).digest('hex').slice(0, 32), limit };
 }
 
 export async function POST(request: Request) {
@@ -112,10 +128,16 @@ export async function POST(request: Request) {
   /* 화면(lib/offers)과 같은 규칙으로 센다 — 자사몰 재고와 관리자 상한 중 작은 쪽.
      여기만 상한을 안 보면 화면이 "물량 끝"이라 해도 서버가 더 받아 준다 */
   const cap = allotmentFor((await loadAllotments()).value, productNo, unit);
-  const quantity = Math.min(stock.quantity[productNo] ?? Infinity, cap);
+  /* 재고는 **고른 옵션의** 재고다(lib/offers와 같다). 상품 전체 합을 쓰면 '5개' 옵션이
+     바닥나도 다른 옵션 재고로 계속 받는다. 팔린 만큼은 되돌려 더한다(withSold) */
+  const sold = withSold(stock, await loadSoldCounts(now));
+  const option = unit ? sold.options[productNo]?.find(item => item.code === unit) : undefined;
+  const shelf = option ? option.quantity : sold.quantity[productNo];
+  const quantity = Math.min(shelf ?? Infinity, cap);
 
   try {
-    const result = await tryFill(productNo, depth, quantity, now, visitor, unit);
+    const result = await tryFill(productNo, depth, quantity, now, visitor, unit, ipGuard(request));
+    if (result.limited) return bad('이 네트워크에서 이 빵을 이미 여러 개 예약했어요. 결제하거나 기한이 지나면 다시 예약할 수 있어요.', 429);
     /* 이미 잡고 있다(0015). 물량이 끝난 것과는 다른 일이라 다르게 말해야 한다 —
        "오늘 물량이 끝났습니다"라고 하면 손님이 자기 자리를 못 찾고 되돌아간다 */
     if (result.already) {
@@ -127,7 +149,7 @@ export async function POST(request: Request) {
       );
     }
     /* 오늘 산 사람에게 공모 청약권 한 장. 구매가 증거금 역할을 한다 (lib/bidRight) */
-    if (result.filled) await grantBidRight(now);
+    if (result.filled) await grantBidRight(result.id, now);
 
     /* 자리를 잡은 사람에게만 할인코드를 준다 — 화면 가격과 자사몰 결제가를 맞추는
        유일한 수단이다(lib/coupon). 발급이 실패해도 예약은 그대로 살린다.

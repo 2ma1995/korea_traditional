@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 /**
@@ -17,11 +18,20 @@ export function denyCron(request: Request): NextResponse | null {
       { status: 503, headers: { 'Cache-Control': 'no-store' } },
     );
   }
-  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!isCron(request)) {
     return NextResponse.json(
       { ok: false as const, error: '권한이 없습니다.' },
       { status: 401, headers: { 'Cache-Control': 'no-store' } },
     );
   }
   return null;
+}
+
+/** 크론 비밀이 맞는가. 한 글자씩 비교하면 응답 시간으로 비밀을 앞에서부터 알아낼 수 있어 상수 시간으로 본다 */
+export function isCron(request: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+  const got = Buffer.from(request.headers.get('authorization') ?? '');
+  const want = Buffer.from(`Bearer ${secret}`);
+  return got.length === want.length && timingSafeEqual(got, want);
 }

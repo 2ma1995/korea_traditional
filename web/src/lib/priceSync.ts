@@ -116,38 +116,15 @@ export async function publishToday(at: Date = new Date()): Promise<SyncReport> {
     return report;
   }
 
-  const links = await loadProductLinks();
-  for (const product of products) {
-    /* products.ts의 productNo는 makji.kr의 실제 카페24 상품번호다. 연결표는
-       상품번호가 다른 체험몰을 위한 우회로다 */
-    const cafe24No = links[product.productNo] ?? product.productNo;
-    try {
-      const before = await getProduct(cafe24No);
-      const target = floorTo10(Number(before.price) * (1 - rate));
-      const after = await setProductPrice(cafe24No, target);
-      report.applied.push({
-        productNo: product.productNo,
-        name: product.name,
-        cafe24ProductNo: cafe24No,
-        rate,
-        originalPrice: before.price,
-        newPrice: after.price,
-        variants: await discountVariants(cafe24No, rate),
-      });
-    } catch (cause) {
-      report.skipped.push({
-        productNo: product.productNo,
-        name: product.name,
-        reason: cause instanceof Error ? cause.message : String(cause),
-      });
-    }
-  }
-
-  /* 원가는 여기 적어둔 것이 유일한 기록이다 — 저장이 실패하면 복원할 방법이 없다 */
-  const saved = await record(date, rate, changePct, report.applied, report.skipped.length);
-  if (!saved) {
-    report.note = `⚠️ 자사몰은 바꿨지만 원가 기록 저장에 실패했습니다 — 자동 복원이 안 됩니다. 관리자 화면에서 손으로 되돌려야 합니다: ${report.applied.map(i => `${i.name} ${i.originalPrice}`).join(' · ')}`;
-  }
+  const result = await applyPrices(date, products.map(product => ({ product, rate })), {
+    rate, changePct,
+    headline: `자동 반영 · 전 상품 ${Math.round(rate * 100)}%`,
+    reason: `KOSPI ${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`,
+    approvedBy: 'cron',
+  });
+  report.applied = result.applied;
+  report.skipped = result.skipped;
+  report.note = result.refused ?? result.note;
   return report;
 }
 
@@ -258,25 +235,98 @@ async function planOnly(products: Product[], rate: number): Promise<SyncItem[]> 
   }));
 }
 
-async function record(
+interface PlanMeta { rate: number; changePct: number | null; headline: string; reason: string | null; approvedBy: string | null }
+
+/**
+ * 판매가를 바꾸고 원가를 적는다 — 15:30 크론과 관리자 버튼이 같이 쓴다.
+ *
+ * 두 가지를 지킨다.
+ *  ① 오늘 이미 바꿔둔 기록이 있으면 손대지 않는다. 두 번 누르거나 버튼과 크론이
+ *     겹치면, 이미 깎인 값을 "원가"로 읽고 또 깎은 뒤 그 값으로 기록을 덮어써서
+ *     진짜 원가가 사라졌다.
+ *  ② 원가를 **바꾸기 전에** 적는다. 바꾼 뒤에 적으면 그 사이 함수가 끊겼을 때
+ *     (maxDuration) 가격은 내려갔는데 되돌릴 근거가 없다. 먼저 적어둔 것을 못
+ *     바꿨다면 자정 복원이 같은 값을 한 번 더 쓸 뿐이라 해가 없다.
+ *
+ * ponytail: ①은 읽고 쓰는 사이가 잠겨 있지 않다 — 같은 초에 버튼과 크론이 동시에
+ *           들어오면 둘 다 통과한다. 그게 실제로 문제가 되면 plan_date insert로 잠근다.
+ * ponytail: 옵션 추가금은 여전히 바꾼 뒤에 적힌다(discountVariants). 끊기면 추가금만
+ *           깎인 채 남을 수 있다.
+ */
+export async function applyPrices(
   date: string,
-  rate: number,
-  changePct: number,
-  applied: SyncItem[],
-  skipped: number,
-): Promise<boolean> {
+  rows: { product: Product; rate: number }[],
+  meta: PlanMeta,
+): Promise<{ applied: SyncItem[]; skipped: SyncReport['skipped']; note: string | null; refused?: string }> {
+  const skipped: SyncReport['skipped'] = [];
+  const db = supabase();
+  if (!db) return { applied: [], skipped, note: null, refused: '저장소가 없어 원가를 적을 수 없습니다 — 되돌릴 수 없는 변경은 하지 않습니다.' };
+
+  const { data: existing, error: readError } = await db
+    .from('daily_plans').select('status, items').eq('plan_date', date).maybeSingle();
+  if (readError) return { applied: [], skipped, note: null, refused: `오늘 기록을 읽지 못했습니다: ${readError.message}` };
+  /* 복원이 끝난 날은 status가 draft다. 그 외에 원가가 적혀 있으면 아직 깎인 상태다 */
+  if (existing && existing.status !== 'draft' && (existing.items ?? []).length) {
+    return { applied: [], skipped, note: null, refused: `${date}에는 이미 판매가를 바꿔두었습니다. 자정 복원 전에 다시 걸면 깎인 값을 원가로 잃습니다.` };
+  }
+
+  const links = await loadProductLinks();
+  const recorded: SyncItem[] = [];
+  const applied: SyncItem[] = [];
+  let saved = true;
+
+  for (const { product, rate } of rows) {
+    /* products.ts의 productNo는 makji.kr의 실제 카페24 상품번호다. 연결표는
+       상품번호가 다른 체험몰을 위한 우회로다 */
+    const cafe24No = links[product.productNo] ?? product.productNo;
+    try {
+      /* 할인은 자사몰의 현재 판매가를 기준으로 건다 — 그 사이 기업이 가격을 바꿨을 수 있다 */
+      const before = await getProduct(cafe24No);
+      const target = floorTo10(Number(before.price) * (1 - rate));
+      const item: SyncItem = {
+        productNo: product.productNo, name: product.name, cafe24ProductNo: cafe24No, rate,
+        originalPrice: before.price, newPrice: String(target),
+      };
+      recorded.push(item);
+      if (!(await record(date, meta, recorded, skipped.length))) {
+        recorded.pop();
+        saved = false;
+        skipped.push({ productNo: product.productNo, name: product.name, reason: '원가 기록 저장 실패 — 바꾸지 않았습니다' });
+        continue;
+      }
+      const after = await setProductPrice(cafe24No, target);
+      item.newPrice = after.price;
+      item.variants = await discountVariants(cafe24No, rate);
+      applied.push(item);
+    } catch (cause) {
+      skipped.push({
+        productNo: product.productNo,
+        name: product.name,
+        reason: cause instanceof Error ? cause.message : String(cause),
+      });
+    }
+  }
+
+  /* 실제 판매가와 추가금 원가까지 담아 마무리한다 */
+  if (recorded.length && !(await record(date, meta, recorded, skipped.length))) saved = false;
+  const note = saved ? null
+    : `⚠️ 원가 기록 일부를 저장하지 못했습니다. 자정 복원이 빠뜨릴 수 있으니 확인하세요: ${applied.map(i => `${i.name} ${i.originalPrice}`).join(' · ')}`;
+  return { applied, skipped, note };
+}
+
+async function record(date: string, meta: PlanMeta, items: SyncItem[], skipped: number): Promise<boolean> {
   const db = supabase();
   if (!db) return false;
   const { error } = await db.from('daily_plans').upsert({
     plan_date: date,
-    rate,
-    kospi_change: changePct,
-    headline: `자동 반영 · 전 상품 ${Math.round(rate * 100)}%`,
-    reason: `KOSPI ${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`,
-    items: applied,
-    status: applied.length ? 'published' : 'failed',
+    rate: meta.rate,
+    kospi_change: meta.changePct,
+    headline: meta.headline,
+    reason: meta.reason,
+    items,
+    status: items.length ? 'published' : 'failed',
     approved_at: new Date().toISOString(),
-    approved_by: 'cron',
+    approved_by: meta.approvedBy,
     cafe24_note: skipped ? `건너뜀 ${skipped}건` : null,
   }, { onConflict: 'plan_date' });
   return !error;

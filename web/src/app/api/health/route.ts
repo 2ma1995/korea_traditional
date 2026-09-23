@@ -1,4 +1,6 @@
+import { isAdmin } from '@/lib/adminAuth';
 import { cafe24Config, getProduct, SCOPES } from '@/lib/cafe24';
+import { isCron } from '@/lib/cronAuth';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -9,10 +11,16 @@ import { supabase } from '@/lib/supabase';
  * 설정이 틀린 채로 인증을 시도하면 그 횟수를 그냥 버리게 된다.
  *
  * 값은 절대 돌려주지 않는다 — 있는지 없는지(boolean)와 개수만 본다.
+ *
+ * 관리자 로그인이나 CRON_SECRET이 있어야 연다. 열어두면 아무나 토큰 만료 시각을
+ * 보고, ?product=로 카페24 호출(토큰 갱신 포함)을 일으킬 수 있었다.
  */
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  if (!isCron(request) && !(await isAdmin())) {
+    return Response.json({ error: '관리자 로그인이 필요합니다.' }, { status: 401 });
+  }
   const cafe24 = cafe24Config();
   const db = supabase();
 

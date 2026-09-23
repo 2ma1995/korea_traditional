@@ -1,5 +1,6 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
-import { cookies } from 'next/headers';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { cookies, headers } from 'next/headers';
+import { loadSetting, saveSetting } from '@/lib/appSettings';
 
 /**
  * 관리자 잠금.
@@ -50,7 +51,50 @@ export async function isAdmin(): Promise<boolean> {
   const [expiryText, signature] = raw.split('.');
   const expiry = Number(expiryText);
   if (!Number.isFinite(expiry) || expiry < Date.now()) return false;
-  return sameString(signature ?? '', sign(expiry));
+  if (!sameString(signature ?? '', sign(expiry))) return false;
+  /* 로그아웃 전에 발급된 쿠키는 버린다. 지우기만 하면 복사해둔 쿠키가 12시간 산다 */
+  const loggedOut = (await loadSetting(LOGOUT_KEY, 0, asNumber)).value;
+  return expiry - TTL_MS >= loggedOut;
+}
+
+const LOGOUT_KEY = 'admin_logout_at';
+const asNumber = (raw: unknown) => (typeof raw === 'number' && Number.isFinite(raw) ? raw : null);
+
+/** 로그아웃 — 그 전에 발급된 관리자 쿠키를 전부 무효로 만든다(비밀번호가 하나라 모두 같은 사람이다) */
+export async function revokeAll(): Promise<void> {
+  await saveSetting(LOGOUT_KEY, Date.now());
+}
+
+/* ── 로그인 시도 제한 ──
+   비밀번호 하나로 막는 문이라 무한히 대입하면 언젠가 열린다. IP마다 15분에 5번까지.
+   서버가 여러 대라 메모리가 아니라 app_settings에 센다. IP는 해시만 남긴다 */
+const FAIL_LIMIT = 5;
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+interface Fails { count: number; since: number }
+const asFails = (raw: unknown): Fails | null => {
+  const v = raw as Fails | null;
+  return v && typeof v.count === 'number' && typeof v.since === 'number' ? v : null;
+};
+
+async function failKey(): Promise<string> {
+  const ip = (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  return `admin_login_fail:${createHash('sha256').update(ip).digest('hex').slice(0, 16)}`;
+}
+
+/** 막혀 있으면 풀리기까지 남은 분, 아니면 null */
+export async function loginLocked(): Promise<number | null> {
+  const { value } = await loadSetting(await failKey(), null as Fails | null, asFails);
+  if (!value || value.count < FAIL_LIMIT) return null;
+  const left = value.since + FAIL_WINDOW_MS - Date.now();
+  return left > 0 ? Math.ceil(left / 60000) : null;
+}
+
+export async function recordLogin(ok: boolean): Promise<void> {
+  const key = await failKey();
+  if (ok) { await saveSetting(key, { count: 0, since: Date.now() }); return; }
+  const { value } = await loadSetting(key, null as Fails | null, asFails);
+  const fresh = !value || Date.now() - value.since > FAIL_WINDOW_MS;
+  await saveSetting(key, fresh ? { count: 1, since: Date.now() } : { count: value.count + 1, since: value.since });
 }
 
 /** API 라우트용. 통과하지 못하면 401 응답을 돌려준다(그때 null이 아님). */

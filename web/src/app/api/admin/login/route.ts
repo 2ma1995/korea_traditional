@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { checkPassword, issueCookie } from '@/lib/adminAuth';
+import { checkPassword, issueCookie, loginLocked, recordLogin } from '@/lib/adminAuth';
 
 /** 관리자 로그인. 비밀번호가 맞으면 서명 쿠키를 심는다. */
 export async function POST(request: Request) {
@@ -11,9 +11,11 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
-  if (!password || !checkPassword(password)) {
-    return Response.json({ error: '비밀번호가 맞지 않습니다.' }, { status: 401 });
-  }
+  const locked = await loginLocked();
+  if (locked) return Response.json({ error: `시도가 너무 많습니다. ${locked}분 뒤에 다시 하세요.` }, { status: 429 });
+  const ok = !!password && checkPassword(password);
+  await recordLogin(ok);
+  if (!ok) return Response.json({ error: '비밀번호가 맞지 않습니다.' }, { status: 401 });
 
   const cookie = issueCookie();
   (await cookies()).set(cookie.name, cookie.value, {

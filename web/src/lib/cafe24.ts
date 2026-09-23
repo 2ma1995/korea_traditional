@@ -189,31 +189,46 @@ export async function exchangeCode(code: string): Promise<void> {
  * 서버(UTC)에서 9시간 어긋나게 읽힌다. 그래서 adminApi가 401을 받으면
  * force로 다시 부른다.
  */
-export async function accessToken(force = false): Promise<string> {
-  const { mallId } = requireCafe24Config();
-  const db = requireSupabase();
-  const { data, error } = await db
+async function storedToken(mallId: string) {
+  const { data, error } = await requireSupabase()
     .from('cafe24_tokens')
     .select('access_token, refresh_token, expires_at')
     .eq('mall_id', mallId)
     .maybeSingle();
-
   if (error) throw new Error(`토큰 조회 실패: ${error.message}`);
   if (!data) {
     throw new Error('카페24 인증이 아직 안 됐습니다. /api/cafe24/authorize 를 한 번 열어 인증하세요.');
   }
+  return data as { access_token: string; refresh_token: string; expires_at: string };
+}
+
+/* 같은 인스턴스에서 동시에 갱신하지 않게 하나로 묶는다 — 갱신은 2시간 15회 제한이 있고,
+   갱신하면 이전 refresh_token이 무효가 되어 뒤따른 갱신은 어차피 실패한다 */
+let refreshing: Promise<string> | null = null;
+
+export async function accessToken(force = false): Promise<string> {
+  const { mallId } = requireCafe24Config();
+  const data = await storedToken(mallId);
 
   const expiresAt = new Date(data.expires_at).getTime();
   if (!force && Number.isFinite(expiresAt) && expiresAt - Date.now() > REFRESH_MARGIN_MS) {
     return data.access_token;
   }
 
-  const refreshed = await requestToken({
-    grant_type: 'refresh_token',
-    refresh_token: data.refresh_token,
-  });
-  await saveToken(mallId, refreshed);
-  return refreshed.access_token;
+  refreshing ??= (async () => {
+    try {
+      const refreshed = await requestToken({ grant_type: 'refresh_token', refresh_token: data.refresh_token });
+      await saveToken(mallId, refreshed);
+      return refreshed.access_token;
+    } catch (cause) {
+      /* 다른 인스턴스가 먼저 갱신했으면 우리 refresh_token은 이미 죽었다.
+         저장소에 새 토큰이 있으면 그걸 쓴다 */
+      const latest = await storedToken(mallId);
+      if (latest.refresh_token !== data.refresh_token) return latest.access_token;
+      throw cause;
+    }
+  })().finally(() => { refreshing = null; });
+  return refreshing;
 }
 
 /**

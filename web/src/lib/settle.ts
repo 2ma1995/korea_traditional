@@ -60,13 +60,17 @@ export async function sweepExpired(at: Date = new Date()): Promise<SweepResult> 
       if (used === null) { result.held += 1; continue; }
 
       if (used) {
-        await db.from('fills').update({ settled: 'paid' }).eq('id', row.id);
+        await db.from('fills').update({ settled: 'paid' }).eq('id', row.id).eq('settled', 'open');
         result.paid += 1;
         continue;
       }
 
-      /* 자리를 반납한다. slot을 비워야 그 번호를 다음 사람이 쓸 수 있다(0012) */
-      await db.from('fills').update({ settled: 'expired', slot: null }).eq('id', row.id);
+      /* 자리를 반납한다. slot을 비워야 그 번호를 다음 사람이 쓸 수 있다(0012).
+         inFlight는 이 인스턴스 안에서만 통한다 — 인스턴스 둘이 같은 줄을 동시에
+         반납하면 재고가 두 번 돌아온다. 'open'인 줄을 실제로 바꾼 쪽만 되돌린다 */
+      const { data: closed } = await db.from('fills').update({ settled: 'expired', slot: null })
+        .eq('id', row.id).eq('settled', 'open').select('id');
+      if (!closed?.length) continue;
       /* 잡았던 그 품목으로 돌려놓는다 — 첫 품목에 얹으면 재고가 옮겨 붙는다 */
       await adjustInventory(row.product_no, +1, row.unit ?? null);
       await revokeHere(db, row.coupon_code);

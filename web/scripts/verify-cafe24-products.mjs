@@ -21,7 +21,7 @@ for (const no of Object.keys(WANT).map(Number).sort((a,b)=>a-b)) {
   const live = p.selling === 'T' && p.display === 'T';
   const okName = p.product_name === name, okPrice = Math.round(Number(p.price)) === price, okStock = live === inStock;
   const good = okName && okPrice && okStock;
-  good ? pass++ : fail++;
+  if (good) pass++; else fail++;
   console.log(`${String(no).padStart(3)}   ${p.product_name.padEnd(18)} ${String(Math.round(Number(p.price))).padStart(6)}원   ${p.selling}/${p.display}      ${live?'판매중':'품절  '}       ${inStock?'판매중':'품절  '}   ${good?'✅':'❌ '+[!okName&&'이름',!okPrice&&'가격',!okStock&&'재고'].filter(Boolean).join(',')}`);
 }
 console.log(`\n${fail===0?'전부 일치':'불일치 있음'} — ${pass}/${pass+fail}`);

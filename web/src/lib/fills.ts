@@ -49,6 +49,8 @@ const MAX_ATTEMPTS = 60;
 let hasExpiry: boolean | null = null;
 /** 0013(fills.unit) 전인 DB를 만나면 false가 되어, 품목 없이 예전처럼 넣는다 */
 let hasUnit: boolean | null = null;
+/* 0017(fills.ip_hash) 전인 DB면 false — IP 한도 없이 예전처럼 넣는다 */
+let hasIp: boolean | null = null;
 /**
  * 결제 기한 — 예약하고 이만큼 안에 결제하지 않으면 자리를 반납한다.
  *
@@ -80,6 +82,8 @@ export interface FillResult {
   expiresAt: string | null;
   /** 예약 줄의 id. 발급한 할인코드를 붙일 때 쓴다 */
   id: number | null;
+  /** 같은 IP가 이 빵을 이미 여러 자리 쥐고 있다(0017) */
+  limited?: boolean;
 }
 
 /** 방문자 쿠키로 확인한 본인의 오늘 예약만 돌려준다. */
@@ -143,6 +147,38 @@ export async function loadFilledCounts(at: Date = new Date()): Promise<Record<st
     counts[key] = (counts[key] ?? 0) + 1;
   }
   return counts;
+}
+
+/**
+ * 오늘 자사몰 재고에서 이미 빠진 예약 수 — 상품별, 옵션별.
+ *
+ * 한도는 min(자사몰 재고, 관리자 상한) - 잡힌 자리다. 그런데 결제된 예약은
+ * 카페24 재고에서 한 번, 잡힌 자리에서 또 한 번 빠진다 — 재고 10개에 셋이 사면
+ * 7 - 3 = 4자리만 남았다. 빠진 만큼 재고에 되돌려 더해야 한 번만 센다(lib/stock.withSold).
+ *
+ * INVENTORY_SYNC=on이면 예약하는 순간 재고를 깎으므로 열린 예약도 이미 빠진 것이다.
+ *
+ * ponytail: 결제됐어도 기한이 지나 정산되기 전(최대 1시간)은 'open'이라 여기 안 잡힌다.
+ *           그동안은 한 자리 적게 보인다 — 더 팔지 않는 쪽으로 틀린다.
+ */
+export async function loadSoldCounts(at: Date = new Date()): Promise<Record<number, { total: number; byUnit: Record<string, number> }>> {
+  const db = supabase();
+  if (!db || hasExpiry === false) return {};
+  const states = process.env.INVENTORY_SYNC === 'on' ? ['paid', 'open'] : ['paid'];
+  const query = db.from('fills').select(hasUnit === false ? 'product_no' : 'product_no, unit')
+    .eq('day', seoulDateString(at)).in('settled', states);
+  const { data, error } = await query;
+  if (error) {
+    if (missingColumn(error.code) && hasUnit !== false) { hasUnit = false; return loadSoldCounts(at); }
+    return {};
+  }
+  const sold: Record<number, { total: number; byUnit: Record<string, number> }> = {};
+  for (const row of (data ?? []) as unknown as { product_no: number; unit?: string | null }[]) {
+    const entry = sold[row.product_no] ??= { total: 0, byUnit: {} };
+    entry.total += 1;
+    if (row.unit) entry.byUnit[row.unit] = (entry.byUnit[row.unit] ?? 0) + 1;
+  }
+  return sold;
 }
 
 export interface WeekReport {
@@ -304,19 +340,21 @@ export async function loadFilled(at: Date = new Date()): Promise<FilledLookup> {
  * "1개 30 · 3개 30 · 5개 30"인 빵에서 서른 명이 모두 '5개'를 골라도 통과한다.
  * 옵션이 없는 상품은 unit이 null이고, 그때는 null인 줄만 센다.
  */
-async function countFilled(productNo: number, depth: number, day: string, unit: string | null = null): Promise<number> {
+/** 지금 쥐고 있는 slot 번호들. 반납한 줄은 slot이 null이라(0012) 빠진다 */
+async function takenSlots(productNo: number, depth: number, day: string, unit: string | null = null): Promise<Set<number>> {
   const db = supabase();
-  if (!db) return memory.get(memKey(day, productNo, depth, unit)) ?? 0;
-  let base = db.from('fills').select('id', { count: 'exact', head: true })
-    .eq('day', day).eq('product_no', productNo).eq('depth', depth.toFixed(3));
+  if (!db) return new Set();
+  let base = db.from('fills').select('slot')
+    .eq('day', day).eq('product_no', productNo).eq('depth', depth.toFixed(3))
+    .not('slot', 'is', null);
   if (hasUnit !== false) base = unit ? base.eq('unit', unit) : base.is('unit', null);
-  const { count, error } = await (hasExpiry === false ? base : base.neq('settled', 'expired'));
-  if (error && missingColumn(error.code)) {
+  const { data, error } = await base;
+  if (error && missingColumn(error.code) && hasUnit !== false) {
     /* 0013·0015 전인 DB다. 옵션 없이 예전처럼 센다 */
-    if (hasUnit !== false) { hasUnit = false; return countFilled(productNo, depth, day, unit); }
-    if (hasExpiry !== false) { hasExpiry = false; return countFilled(productNo, depth, day, unit); }
+    hasUnit = false;
+    return takenSlots(productNo, depth, day, unit);
   }
-  return count ?? 0;
+  return new Set((data ?? []).map((r: { slot: number }) => r.slot));
 }
 
 /** 메모리로 한 자리 잡는다. 수량이 남아 있으면 체결이다 */
@@ -340,8 +378,8 @@ function fillInMemory(productNo: number, depth: number, quantity: number, day: s
 /**
  * 체결을 시도한다.
  *
- * 채워진 수 + 1을 slot으로 넣는다. 같은 순간 다른 사람이 같은 slot을 넣으면
- * unique 위반(23505)으로 한 명이 튕기고, 튕긴 쪽은 **다음 칸으로 한 칸 올라가** 다시 넣는다.
+ * 비어 있는 가장 작은 slot을 넣는다. 같은 순간 다른 사람이 같은 slot을 넣으면
+ * unique 위반(23505)으로 한 명이 튕기고, 튕긴 쪽은 **다음 빈 칸으로 올라가** 다시 넣는다.
  *
  * 튕길 때마다 다시 세면 안 된다. 밀린 사람들이 같은 값을 읽어 또 같은 자리로 몰리고,
  * 두 번 만에 포기하게 해두면 자리가 남았는데 아무도 못 들어간다 —
@@ -367,48 +405,67 @@ export async function tryFill(
   visitor: string | null = null,
   /* 자사몰 품목코드. 재고는 품목 단위로 세므로, 반납할 때 되돌릴 대상도 이것이다(0013) */
   unit: string | null = null,
+  /* 접속 IP의 해시와 한 IP가 한 빵에 쥘 수 있는 자리 수. 방문자 쿠키는 지우면 새로
+     생겨서, 쿠키 없이 서른 번 부르면 서른 자리가 결제 없이 다 찼다. 자리처럼
+     (day, product_no, ip_hash, ip_seq) unique로 막아 동시에 쏴도 못 넘는다(0017) */
+  ip: { hash: string; limit: number } | null = null,
 ): Promise<FillResult> {
   const db = supabase();
   const day = seoulDateString(at);
   if (!db) return fillInMemory(productNo, depth, quantity, day, unit, visitor);
+  let ipSeq = 1;
 
   /* 처음 한 번만 세고, 부딪히면 다음 자리로 한 칸씩 올라간다.
      매번 다시 세면 경합에 밀린 사람들이 같은 자리로 또 몰려 아무도 못 들어간다 */
-  let slot = (await countFilled(productNo, depth, day, unit)) + 1;
+  /* 빈 번호를 아래부터 채운다. "채워진 수 + 1"로 잡으면 반납으로 생긴 구멍
+     (30자리 중 3번이 비면 29+1=30번만 노린다)을 영영 못 채운다 */
+  const taken = await takenSlots(productNo, depth, day, unit);
+  const free: number[] = [];
+  for (let n = 1; n <= quantity; n++) if (!taken.has(n)) free.push(n);
+  let next = 0;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    if (slot > quantity) return { filled: false, remaining: 0, slot: null, stored: true, expiresAt: null, id: null };
+    const slot = free[next];
+    if (slot === undefined) return { filled: false, remaining: 0, slot: null, stored: true, expiresAt: null, id: null };
 
     const expires = expiryFor(at);
     const row: Record<string, unknown> = { day, product_no: productNo, depth: depth.toFixed(3), slot, visitor };
     if (hasUnit !== false && unit) row.unit = unit;
     /* 0012 전이면 열이 없다 — 기한 없이 예전처럼 넣는다 */
     if (hasExpiry !== false) row.expires_at = expires.toISOString();
+    if (ip && hasIp !== false) { row.ip_hash = ip.hash; row.ip_seq = ipSeq; }
 
     const { data, error } = await db.from('fills').insert(row).select('id').single();
 
     if (!error) {
       hasExpiry ??= true;
       return {
-        filled: true, remaining: quantity - slot, slot, stored: true,
+        filled: true, remaining: free.length - next - 1, slot, stored: true,
         expiresAt: hasExpiry === false ? null : expires.toISOString(),
         id: (data as { id: number } | null)?.id ?? null,
       };
     }
     if (missingColumn(error.code) && hasUnit !== false && unit) { hasUnit = false; continue; }
     if (missingColumn(error.code) && hasExpiry !== false) { hasExpiry = false; continue; }
+    if (missingColumn(error.code) && ip && hasIp !== false) { hasIp = false; continue; }
     /* 표가 아직 없다 — 마이그레이션 전이다. 품절이라 거짓말하지 않고 메모리로 받는다 */
     if (missingTable(error.code)) return fillInMemory(productNo, depth, quantity, day, unit, visitor);
     if (error.code !== '23505') throw new Error(`체결 저장 실패: ${error.message}`);
     /* 한 사람 한 자리(0015)에 걸린 것이면 다시 세도 소용없다 — 이미 잡고 있다.
        다시 세면 매번 새 slot을 만들어 두 번 튕기고 "물량 끝"이라 거짓말한다 */
     if (/fills_one_per_visitor/.test(`${error.message} ${error.details ?? ''}`)) {
-      return { filled: false, remaining: Math.max(0, quantity - slot + 1), slot: null, stored: true, expiresAt: null, id: null, already: true };
+      return { filled: false, remaining: free.length - next, slot: null, stored: true, expiresAt: null, id: null, already: true };
+    }
+    /* 이 IP가 쓴 번호다 — 다음 번호로. 한도를 넘으면 자리가 남아도 안 준다 */
+    if (/fills_ip_seq/.test(`${error.message} ${error.details ?? ''}`)) {
+      ipSeq += 1;
+      if (ip && ipSeq > ip.limit) return { filled: false, remaining: free.length - next, slot: null, stored: true, expiresAt: null, id: null, limited: true };
+      continue;
     }
     /* 자리 경합 — 누가 먼저 잡았다. 그 자리는 이제 확실히 찼으니 다음 칸으로 올라간다.
        여기서 다시 세면 밀린 사람들이 같은 값을 읽어 또 같은 자리로 몰린다 —
        쉰 명이 서른 자리에 달려들 때 열두 명만 들어가던 것이 그 때문이었다 */
-    slot += 1;
+    next += 1;
   }
 
   return { filled: false, remaining: 0, slot: null, stored: true, expiresAt: null, id: null };

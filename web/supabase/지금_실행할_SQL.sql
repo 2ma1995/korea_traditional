@@ -1,11 +1,13 @@
 -- ============================================================================
--- 지금 실행할 SQL — 0005 ~ 0012 한 장
+-- 지금 실행할 SQL — 0005 ~ 0017 한 장
 --
 --   어디서   Supabase 대시보드 → SQL Editor → 붙여넣고 Run
 --   무엇을   예약(fills) · 공모 청약(ipo_bids) · 관심 담기(watches)
 --            운영 스위치(app_settings) · 공모 회차(ipo_rounds · ipo_candidates)
 --            주말 배당 재료(fills.visitor · visits) · 할인코드(coupons)
---            예약 결제 기한(fills.expires_at · settled)
+--            예약 결제 기한(fills.expires_at · settled) · 웹 푸시(push_subscriptions)
+--            한 예약 한 청약(ipo_bids.fill_id) · 한 IP 자리 한도(fills.ip_hash)
+--   범위     0005 ~ 0017 (migrations/ 폴더와 같다 — 새 마이그레이션을 만들면 여기도 붙인다)
 --   왜       없으면 전부 **서버 메모리에만** 저장된다. 서버가 재시작되면 사라진다.
 --            화면은 정상 동작하고 "이번 서버 세션의 메모리에만 기록됩니다"라고 밝힌다.
 --
@@ -255,10 +257,47 @@ create unique index if not exists fills_slot_unique
 comment on index fills_slot_unique is '선착순 경합 잠금. 옵션(unit)까지 보고 센다 — 0015';
 
 -- ② 한 사람 한 자리
+--    이 인덱스가 막으려던 버그로 이미 중복 예약이 쌓여 있으면 인덱스 생성이 실패하고
+--    begin~commit 전체가 되돌아간다. 먼저 정리한다 — 같은 사람·같은 날·같은 빵에서
+--    결제된 줄이나 가장 먼저 잡은 줄만 남기고, 나머지 '열린' 줄은 반납 처리한다.
+update fills f set settled = 'expired', slot = null
+where f.visitor is not null and f.settled = 'open'
+  and exists (
+    select 1 from fills g
+    where g.day = f.day and g.product_no = f.product_no and g.visitor = f.visitor
+      and g.id <> f.id and g.settled is distinct from 'expired'
+      and (g.settled = 'paid' or g.id < f.id)
+  );
 create unique index if not exists fills_one_per_visitor
   on fills (day, product_no, visitor)
   where visitor is not null and settled is distinct from 'expired';
 comment on index fills_one_per_visitor is '같은 날 같은 빵은 한 사람당 한 자리. 반납된 예약은 비켜 간다 — 0015';
+
+-- ── 0014 · 웹 푸시 구독 ──────────────────────────────────────────────────────
+create table if not exists push_subscriptions (
+  id          bigserial primary key,
+  visitor     text not null,
+  endpoint    text not null unique,
+  p256dh      text not null,
+  auth        text not null,
+  created_at  timestamptz not null default now(),
+  failed_at   timestamptz
+);
+comment on table push_subscriptions is '웹 푸시 구독. endpoint가 신원 — lib/push.ts';
+create index if not exists push_subscriptions_visitor_idx on push_subscriptions (visitor);
+
+-- ── 0016 · 한 예약 한 청약 ───────────────────────────────────────────────────
+alter table ipo_bids add column if not exists fill_id bigint;
+create unique index if not exists ipo_bids_fill_once on ipo_bids (fill_id);
+comment on column ipo_bids.fill_id is '청약권을 준 예약(fills.id). 한 예약 한 청약 — 0016';
+
+-- ── 0017 · 한 IP 한 빵 N자리 ─────────────────────────────────────────────────
+alter table fills add column if not exists ip_hash text;
+alter table fills add column if not exists ip_seq  smallint;
+create unique index if not exists fills_ip_seq
+  on fills (day, product_no, ip_hash, ip_seq)
+  where ip_hash is not null and settled <> 'expired';
+comment on index fills_ip_seq is '한 IP 한 빵 N자리 — 0017';
 
 -- ── 권한 · RLS ──────────────────────────────────────────────────────────────
 -- RLS는 정책 없이 켜 둔다. anon 키로는 아무것도 안 보이고 service_role만 통과한다.
@@ -274,6 +313,7 @@ alter table app_settings   enable row level security;
 alter table ipo_rounds     enable row level security;
 alter table ipo_candidates enable row level security;
 alter table coupons        enable row level security;
+alter table push_subscriptions enable row level security;
 
 commit;
 
@@ -301,6 +341,7 @@ select * from (
     ('ipo_candidates', '0009', '후보 빵 — lib/ipo.ts'),
   ('coupons',        '0011', '할인코드 — lib/coupon.ts'),
     ('visits',         '0010', '거래일 출석 — lib/visits.ts'),
+    ('push_subscriptions', '0014', '웹 푸시 — lib/push.ts'),
     ('daily_plans',    '0001', '자사몰 가격 복원 — lib/priceSync.ts'),
     ('cafe24_tokens',  '0001', '카페24 토큰 — lib/cafe24.ts'),
     ('discount_tiers', '0002', '할인 구간 — lib/settings.ts'),
@@ -324,7 +365,10 @@ select * from (
     ('ipo_bids', 'mode',    'ipo_bids.mode',    '0006', '회차 모드 — 없으면 청약 insert 실패'),
     ('ipo_bids', 'member',  'ipo_bids.member',  '0006', '청약자 — lib/ipo.ts'),
     ('fills',    'visitor', 'fills.visitor',    '0010', '구매 표식 — 주간 활동점수'),
-    ('fills',    'unit',    'fills.unit',       '0013', '자사몰 품목 — lib/inventory.ts')
+    ('fills',    'unit',    'fills.unit',       '0013', '자사몰 품목 — lib/inventory.ts'),
+    ('fills',    'expires_at', 'fills.expires_at', '0012', '결제 기한 — lib/settle.ts'),
+    ('ipo_bids', 'fill_id', 'ipo_bids.fill_id', '0016', '한 예약 한 청약 — lib/ipo.ts'),
+    ('fills',    'ip_hash', 'fills.ip_hash',    '0017', 'IP 자리 한도 — api/fill')
   ) as want(tbl, col, label, made_by, used_by)
   left join information_schema.columns col
     on  col.table_schema = 'public'

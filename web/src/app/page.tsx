@@ -2,7 +2,7 @@ import Market from '@/components/Market';
 import MarketIntro from '@/components/MarketIntro';
 import { PRODUCTS } from '@/data/products';
 import { weeklyScoreFor } from '@/lib/dividend';
-import { loadFilled, loadWeekReport } from '@/lib/fills';
+import { loadFilled, loadSoldCounts, loadWeekReport } from '@/lib/fills';
 import { fetchKospiHistory, getMarketSnapshot, seoulDateString } from '@/lib/market';
 import { buildToday } from '@/lib/offers';
 import { OPEN_AT } from '@/lib/orderbook';
@@ -13,7 +13,7 @@ import { currentRound, loadIpoCounts } from '@/lib/ipo';
 import { loadSkuSignals } from '@/lib/skuSignals';
 import { currentVisitorId } from '@/lib/visitor';
 import { recordVisit } from '@/lib/visits';
-import { applyStock, fetchStock } from '@/lib/stock';
+import { applyStock, fetchStock, withSold } from '@/lib/stock';
 
 /**
  * 빵장 — 서버는 오늘의 재료를 모아 넘기기만 한다.
@@ -37,7 +37,7 @@ export default async function BreadMarketPage() {
   ]);
   /* 재고는 자사몰에서 받아온다 — products.ts의 값은 마지막 안전망이다.
      손으로 적어둔 값이 열흘 묵어 생지를 품절로 걸러낸 적이 있다. */
-  const products = applyStock(PRODUCTS, stock);
+  const products = applyStock(PRODUCTS, withSold(stock, await loadSoldCounts(now)));
   const today = buildToday(market, tiers, filled, now, products, signals, allotments.value);
 
   /* 휴장일(주말)에는 가격이 움직이지 않는다. 대신 이번 주 빵장이 어땠는지를 보여준다.
