@@ -82,6 +82,43 @@ export interface FillResult {
   id: number | null;
 }
 
+/** 방문자 쿠키로 확인한 본인의 오늘 예약만 돌려준다. */
+export interface MyReservation {
+  productNo: number;
+  depth: number;
+  unit: string | null;
+  slot: number | null;
+  stored: boolean;
+  expiresAt: string | null;
+  settled: 'open' | 'paid';
+  coupon: { code: string; rate: number } | null;
+}
+
+// ponytail: 저장소 없는 개발 세션에서만 유지. 운영 복원은 fills 테이블을 사용한다.
+const memoryReservations = new Map<string, MyReservation>();
+
+export async function loadMyReservations(visitor: string | null, at: Date = new Date()): Promise<MyReservation[]> {
+  if (!visitor) return [];
+  const day = seoulDateString(at);
+  const prefix = `${day}:${visitor}:`;
+  const fallback = () => [...memoryReservations].filter(([key]) => key.startsWith(prefix)).map(([, value]) => value);
+  const db = supabase();
+  if (!db) return fallback();
+  const { data, error } = await db.from('fills')
+    .select('product_no, depth, unit, slot, expires_at, settled, coupon_code')
+    .eq('visitor', visitor).eq('day', day).neq('settled', 'expired');
+  if (error) {
+    if (missingTable(error.code) || missingColumn(error.code)) return fallback();
+    throw new Error('예약 내역을 불러오지 못했습니다. 잠시 뒤 다시 확인해 주세요.');
+  }
+  return (data ?? []).map(row => ({
+    productNo: row.product_no, depth: Number(row.depth), unit: row.unit ?? null,
+    slot: row.slot, stored: true, expiresAt: row.expires_at,
+    settled: row.settled === 'paid' ? 'paid' : 'open',
+    coupon: row.coupon_code ? { code: row.coupon_code, rate: Number(row.depth) } : null,
+  }));
+}
+
 /** "productNo:depth" → 오늘 체결 수. 클라이언트가 그대로 받아 잔량을 계산한다 */
 export async function loadFilledCounts(at: Date = new Date()): Promise<Record<string, number>> {
   const day = seoulDateString(at);
@@ -197,7 +234,9 @@ function memoryCounts(day: string): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const [key, n] of memory) {
     if (!key.startsWith(`${day}:`)) continue;
-    counts[key.slice(day.length + 1)] = n;
+    const [, productNo, depth] = key.split(':');
+    const group = `${productNo}:${depth}`;
+    counts[group] = (counts[group] ?? 0) + n;
   }
   return counts;
 }
@@ -281,12 +320,19 @@ async function countFilled(productNo: number, depth: number, day: string, unit: 
 }
 
 /** 메모리로 한 자리 잡는다. 수량이 남아 있으면 체결이다 */
-function fillInMemory(productNo: number, depth: number, quantity: number, day: string, unit: string | null = null): FillResult {
+function fillInMemory(productNo: number, depth: number, quantity: number, day: string, unit: string | null = null, visitor: string | null = null): FillResult {
+  const visitorKey = `${day}:${visitor}:${productNo}`;
+  if (visitor && memoryReservations.has(visitorKey)) {
+    return { filled: false, remaining: 0, slot: null, stored: false, expiresAt: null, id: null, already: true };
+  }
   const key = memKey(day, productNo, depth, unit);
   const filled = memory.get(key) ?? 0;
   if (filled >= quantity) return { filled: false, remaining: 0, slot: null, stored: false, expiresAt: null, id: null };
   const slot = filled + 1;
   memory.set(key, slot);
+  if (visitor) memoryReservations.set(visitorKey, {
+    productNo, depth, unit, slot, stored: false, expiresAt: null, settled: 'open', coupon: null,
+  });
   /* 메모리 폴백에는 기한이 없다 — 저장소가 없으면 반납 처리도 못 한다 */
   return { filled: true, remaining: quantity - slot, slot, stored: false, expiresAt: null, id: null };
 }
@@ -324,7 +370,7 @@ export async function tryFill(
 ): Promise<FillResult> {
   const db = supabase();
   const day = seoulDateString(at);
-  if (!db) return fillInMemory(productNo, depth, quantity, day, unit);
+  if (!db) return fillInMemory(productNo, depth, quantity, day, unit, visitor);
 
   /* 처음 한 번만 세고, 부딪히면 다음 자리로 한 칸씩 올라간다.
      매번 다시 세면 경합에 밀린 사람들이 같은 자리로 또 몰려 아무도 못 들어간다 */
@@ -352,7 +398,7 @@ export async function tryFill(
     if (missingColumn(error.code) && hasUnit !== false && unit) { hasUnit = false; continue; }
     if (missingColumn(error.code) && hasExpiry !== false) { hasExpiry = false; continue; }
     /* 표가 아직 없다 — 마이그레이션 전이다. 품절이라 거짓말하지 않고 메모리로 받는다 */
-    if (missingTable(error.code)) return fillInMemory(productNo, depth, quantity, day, unit);
+    if (missingTable(error.code)) return fillInMemory(productNo, depth, quantity, day, unit, visitor);
     if (error.code !== '23505') throw new Error(`체결 저장 실패: ${error.message}`);
     /* 한 사람 한 자리(0015)에 걸린 것이면 다시 세도 소용없다 — 이미 잡고 있다.
        다시 세면 매번 새 slot을 만들어 두 번 튕기고 "물량 끝"이라 거짓말한다 */

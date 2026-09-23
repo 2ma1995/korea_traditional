@@ -149,7 +149,6 @@
 /* ── 할인안 행 (선택 + 할인율 조정) ── */
 /* 옵션별 최종가가 아래 줄로 내려가야 하므로 접히게 둔다 */
 .planRow { gap: 12px; flex-wrap: wrap; }
-.planRow[data-off='true'] { opacity: .45; }
 .planRow input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--dancheong); flex-shrink: 0; }
 .rowName { flex: 1; }
 .rowName small { color: var(--muted); font-size: 12px; }
@@ -195,3 +194,14 @@
   border: 1px solid var(--dancheong); background: var(--dancheong); color: #fdfbf6;
 }
 .planActions button:disabled { opacity: .45; cursor: default; }
+
+@media (max-width: 600px) {
+  .head { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .plan { padding: 16px; }
+  .planRow { padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .rowName { flex: 1 0 calc(100% - 28px); font-weight: 600; }
+  .rowName small { display: block; font-weight: 400; }
+  .optionRow, .addList button { flex-wrap: wrap; white-space: normal; }
+  .addBlocked { white-space: normal; margin-left: 0; }
+  .planActions button { flex: 1 1 100%; min-height: 44px; }
+}

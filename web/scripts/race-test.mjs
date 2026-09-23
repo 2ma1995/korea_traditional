@@ -78,7 +78,9 @@ const main = async () => {
     Array.from({ length: PEOPLE }, () => reserve(Number(productNo), Number(rate), unit, uuid())),
   );
 
-  const won = results.filter(r => r.ok && r.filled);
+  /* already는 "새 자리를 줬다"가 아니라 "이미 있는 예약을 다시 열어줬다"는 뜻이다
+     (api/fill의 resume). 그걸 체결로 세면 한 사람이 다섯 자리를 먹은 것처럼 보인다 */
+  const won = results.filter(r => r.ok && r.filled && !r.already);
   const lost = results.filter(r => !(r.ok && r.filled));
   const slots = won.map(r => r.slot).sort((a, b) => a - b);
   const dup = slots.filter((v, i) => i > 0 && v === slots[i - 1]);
@@ -95,9 +97,11 @@ const main = async () => {
   /* 멱등성 — 한 사람이 같은 요청을 다섯 번 */
   const me = uuid();
   const again = await Promise.all(Array.from({ length: 5 }, () => reserve(Number(productNo), Number(rate), unit, me)));
-  const mine = again.filter(r => r.ok && r.filled).length;
+  const fresh = again.filter(r => r.ok && r.filled && !r.already).length;
+  const resumed = again.filter(r => r.already).length;
+  const mine = fresh;
   const full = won.length >= room;
-  console.log(`\n한 사람이 다섯 번 시도 → 자리 ${mine}개${full ? ' (자리가 다 차서 0이 정상)' : ''}`);
+  console.log(`\n한 사람이 다섯 번 시도 → 새 자리 ${fresh}개 · 기존 예약 다시 열기 ${resumed}회${full ? ' (자리가 다 차서 0이 정상)' : ''}`);
   if (mine > 1) { console.log(`❌ 한 사람이 자리를 ${mine}개 먹었습니다 (0015가 안 걸렸습니다)`); bad++; }
   if (!full && mine !== 1) { console.log(`❌ 자리가 남았는데 한 자리도 못 잡았습니다`); bad++; }
 

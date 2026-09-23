@@ -63,6 +63,10 @@ export default function MarketIntro({ children, phase, theme, changePct, rate, o
   }, []);
 
   useEffect(() => {
+    if (state === 'exiting') {
+      const timer = window.setTimeout(finish, FADE_MS);
+      return () => clearTimeout(timer);
+    }
     if (state !== 'playing') return;
     const overlay = dialog.current;
     if (!overlay) return;
@@ -70,7 +74,6 @@ export default function MarketIntro({ children, phase, theme, changePct, rate, o
     if (!overlay.open) overlay.showModal();
     markSeen();   // 재생을 시작한 시점에 기록한다 — 보는 중에 새로고침해도 다시 열리지 않게
     timers.current.push(window.setTimeout(() => { setState('exiting'); setRound(r => r + 1); }, OPEN_MS));
-    timers.current.push(window.setTimeout(finish, OPEN_MS + FADE_MS));
     return () => { timers.current.forEach(window.clearTimeout); timers.current = []; };
   }, [state, finish]);
 
@@ -91,12 +94,12 @@ export default function MarketIntro({ children, phase, theme, changePct, rate, o
     },
     open: {
       head: <>막지의 <em>빵장</em>이<br />시작했습니다.</>,
-      sub: <>오늘 국장 {pct} · {theme} · 모든 빵 {Math.round(rate * 100)}% 할인</>,
+      sub: <>오늘 국장 {pct} · {theme} · 기본 할인 {Math.round(rate * 100)}%</>,
       mark: '국 장 이 끝 나 면 , 빵 장',
     },
     closed: {
       head: <>오늘 <em>빵장</em>은<br />문을 닫았습니다.</>,
-      sub: <>어제 국장 {pct} · <b>다음 거래일 09:00</b>에 다시 열립니다</>,
+      sub: <>어제 국장 {pct} · <b>다음 거래일 {openAt}</b>에 다시 열립니다</>,
       mark: '내 일 , 다 시',
     },
   };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Donut, { type Slice } from '@/components/Donut';
 import Flip from '@/components/Flip';
 import InfoTab from '@/components/InfoTab';
@@ -17,6 +17,7 @@ import type { WeeklyScore } from '@/lib/dividend';
 import type { WeekReport } from '@/lib/fills';
 import { badgesFor, DAILY_ALLOTMENT, moodFor, priceAt, rateFor, unitsFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
 import { withSkuBonus } from '@/lib/skuAdjust';
+import { SHOP_BASE } from '@/lib/shop';
 import { OPEN_AT } from '@/lib/orderbook';
 import { qtyOf, usePortfolio, useStableHoldings } from '@/lib/portfolioStore';
 import { useKospiLive, type Point } from '@/lib/useKospiLive';
@@ -90,17 +91,19 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const k = useKospiLive({ value: kospi.value, changePct: kospi.changePct, marketOpen: kospi.marketOpen, live: kospi.live, points });
   const [filled, setFilled] = useState<Record<string, number>>({});
   const [bids, setBids] = useState<Record<number, Bid>>({});
+  const [reservationError, setReservationError] = useState('');
+  /* 일괄 예약 진행·결과 */
+  const [bulk, setBulk] = useState<{ busy: boolean; done: number; missed: number; error?: string } | null>(null);
   /* 상품번호 → 고른 자사몰 품목코드 */
   const [units, setUnits] = useState<Record<number, string>>({});
   /* 처음에는 전체를 보여준다 — 라인을 켜면서 오늘 진열이 4~6종으로 줄었는데,
      들어오자마자 그것만 보이면 막지에 빵이 그것뿐인 것처럼 읽힌다 */
   const [sort, setSort] = useState<Sort>('all');
   const [selected, setSelected] = useState<number | null>(null);
-  /* 시트 왼쪽 버튼이 갈린다 — 할인 목록에서 열면 '관심 담기', 포트폴리오에서 열면 개수 조절 */
-  const [sheetFrom, setSheetFrom] = useState<'list' | 'portfolio'>('list');
-  const openFromList = (no: number) => { setSheetFrom('list'); setSelected(no); };
-  const openFromPortfolio = (no: number) => { setSheetFrom('portfolio'); setSelected(no); };
-  const [bulk, setBulk] = useState<{ busy: boolean; done: number; missed: number; error?: string } | null>(null);
+  const closeSheet = useCallback(() => setSelected(null), []);
+  const openFromList = (no: number) => setSelected(no);
+  const openFromPortfolio = openFromList;
+  const pending = useRef(new Set<number>());
   const [pfOpen, setPfOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const { portfolio, setQty } = usePortfolio();
@@ -114,7 +117,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const test = today.hours.reason === 'test';
   const phase: Phase = liveOn ? 'live' : today.hours.open ? 'open' : today.hours.reason === 'before' ? 'locked' : 'closed';
   const canBuy = today.hours.open && (phase !== 'live' || test);
-  const lockNote = phase === 'live' ? `${OPEN_AT} 확정과 함께 열려요` : phase === 'locked' ? `🔒 ${OPEN_AT} 공개` : phase === 'closed' ? `내일 ${OPEN_AT}에 열려요` : '휴장';
+  const lockNote = today.hours.reason === 'holiday' ? '다음 거래일에 열려요' : phase === 'live' ? `${OPEN_AT} 확정과 함께 열려요` : phase === 'locked' ? `🔒 ${OPEN_AT} 공개` : phase === 'closed' ? `다음 거래일 ${OPEN_AT}에 열려요` : '휴장';
   const openAt = OPEN_AT;
   /* 휴장일 — 주말이다. 가격이 움직이지 않으니 화면이 할 말이 달라진다 */
   const holiday = today.hours.reason === 'holiday';
@@ -125,6 +128,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const offers: TodayOffer[] = today.offers.map(o => ({
     ...o,
     ...priceAt(o.product.price, withSkuBonus(rate, o.demandBonus, o.inventoryBonus)),
+    units: o.units.map(u => ({ ...u, price: priceAt(o.product.price, withSkuBonus(rate, o.demandBonus, o.inventoryBonus)).price
+      + priceAt(u.listPrice - o.product.price, withSkuBonus(rate, o.demandBonus, o.inventoryBonus)).price })),
   }));
 
   const base = points.length < 2 ? 0 : DRAW_MS + 150;
@@ -138,16 +143,31 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const stepOf = new Map(today.all.map((p, idx) => [p.productNo, idx]));
 
   useEffect(() => {
-    if (!today.hours.open) return;
     let alive = true;
     const pull = async () => {
       if (document.hidden) return;
       try {
         const res = await fetch('/api/fill', { cache: 'no-store', signal: AbortSignal.timeout(6000) });
         const json = await res.json();
-        if (alive && json?.ok && json.filled) setFilled(json.filled);
-      } catch { /* */ }
+        if (!res.ok || !json?.ok) throw new Error('예약 조회 실패');
+        if (alive) {
+          setReservationError('');
+          if (json.filled) setFilled(json.filled);
+          if (Array.isArray(json.reservations)) setBids(previous => {
+            const next = { ...previous };
+            for (const bid of json.reservations as (Bid & { productNo: number })[]) {
+              if (!pending.current.has(bid.productNo) && (next[bid.productNo]?.status !== 'filled' || bid.settled === 'paid')) {
+                next[bid.productNo] = bid;
+              }
+            }
+            return next;
+          });
+        }
+      } catch {
+        if (alive) setReservationError('예약 내역을 불러오지 못했어요. 잠시 뒤 자동으로 다시 확인합니다.');
+      }
     };
+    void pull();
     const timer = setInterval(pull, 30_000);
     return () => { alive = false; clearInterval(timer); };
   }, [today.hours.open]);
@@ -165,6 +185,9 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
    */
   async function buy(offer: TodayOffer): Promise<{ ok: boolean; error?: string }> {
     const no = offer.product.productNo;
+    if (bids[no]?.status === 'filled') { setSelected(no); return { ok: true }; }
+    if (pending.current.has(no)) return { ok: false };
+    pending.current.add(no);
     setBids(prev => ({ ...prev, [no]: { status: 'busy', slot: null } }));
     try {
       /* 자사몰 재고는 품목 단위로 관리된다 — 어느 옵션을 잡았는지 같이 보내야
@@ -177,8 +200,10 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         setBids(prev => ({ ...prev, [no]: { status: 'missed', slot: null, error } }));
         return { ok: false, error };
       }
-      setBids(prev => ({ ...prev, [no]: { status: json.filled ? 'filled' : 'missed', slot: json.slot ?? null, stored: json.stored, coupon: json.coupon ?? null, expiresAt: json.expiresAt ?? null, delivery: json.delivery } }));
-      setFilled(prev => ({ ...prev, [key(no, offer.rate)]: (json.quantity ?? offer.allotment) - (json.remaining ?? 0) }));
+      setBids(prev => ({ ...prev, [no]: { status: json.filled ? 'filled' : 'missed', slot: json.slot ?? null, stored: json.stored, coupon: json.coupon ?? null, expiresAt: json.expiresAt ?? null, delivery: json.delivery, unit: json.unit ?? unitOf(offer), depth: json.depth ?? offer.rate, settled: json.settled } }));
+      if (typeof json.quantity === 'number' && typeof json.remaining === 'number') {
+        setFilled(prev => ({ ...prev, [key(no, offer.rate)]: json.quantity - json.remaining }));
+      }
       /* 구매가 체결되면 서버가 공모 청약권을 발급한다(lib/bidRight).
          아직 오늘 청약하지 않았다면 NEXT의 버튼이 지금 열린다 */
       if (json.filled) setIpo(prev => (prev.bidFor ? prev : { ...prev, canBid: true }));
@@ -188,35 +213,26 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       const error = '서버에 닿지 못했습니다. 잠시 뒤 다시 시도해 주세요.';
       setBids(prev => ({ ...prev, [no]: { status: 'missed', slot: null, error } }));
       return { ok: false, error };
+    } finally {
+      pending.current.delete(no);
     }
   }
 
-  /* 인기순 = 오늘 많이 산 순, 관심순 = 내가 알림 걸어둔 순. 동률이면 할인 금액 큰 순 */
   /**
-   * 관심빵을 담은 수량만큼 예약한다. 성공·실패 개수를 세어 한 번에 알린다.
-   * 순서대로 보낸다 — 같은 칸을 동시에 밀어 넣으면 서버 경합만 늘고, 몇 개라 느리지 않다.
-   * 한 빵에서 물량이 끝나면 남은 수량은 더 시도하지 않고 실패로 센다.
-   */
-  /** 시트에서 한 빵을 산다 — 관심에 담아둔 수량만큼 예약한다(안 담았으면 1개) */
-  /**
-   * 한 빵을 예약한다 — **한 번만**.
+   * 관심빵을 한 번에 예약한다.
    *
-   * 예전에는 담은 개수만큼 예약을 반복했다. 그런데 0015가 "같은 날 같은 빵은
-   * 한 사람당 한 자리"를 걸면서 두 번째부터 막힌다. 그게 맞는 규칙이다 —
-   * 서른 자리를 한 사람이 다섯 개 먹으면 선착순이라는 말이 뜻을 잃는다.
+   * 결제까지 묶어주지는 못한다 — 자사몰 장바구니는 손님 브라우저 세션에 붙어 있고,
+   * 로그인이 없는 우리 서비스는 그 세션을 모른다(2026-09-23 체험몰에서 확인:
+   * /exec/front/order/basket/ 은 isLogin:F로 거절한다). 그래도 자리를 먼저 잡아두는
+   * 값어치가 있다 — 옵션을 고르며 시간을 쓰는 사이 물량이 나가면 안 된다.
    *
-   * 몇 개를 살지는 자사몰에서 정한다. 우리는 자리 하나를 잡아줄 뿐이고,
-   * 담은 개수는 포트폴리오 비중으로만 쓴다.
+   * 하나가 막혀도 멈추지 않는다. 품절은 빵마다 따로 오는 일이라, 첫 실패에서 멈추면
+   * 뒤의 멀쩡한 빵까지 못 잡는다.
    */
-  async function buyPicked(offer: TodayOffer) {
-    await buy(offer);
-  }
-
-  async function buyAll(list: { offer: TodayOffer; qty: number }[]) {
+  async function buyAll(list: TodayOffer[]) {
     setBulk({ busy: true, done: 0, missed: 0 });
     let done = 0, missed = 0, error: string | undefined;
-    /* 빵마다 자리 하나씩. 개수만큼 반복하지 않는다 — 한 사람당 한 자리다(0015) */
-    for (const { offer } of list) {
+    for (const offer of list) {
       const result = await buy(offer);
       if (result.ok) { done += 1; continue; }
       missed += 1;
@@ -231,6 +247,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
    * 선택을 강요하지 않되, 예약이 엉뚱한 품목으로 가지 않게 기본값을 정해 둔다.
    */
   function unitOf(offer: TodayOffer): string | null {
+    const booked = bids[offer.product.productNo];
+    if (booked?.status === 'filled') return booked.unit ?? null;
     const picked = units[offer.product.productNo];
     if (picked && offer.units.some(u => u.code === picked && u.sellable)) return picked;
     return offer.units.find(u => u.sellable)?.code ?? null;
@@ -239,7 +257,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   /* '전체'는 오늘 라인 밖·품절까지 막지의 모든 빵을 보여준다. 라인이 뜻을 만들지만,
      "다른 빵도 있나?"라는 질문에 답할 곳이 없으면 진열이 좁아 보인다.
      오늘 진열에 없는 빵은 정가 그대로고, 카드가 라인 밖·품절임을 밝힌다 */
-  const shelf: TodayOffer[] = sort !== 'all' ? offers : today.all.map(product => {
+  const shelf: TodayOffer[] = today.all.map(product => {
     const live = offers.find(o => o.product.productNo === product.productNo);
     if (live) return live;
     return {
@@ -262,23 +280,16 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
     if (sort === 'popular') return filledOf(b) - filledOf(a) || b.saved - a.saved;
     return b.saved - a.saved || a.product.price - b.product.price;
   };
-  const sorted = [...shelf].sort((a, b) =>
+  const sorted = (sort === 'all' ? [...shelf] : [...offers]).sort((a, b) =>
     Number(b.product.inStock) - Number(a.product.inStock)
     || Number(b.saved > 0) - Number(a.saved > 0)
     || byTab(a, b));
-  /* 정렬 결과는 순위로만 쓴다 — 화면 배치는 위 목록에서 CSS order가 한다 */
-  const rankOf = new Map(sorted.map((o, idx) => [o.product.productNo, idx]));
   const ranking = offers.map(o => ({ o, n: filledOf(o) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
-  const selectedOffer = offers.find(o => o.product.productNo === selected) ?? null;
+  const selectedOffer = shelf.find(o => o.product.productNo === selected) ?? null;
 
   /* ── MY ── */
   /* 마운트 시점 순서를 고정한다 — 수량을 바꿀 때 줄·조각이 튀지 않게 */
   const entries = useStableHoldings(portfolio);
-  /* 담은 목록이 바뀌면 지난 일괄 예약 결과를 버린다. 안 그러면 새 빵을 담아도
-     버튼이 '예약 완료'로 잠긴 채 남는다 */
-  const holdKey = entries.map(e => `${e.no}:${e.qty}`).join(',');
-  const [seenHold, setSeenHold] = useState(holdKey);
-  if (holdKey !== seenHold) { setSeenHold(holdKey); setBulk(null); }
   const pfTotal = entries.reduce((a, b) => a + b.qty, 0);
   /* 하나만 담아도 도넛을 보여준다. '3개부터'는 성급한 판정을 막자는 안이었지만, 담았는데 안 보이는 게 더 이상하다 */
   const actions = pfTotal;
@@ -306,8 +317,12 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         <div><p className={styles.exchangeLabel}>MAKJI / BREAD EXCHANGE</p>
           <h1>국장이 끝나면,<br /><em>빵장</em>이 열립니다.</h1>
         </div>
-        <div className={styles.mastheadAside}><span>시장을 읽고, 빵을 고르다.</span><p>오늘의 코스피가 만드는<br />오늘만의 빵 가격.</p><a href="#today">오늘의 빵 만나기 <span aria-hidden="true">↘</span></a></div>
+        <div className={styles.mastheadAside}><span>시장을 읽고, 빵을 고르다.</span><p>오늘의 코스피가 만드는<br />오늘만의 빵 가격.</p><a href={holiday ? '#week' : '#today'}>{holiday ? '이번 주 빵장 보기' : '오늘의 빵 만나기'} <span aria-hidden="true">↘</span></a></div>
       </header>
+      <nav className={styles.marketNav} aria-label="빵장 바로가기">
+        <a href={holiday ? '#week' : '#today'}>{holiday ? '이번 주 빵장' : '오늘의 할인빵'} <span aria-hidden="true">↘</span></a>
+        <a href="#foryou">내 포트폴리오 <span aria-hidden="true">↘</span></a>
+      </nav>
       {/* ══ MARKET ══ */}
       <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} base={live.base} bonus={live.bonus} />
 
@@ -400,7 +415,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           <strong>기본 할인 <b>{Math.round(rate * 100)}%</b></strong>
         </div>
         <header className={styles.cardHead}>
-          <h2>{phase === 'live' ? '지금 예상되는 오늘의 할인 빵' : '오늘의 할인 빵'} <small>{offers.length}종 · 각 {offers[0]?.allotment ?? 30}개 · 전부 {Math.round(rate * 100)}%</small></h2>
+          <h2>{phase === 'live' ? '지금 예상되는 오늘의 할인 빵' : '오늘의 할인 빵'} <small>{offers.length}종 할인 · 상품별 할인율·예약 한도 확인</small></h2>
           <div className={styles.sort} role="group" aria-label="정렬">
             <button type="button" aria-pressed={sort === 'popular'} onClick={() => setSort('popular')}>인기순</button>
             <button type="button" aria-pressed={sort === 'watched'} onClick={() => setSort('watched')}>관심순</button>
@@ -408,22 +423,17 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           </div>
         </header>
 
-        {/* DOM 순서는 건드리지 않고 CSS order로만 자리를 바꾼다.
-            카드를 실제로 옮기면(insertBefore) 브라우저가 그 노드를 잠깐 떼었다 붙이는 것으로
-            처리해 CSS 애니메이션이 전부 처음부터 다시 돈다 — 등장(.reveal)이 지연값만큼
-            늦게 다시 뜨고 사진 확대도 되감긴다. 그래서 인기순↔관심순을 오갈 때 카드 몇 개만
-            뒤늦게 나타났다. order만 바꾸면 노드가 움직이지 않아 아무것도 다시 돌지 않는다.
-            ⚠️ 화면 순서와 DOM 순서가 달라진다 — 탭 이동과 스크린리더는 고정 순서를 따른다. */}
+        {/* 화면과 키보드 탐색이 같은 정렬 순서를 따른다. */}
         <ul className={styles.grid}>
-          {shelf.map((o, i) => {
+          {sorted.map((o, i) => {
             const no = o.product.productNo, remaining = remainingOf(o), n = qtyOf(portfolio, no);
             /* 메달은 순위가 있는 탭에서만. 전체는 목록이라 1·2·3등이 없다.
                그리고 셀 것이 0이면 메달을 붙이지 않는다 — 아무도 안 산 날의 🥇은 거짓말이다 */
             const ranked = sort === 'popular' ? filledOf(o) > 0 : sort === 'watched' ? n > 0 : false;
             const step = stepOf.get(no) ?? i;      // 등장·사진·가격 굴림에 쓰는 고정 순서
-            const rank = rankOf.get(no) ?? i;      // 지금 정렬에서 몇 번째로 보이는가
+            const rank = i;      // 지금 정렬에서 몇 번째로 보이는가
             return (
-              <li key={no} className={`${styles.reveal} ${styles.cell}`} style={{ ...reveal(1 + step), order: rank }}>
+              <li key={no} className={`${styles.reveal} ${styles.cell}`} style={reveal(1 + step)}>
                 <button type="button" className={styles.topCard} data-sold-out={!o.product.inStock} style={{ ['--ph' as string]: `${step * 5}s` }} onClick={() => openFromList(no)}>
                   {ranked && rank < 3 && <span className={styles.medal}>{MEDAL[rank]}</span>}
                   {!o.onLine && <span className={styles.offLine}>{o.product.inStock ? '오늘 라인 밖' : '품절'}</span>}
@@ -485,7 +495,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         <>
         <p className={`${styles.lead} ${styles.reveal}`} style={reveal(5)}>먼저 고른 사람이, <b>먼저 가져갑니다.</b></p>
         <section className={`${styles.card} ${styles.reveal}`} style={reveal(5)} aria-label="오늘 많이 산 빵">
-          <header className={styles.cardHead}><h2>오늘 많이 산 빵 <small>10초마다 갱신</small></h2></header>
+          <header className={styles.cardHead}><h2>오늘 많이 산 빵 <small>30초마다 갱신</small></h2></header>
           <ol className={styles.rankList}>{ranking.map(({ o, n }, i) => <li key={o.product.productNo}><i>{i + 1}</i><b>{o.product.name}</b><small>{n}개</small></li>)}</ol>
         </section>
         </>
@@ -495,22 +505,38 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       <section id="foryou" className={`${styles.card} ${styles.portfolioCard} ${styles.reveal}`} style={reveal(6)} aria-label="내 빵 포트폴리오">
         <div className={styles.eyebrowRow}><span className={styles.eyebrow}>02 / MY BREAD</span>{pfTotal > 0 && <span className={styles.theme}>관심빵 {entries.length}종{hits.length > 0 && ` · 오늘 ${hits.length}종 할인`}</span>}</div>
 
+        {reservationError && <p className={styles.sheetNote} role="status">{reservationError}</p>}
+        {Object.entries(bids).some(([, bid]) => bid.status === 'filled') && (
+          <div className={styles.topPick}>
+            <h2>예약한 빵 · 결제 이어가기</h2>
+            <p>놓고 간 빵이 있어요. 아래에서 구매를 이어가세요.</p>
+            <ul className={styles.pfList}>
+              {Object.entries(bids).filter(([, bid]) => bid.status === 'filled').map(([no]) => (
+                <li key={no}><button type="button" className={styles.ghost} onClick={() => openFromPortfolio(Number(no))}>
+                  {nameOf(Number(no))} · 결제 안내
+                </button></li>
+              ))}
+            </ul>
+          </div>
+        )}
         {actions === 0 ? (
           <div className={styles.emptyBox}>
             <h2>취향을 담아두세요.</h2>
             <div className={styles.emptyMark} aria-hidden="true">♡</div>
             <p>마음에 드는 빵의 하트를 눌러보세요.<br />오늘 할인하는 관심빵을 모아드릴게요.</p>
             <div className={styles.emptyBtns} data-single="true">
-              <button type="button" className={styles.ghost} onClick={() => scrollTo('today')}>♡ 빵 둘러보기</button>
+              <button type="button" className={styles.ghost} onClick={() => holiday ? window.open(SHOP_BASE, '_blank', 'noopener,noreferrer') : scrollTo('today')}>♡ 빵 둘러보기</button>
             </div>
           </div>
         ) : (
           <>
             <header className={styles.cardHead}><h2>내 빵 포트폴리오</h2></header>
-            <p className={styles.sub}>내가 관심을 보인 빵으로 만든 포트폴리오</p>
-            <Donut slices={slices} onPick={openFromPortfolio} />
-            <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen} aria-controls="portfolio-details">내 포트폴리오 {pfOpen ? '접기 ▴' : '펼치기 ▾'}</button>
-            {pfOpen && <div id="portfolio-details" className={styles.pop}><Portfolio offers={offers} entries={entries} onBuyAll={buyAll} bulk={bulk} onPick={openFromPortfolio} /></div>}
+            <Portfolio offers={shelf} entries={entries} bids={bids} onPick={openFromPortfolio}
+              unitOf={unitOf} bulk={bulk}
+              onUnit={(no, code) => setUnits(previous => ({ ...previous, [no]: code }))}
+              onBuyAll={buyAll} />
+            <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen} aria-controls="portfolio-details">취향 비중 {pfOpen ? '접기 ▴' : '보기 ▾'}</button>
+            {pfOpen && <div id="portfolio-details"><Donut slices={slices} onPick={openFromPortfolio} /></div>}
             {/* 알림은 담아둔 빵이 있는 자리에서만 권한다 — 페이지 열자마자 묻는 창은
                 대부분 거절당하고, 한 번 거절하면 브라우저가 다시 묻지 않는다 */}
             <PushToggle />
@@ -533,7 +559,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
 
       <p className={`${styles.fine} ${styles.reveal}`} style={reveal(8)}>
         {today.kospiLive ? '' : '⚠️ 코스피 수집에 실패해 샘플 값입니다. '}
-        한정 수량은 코드 기본값({offers[0]?.allotment ?? 30}개)이고 관리자 입력은 다음 단계입니다.
+        예약 한도는 상품·옵션별로 다르며, 남은 재고에 따라 달라집니다.
         {test && <> <b>지금은 테스트로 24시간 열어두었습니다</b> — 원래는 {openAt}~24:00.</>}
         {' '}<button type="button" className={styles.link} onClick={() => setInfoOpen(v => !v)} aria-expanded={infoOpen}>오늘 가격은 어떻게 정해지나 {infoOpen ? '▴' : '→'}</button>
       </p>
@@ -545,17 +571,15 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       )}
 
       {selectedOffer && (
-        <OfferSheet offer={selectedOffer} mood={mood} changePct={k.changePct} rate={rate} estimate={phase === 'live'}
+        <OfferSheet key={selectedOffer.product.productNo} offer={selectedOffer} mood={mood} changePct={k.changePct} rate={selectedOffer.saved > 0 ? withSkuBonus(rate, selectedOffer.demandBonus, selectedOffer.inventoryBonus) : 0} estimate={phase === 'live'}
           remaining={remainingOf(selectedOffer)} bid={bids[selectedOffer.product.productNo]} watching={qtyOf(portfolio, selectedOffer.product.productNo)}
-          qty={Math.max(1, qtyOf(portfolio, selectedOffer.product.productNo))}
-          canBuy={canBuy} lockNote={lockNote}
-          left={sheetFrom === 'portfolio' ? 'qty' : 'watch'}
+          canBuy={canBuy && selectedOffer.saved > 0 && selectedOffer.product.inStock} lockNote={lockNote}
           canBid={ipoOn && ipo.canBid && !ipo.bidFor}
           unit={unitOf(selectedOffer)}
           onNext={() => { setSelected(null); scrollTo('next'); }}
-          onBuy={() => buyPicked(selectedOffer)} onQty={next => setQty(selectedOffer.product.productNo, next)}
+          onBuy={() => buy(selectedOffer)} onQty={next => setQty(selectedOffer.product.productNo, next)}
           onUnit={code => setUnits(prev => ({ ...prev, [selectedOffer.product.productNo]: code }))}
-          onClose={() => setSelected(null)} />
+          onClose={closeSheet} />
       )}
     </div>
   );

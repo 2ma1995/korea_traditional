@@ -118,7 +118,7 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
     { t: `${liveNow ? '오늘 최고' : '최고'} ${fmt(s[iMax])} ▲`, tone: 'up' },
     { t: `${liveNow ? '오늘 최저' : '최저'} ${fmt(s[iMin])} ▼`, tone: 'down' },
     { t: `${liveNow ? '지금 라인' : '오늘의 라인'} ${mood.theme}`, tone: 'mood' },
-    { t: `${liveNow ? '지금 기준 ' : ''}모든 빵 ${Math.round(rate * 100)}% 할인`, tone: 'ink' },
+    { t: `${liveNow ? '지금 기준 ' : ''}기본 할인 ${Math.round(rate * 100)}%`, tone: 'ink' },
     { t: liveNow ? '15:30 확정' : phase === 'open' ? '00:00 CLOSE' : phase === 'locked' ? `${openAt} OPEN` : '다음 거래일 09:00 LIVE', tone: 'muted' },
   ] : [];
 

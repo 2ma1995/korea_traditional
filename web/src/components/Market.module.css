@@ -185,7 +185,7 @@
 }
 @keyframes rise { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
 .sheetGrip { width: 40px; height: 4px; border-radius: 999px; background: var(--line); margin: 4px auto 16px; }
-.sheetClose { position: absolute; right: 14px; top: 12px; font: inherit; font-size: 14px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--background); color: var(--muted); cursor: pointer; }
+.sheetClose { position: absolute; right: 14px; top: 12px; font: inherit; font-size: 14px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--background); color: var(--muted); cursor: pointer; }
 .sheetHero { display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center; }
 .sheetPhoto { width: 96px; height: 96px; border-radius: var(--r-card); overflow: hidden; background: #ece9dd; }
 .sheetPhoto :global(.product-photo) { width: 100%; height: 100%; object-fit: cover; }
@@ -228,6 +228,12 @@
 /* 할인을 전달할 수단이 없을 때 — 축하가 아니라 경고다 */
 .couponBox[data-warn='true'] { border-color: var(--muted); background: color-mix(in srgb, var(--muted) 7%, var(--paper)); }
 .couponBox[data-warn='true'] .couponLabel { color: var(--ink); }
+
+/* 포트폴리오 줄의 옵션 선택 — 여기서 고른 것이 그대로 예약된다.
+   안 물어보면 첫 옵션으로 제멋대로 잡힌다 */
+.pfUnit { font: inherit; font-size: 12px; max-width: 150px; min-height: 36px; padding: 0 8px;
+  border: 1px solid var(--line); border-radius: var(--r-control); background: var(--paper); color: var(--ink); }
+.pfUnit:focus-visible { outline: 2px solid var(--dancheong); outline-offset: 1px; }
 
 /* 알림 켜기 — 담아둔 빵이 있는 자리에만 둔다.
    안 되는 기기(iPhone 홈화면 미추가·차단됨)에서는 버튼 없이 이유만 남는다 */
@@ -718,26 +724,27 @@ p.callout { cursor: default; }
 .portfolioCard .emptyBtns { max-width: 360px; margin-inline: auto; }
 .portfolioCard .donutWrap { max-width: 720px; margin-inline: auto; gap: 40px; }
 .portfolioCard .expand { margin-block: 24px; min-height: 48px; }
-.portfolioCard .pfRow { grid-template-columns: 44px minmax(0, 1fr) minmax(80px, 180px) auto; padding-block: 16px; border-bottom: 1px solid var(--line); }
+.portfolioCard .pfRow { grid-template-columns: 44px minmax(0, 1fr) auto; padding-block: 16px; border-bottom: 1px solid var(--line); }
 .portfolioCard .pfCtl button { width: 44px; height: 44px; }
 .portfolioCard .buyAll .primary { white-space: normal; padding: 12px 16px; }
 .eyebrowRow { border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 24px; flex-wrap: wrap; }
 .eyebrow { font-family: var(--font-geist-mono), monospace; font-size: 10px; letter-spacing: .12em; }
-.cardHead { align-items: center; padding: 0 0 24px; }
+.cardHead { align-items: center; padding: 0 0 20px; gap: 16px; flex-wrap: wrap; }
 .cardHead h2 { font-size: 25px; }
 .cardHead h2 small { display: block; margin: 8px 0 0; font-family: var(--font-geist-sans), sans-serif; font-size: 12px; }
-.sort { gap: 16px; }
-.sort button { min-height: 44px; }
+.sort { gap: 4px; background: #e9e9df; padding: 4px; border-radius: 8px; }
+.sort button { min-height: 40px; padding: 8px 14px; border: 0; border-radius: 6px; }
+.sort button[aria-pressed='true'] { background: var(--paper); color: var(--ink); box-shadow: 0 1px 4px #22352c12; }
 .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 16px; }
 .cell { min-width: 0; }
-.topCard { padding: 0; background: transparent; gap: 8px; border-radius: 0; }
-.topCard:hover { background: transparent; transform: translateY(-3px); }
-.topPhoto { margin: 0 0 4px; border-radius: 3px; }
+.topCard { padding: 12px; background: var(--paper); gap: 8px; border: 1px solid var(--line); border-radius: 12px; height: 100%; }
+.topCard:hover { background: var(--paper); transform: translateY(-3px); }
+.topPhoto { margin: 0 0 4px; border-radius: 8px; }
 .topPhoto :global(.product-photo) { animation: none; transition: transform .3s; }
 .topCard:hover .topPhoto :global(.product-photo) { transform: scale(1.035); }
 .topCard b { font-size: 14px; line-height: 1.55; font-weight: 500; }
 .topPrice strong { font-size: 20px; font-weight: 600; }
-.watch { width: 44px; height: 44px; top: 4px; right: 4px; font-size: 22px; }
+.watch { width: 44px; height: 44px; top: 16px; right: 16px; font-size: 22px; }
 .topMeter { height: 3px; background: var(--line); }
 .roles { padding-top: 20px; margin-top: 24px; border-top: 1px solid var(--line); gap: 12px; }
 .roles > div { padding: 0; background: transparent; }
@@ -759,16 +766,26 @@ p.callout { cursor: default; }
   .masthead .exchangeLabel { margin-bottom: 16px; font-size: 9px; }
   .mastheadAside { display: none; }
   .hero { grid-template-columns: minmax(0, 1fr); }
-  .marketChart { padding: 24px 20px; gap: 16px; }
+  .marketChart { padding: 18px; gap: 10px; }
   .marketChart .index { font-size: 38px; }
-  .marketChart .chart { height: 170px; }
-  .marketResult { padding: 24px 20px; border-left: 0; border-top: 1px solid var(--line); }
-  .resultTitle { margin-top: 16px; }
+  .marketChart .chart { height: 120px; }
+  .marketResult { padding: 18px; border-left: 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+  .marketResult > .eyebrow { display: none; }
+  .marketResult .resultRate { grid-column: 2; grid-row: 1 / 3; align-self: center; font-size: 60px; }
+  .marketResult .resultNote { grid-column: 1; margin-top: 8px; font-size: 12px; }
+  .marketResult .countCenter, .marketResult .rateDetails, .marketResult .marketCta { grid-column: 1 / -1; }
+  .marketResult .rule { display: none; }
+  .marketResult .marketCta { margin-top: 12px; min-height: 44px; padding: 12px 16px; }
+  .resultTitle { margin-top: 0; font-size: 17px; }
   .resultRate { font-size: 76px; }
   .marketResult .countCenter { margin-top: 16px; }
   .card { padding: 24px 16px; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 12px; }
-  .topCard { padding: 0; }
+  .topCard { padding: 8px; }
+  .watch { top: 10px; right: 10px; }
+  .topPrice strong { font-size: 18px; }
+  .sort { width: 100%; }
+  .sort button { flex: 1; }
   .topCard b { font-size: 14px; }
   .cardHead h2, .emptyBox h2 { font-size: 23px; }
   .roles { grid-template-columns: 1fr; }
@@ -828,9 +845,9 @@ p.callout { cursor: default; }
 /* ── 오늘의 결론 ─────────────────────────────────────────
    TODAY 섹션 바로 위. 히어로가 '시장이 어떻게 움직였나'를 말하고,
    여기가 '그래서 오늘 얼마나 싸냐'에 답한다. 근거는 히어로의 서랍에 있다 */
-.todayCall { display: grid; gap: 6px; padding: 0 4px; margin-bottom: 2px; }
+.todayCall { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px 14px; margin-bottom: 20px; background: #e9e9df; border-radius: 8px; }
 .todayCall .eyebrow { display: inline-flex; align-items: center; gap: 8px; }
-.todayCall strong { font-size: clamp(24px, 5vw, 30px); font-weight: 700; letter-spacing: -.03em; line-height: 1.25; }
+.todayCall strong { font-size: 18px; font-weight: 600; letter-spacing: -.03em; line-height: 1.4; }
 .todayCall strong b { color: var(--mood); font-weight: 800; font-variant-numeric: tabular-nums; }
 
 
@@ -839,3 +856,33 @@ p.callout { cursor: default; }
 .topCard[data-sold-out='true'] .topPhoto { filter: grayscale(1); opacity: .55; }
 .topCard[data-sold-out='true'] b { color: var(--muted); }
 .topCard[data-sold-out='true']:hover { transform: none; background: var(--background); }
+
+.sheet button:focus-visible, .sheet a:focus-visible, .topCard:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+.portfolioCard .pfCtl button.link { width: auto; min-height: 44px; padding: 0 8px; white-space: nowrap; }
+
+.marketNav { display: flex; gap: 10px; margin-top: -16px; }
+.marketNav a { display: flex; align-items: center; gap: 24px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+.marketNav a:hover { background: var(--paper); }
+.portfolioCard .topPick { padding: 16px 0; background: transparent; }
+.portfolioCard .topPick h2 { font-size: 20px; margin-bottom: 8px; }
+.portfolioCard .topPick > .pfList { margin-top: 16px; }
+.portfolioCard .pfName { min-width: 0; }
+.portfolioCard .pfNameBtn b { white-space: normal; overflow-wrap: anywhere; }
+.portfolioCard .pfRow .thumb { overflow: hidden; }
+.sheet { overscroll-behavior: contain; }
+.sheetActions { position: sticky; bottom: -20px; padding: 12px 0; background: var(--paper); border-top: 1px solid var(--line); z-index: 3; }
+@media (max-width: 600px) {
+  .marketNav { margin-top: -8px; }
+  .marketNav a { flex: 1; justify-content: space-between; gap: 8px; padding: 12px; }
+  .todayCall .eyebrow { font-size: 10px; }
+  .todayCall strong { font-size: 16px; }
+  .sheet { padding-inline: 18px; max-height: 90dvh; }
+  .sheetHero { grid-template-columns: 64px minmax(0, 1fr); gap: 12px; padding-right: 24px; }
+  .sheetPhoto { width: 64px; height: 64px; }
+  .sheetHero h3 { font-size: 18px; }
+  .sheetPrice { gap: 6px; }
+  .sheetPrice strong { font-size: 22px; }
+  .sheetActions { grid-template-columns: 110px minmax(0, 1fr); }
+  .sheetActions .primary, .sheetActions .ghost { min-height: 48px; font-size: 13px; }
+}

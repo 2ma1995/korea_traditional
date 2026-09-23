@@ -42,7 +42,7 @@ export default function IpoSettings({ initial, stored }: Props) {
       if (!response.ok) throw new Error(json.error ?? '저장에 실패했습니다.');
       setEnabled(json.enabled);
       setPersisted(json.stored);
-      setMessage(json.enabled ? '공모주를 켰습니다. 손님 화면에 NEXT 섹션이 보입니다.' : '공모주를 껐습니다. 손님 화면에서 NEXT 섹션이 사라집니다.');
+      setMessage(json.enabled ? '공모주를 켰습니다. 접수 중인 회차가 있을 때 빵장에 표시됩니다.' : '공모주를 껐습니다. 손님 화면에서 NEXT 섹션이 사라집니다.');
       /* 아래 회차 관리는 서버가 이 값을 보고 그린다 — 다시 그려야 같이 사라진다 */
       router.refresh();
     } catch (cause) {
@@ -56,7 +56,7 @@ export default function IpoSettings({ initial, stored }: Props) {
     <section className={styles.section}>
       <div className={styles.head}>
         <h2>공모주</h2>
-        <span className={styles.count}>{enabled ? '켜짐 · 손님 화면에 보임' : '꺼짐 · 손님 화면에 없음'}</span>
+        <span className={styles.count}>{enabled ? '켜짐 · 접수 중인 회차만 표시' : '꺼짐 · 손님 화면에 없음'}</span>
       </div>
 
       <div className={styles.plan}>

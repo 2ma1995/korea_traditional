@@ -81,14 +81,33 @@ export async function sweepExpired(at: Date = new Date()): Promise<SweepResult> 
 /**
  * 결제했는가.
  *
- * 코드가 없으면(발급 실패) 판정할 근거가 없다. 그런데 코드가 없으면 손님은
- * 할인가로 살 수단이 없었으므로, 자리를 붙들고 있을 이유도 없다 — 반납한다.
+ * 판매가 연동으로 결제한 주문에는 쿠폰이 없다. 그래서 쿠폰만으로는 결제를 확인할 수
+ * 없는데, 확인될 때까지 붙들면 자리가 영영 안 풀린다 — 아래 paidFor의 주석 참고.
+ */
+/**
+ * 이 예약이 결제됐나. 판정할 수 없으면 null.
+ *
+ * null과 false를 가르는 기준은 **다음에 다시 물어보면 답이 나오는가**다.
+ *
+ *   쿠폰이 없다        → false. 다시 물어봐도 영영 답이 없다.
+ *                        판매가 연동 모드에서는 쿠폰을 아예 안 만들기 때문이다
+ *                        (lib/coupon.COUPON_ENABLED). 여기서 null을 주면 모든 예약이
+ *                        영원히 안 풀려 서른 자리가 첫날 차고 끝난다 — 실제로 그랬다.
+ *   쿠폰은 있는데 못 읽음 → null. 카페24가 잠깐 안 될 수 있으니 다음 쓸기에 다시 본다.
+ *
+ * ⚠️ 쿠폰이 없을 때 false로 두는 것은 **근거 없는 추정**이다. 판매가로 이미 결제한
+ *    손님의 자리를 반납할 수 있다. 그래도 이쪽을 고른 이유는 손해의 크기가 다르기
+ *    때문이다 — 잘못 반납해도 손님은 이미 샀고(주문은 자사몰에 남는다), 재고 동기화는
+ *    꺼져 있고, 되돌릴 쿠폰도 없다. 반대로 안 풀면 선착순이 통째로 멈춘다.
+ *
+ *    제대로 된 답은 주문 조회다(mall.read_order 권한은 이미 받았다). 그게 붙으면
+ *    이 추정은 사라진다.
  */
 async function paidFor(db: NonNullable<ReturnType<typeof supabase>>, row: Row): Promise<boolean | null> {
   if (!row.coupon_code) return false;
   const { data } = await db.from('coupons').select('cafe24_no').eq('code', row.coupon_code).maybeSingle();
   const no = (data as { cafe24_no: number | null } | null)?.cafe24_no;
-  if (!no) return false;
+  if (!no) return null;
   return couponUsed(no, row.coupon_code);
 }
 

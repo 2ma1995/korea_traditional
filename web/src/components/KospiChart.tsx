@@ -249,7 +249,7 @@ export default function KospiChart({ k, phase, tiers, breads, noWatch, drawMs }:
               <span>{view ? '코스피' : '시세'} <strong>{fmt(tip.p.v)}</strong> <em className={tip.pct >= 0 ? styles.up : styles.down}>{tip.pct >= 0 ? '▲' : '▼'} {Math.abs(tip.pct).toFixed(2)}%</em></span>
               {tip.rows.length > 0 && (
                 <div className={styles.tipBreads}>
-                  <small>모든 빵 {Math.round(tip.rate * 100)}% 할인</small>
+                  <small>기본 할인 {Math.round(tip.rate * 100)}%</small>
                   {tip.rows.map(r => (
                     <span key={r.name} className={styles.tipBread}>
                       <span>{r.emoji} {r.name}</span>

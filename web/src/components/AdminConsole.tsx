@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { priceAt } from '@/lib/offers';
 import styles from './AdminConsole.module.css';
 
 /**
  * 관리자 콘솔 — 자사몰 가격 반영.
  *
- * 빵장에서 자사몰 판매가로 나가는 값은 **즉시구매 칸의 가격**이다.
- * 그 아래 한정 호가는 체결을 거쳐야 하므로(구현 전) 자사몰 판매가와 무관하다.
- * 그래서 기본값은 오늘 열린 최저호가가 아니라 즉시구매 폭이다.
+ * 기본 상품과 할인율은 빵장의 buildToday 결과를 쓴다.
+ * 수동 조정은 자사몰 반영에만 사용하며 빵장의 자동 진열을 변경하지 않는다.
  *
  * 코스피가 기본값을 채우고 관리자는 예외를 준다 — 재고가 없거나 기업이 원치 않는
  * 제품을 빼는 일은 실제 운영에서 반드시 생긴다. 다만 전부 손으로 정하는 화면이
@@ -22,7 +22,7 @@ export interface PlanSummary {
   /** 오늘 열린 최저호가 폭. 참고 표시용이다 */
   rate: number;
   items: {
-    productNo: number; name: string; price: number; finalPrice: number;
+    productNo: number; name: string; price: number; finalPrice: number; rate: number;
     /** 자사몰 재고 합. 카페24가 재고관리를 안 켠 상품이면 null */
     stock: number | null;
     /** 옵션별 재고·추가금·자리 수 — 옵션이 값을 바꾸는 상품은 기본가만 봐서는 안 된다 */
@@ -53,8 +53,6 @@ interface Props {
   /** 우리 제품번호 → 자사몰 상품번호. 없으면 productNo를 그대로 쓴다 */
   links: Record<number, number>;
   maxRate: number;
-  /** 즉시구매 칸의 할인 폭. 자사몰에 반영하는 기본값 */
-  instantDepth: number;
 }
 
 interface PlanRow {
@@ -68,7 +66,7 @@ interface PlanRow {
 
 const won = (value: number) => value.toLocaleString('ko-KR');
 
-export default function AdminConsole({ plan, links, maxRate, instantDepth, allotmentDefault }: Props) {
+export default function AdminConsole({ plan, links, maxRate, allotmentDefault }: Props) {
   /* 물량은 빵마다 다르다. 1,500원짜리 머핀과 42,000원짜리 케이크에 같은 수를
      풀 이유가 없다. 누르면 그 자리에서 저장한다 — 저장 버튼을 따로 두면
      고쳐놓고 안 누르는 일이 생긴다 */
@@ -76,25 +74,43 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
      하면 여덟 개짜리 상품에서 아무도 안 고친다 — 빵에 한 번 넣으면 전 옵션에 걸리고,
      다르게 줄 옵션만 따로 적는다 */
   const [caps, setCaps] = useState<Record<string, number>>(() => ({
-    ...Object.fromEntries(plan.items.map(item => [String(item.productNo), item.allotment])),
+    ...Object.fromEntries([...plan.items, ...plan.pool].map(item => [String(item.productNo), item.allotment])),
     ...Object.fromEntries(
-      plan.items.flatMap(item => item.options
+      [...plan.items, ...plan.pool].flatMap(item => item.options
         .filter(o => o.allotment !== undefined)
         .map(o => [`${item.productNo}:${o.code}`, o.allotment as number])),
     ),
   }));
+  const savedCaps = useRef(caps);
+  const [capMessage, setCapMessage] = useState('');
   const [savingCap, setSavingCap] = useState<string | null>(null);
 
   async function saveCap(productNo: number, next: number, unit?: string) {
     const key = unit ? `${productNo}:${unit}` : String(productNo);
-    const value = Math.min(1000, Math.max(1, next));
+    const value = Math.min(1000, Math.max(1, Math.round(next)));
     setCaps(prev => ({ ...prev, [key]: value }));
     setSavingCap(key);
-    await fetch('/api/admin/allotment', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productNo, allotment: value, unit }),
-    }).catch(() => null);
-    setSavingCap(null);
+    setCapMessage('');
+    try {
+      const response = await fetch('/api/admin/allotment', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productNo, allotment: value, unit }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? '물량 저장에 실패했습니다.');
+      savedCaps.current = { ...savedCaps.current, [key]: value };
+      setCapMessage('물량을 저장했습니다. 빵장을 새로 열면 적용됩니다.');
+    } catch (cause) {
+      setCaps(prev => {
+        const restored = { ...prev };
+        if (savedCaps.current[key] === undefined) delete restored[key];
+        else restored[key] = savedCaps.current[key];
+        return restored;
+      });
+      setCapMessage(cause instanceof Error ? cause.message : '물량 저장에 실패했습니다. 다시 시도해 주세요.');
+    } finally {
+      setSavingCap(null);
+    }
   }
 
   /* 목록에 있으면 반영 대상이다. 체크는 '지금 고른 것'이고 −로 빼는 데 쓴다.
@@ -104,8 +120,8 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
     productNo: item.productNo,
     name: item.name,
     price: item.price,
-    suggested: instantDepth,
-    rate: instantDepth,
+    suggested: item.rate,
+    rate: item.rate,
     selected: false,
   })));
   /* '+'를 눌렀을 때 뜨는 후보 목록 */
@@ -117,11 +133,11 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
   const [checking, setChecking] = useState(false);
 
   /** 10원 단위 절사 — 서버(publish 라우트)와 같은 규칙이어야 금액이 어긋나지 않는다 */
-  const finalPrice = (row: PlanRow) => Math.floor((row.price * (1 - row.rate)) / 10) * 10;
+  const finalPrice = (row: PlanRow) => priceAt(row.price, row.rate).price;
   /* 옵션까지 더한 최종가. 자사몰이 기본가와 추가금을 **따로** 깎으므로 여기도 따로
      절사해 더한다 — 합쳐서 한 번에 깎으면 10원씩 어긋난다(lib/priceSync) */
   const unitPrice = (row: PlanRow, add: number) =>
-    finalPrice(row) + Math.floor((add * (1 - row.rate)) / 10) * 10;
+    finalPrice(row) + priceAt(add, row.rate).price;
   const setRow = (productNo: number, patch: Partial<PlanRow>) =>
     setRows(previous => previous.map(row => (row.productNo === productNo ? { ...row, ...patch } : row)));
   /* 목록에 있는 것이 곧 반영 대상이다 */
@@ -131,7 +147,7 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
   const catalog = [...plan.items, ...plan.pool];
   const stockOf = (productNo: number) => catalog.find(item => item.productNo === productNo);
   /* 아직 목록에 없는 빵 — '+'로 넣을 수 있다 */
-  const addable = plan.pool.filter(item => !rows.some(row => row.productNo === item.productNo));
+  const addable = catalog.filter(item => !rows.some(row => row.productNo === item.productNo));
 
   /* 옵션값 → 빵값 → 기본값 (lib/appSettings.allotmentFor와 같은 순서여야 한다) */
   const capOf = (productNo: number, unit?: string) =>
@@ -139,13 +155,12 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
 
   const removeChecked = () => setRows(previous => previous.filter(row => !row.selected));
   const addProduct = (productNo: number) => {
-    const item = plan.pool.find(entry => entry.productNo === productNo);
+    const item = catalog.find(entry => entry.productNo === productNo);
     if (!item) return;
     setRows(previous => [...previous, {
       productNo: item.productNo, name: item.name, price: item.price,
-      suggested: instantDepth, rate: instantDepth, selected: false,
+      suggested: item.rate, rate: item.rate, selected: false,
     }]);
-    setCaps(previous => ({ ...previous, [item.productNo]: item.allotment }));
   };
 
   /** 자사몰의 현재 판매가를 불러온다. 반영 전에 "무엇이 얼마로 바뀌는지"를 눈으로 보기 위한 것. */
@@ -215,14 +230,14 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
             <p className={styles.reason}>{plan.reason}</p>
           </div>
           <div className={styles.rateBlock}>
-            <span className={styles.rate}>−{Math.round(instantDepth * 100)}%</span>
+            <span className={styles.rate}>−{Math.round(plan.rate * 100)}%</span>
             {/* 오늘 라인이 자동으로 고르지만, 기업이 "이건 빼자"고 할 수 있다.
                 그때마다 코드를 고치게 할 수는 없어 여기서 넣고 뺀다 */}
             <div className={styles.listTools}>
-              <button type="button" onClick={() => setAdding(open => !open)}
+              <button type="button" aria-label="빵 추가" onClick={() => setAdding(open => !open)}
                 disabled={!addable.length} aria-expanded={adding}
                 title={addable.length ? '빵 추가' : '더 넣을 빵이 없습니다'}>＋</button>
-              <button type="button" onClick={removeChecked} disabled={!checked.length}
+              <button type="button" aria-label="고른 빵 빼기" onClick={removeChecked} disabled={!checked.length}
                 title={checked.length ? `고른 ${checked.length}종 빼기` : '뺄 빵을 체크하세요'}>−</button>
             </div>
           </div>
@@ -256,11 +271,12 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
         )}
 
 
+        {capMessage && <p className={styles.note} role="status">{capMessage}</p>}
         <ul className={styles.planItems}>
           {rows.map(row => {
             const linked = links[row.productNo];
             return (
-              <li key={row.productNo} className={styles.planRow} data-off={!row.selected}>
+              <li key={row.productNo} className={styles.planRow}>
                 <input
                   type="checkbox"
                   checked={row.selected}
@@ -287,16 +303,16 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                 <span className={styles.stepper} data-busy={savingCap === String(row.productNo)}>
                   <span className={styles.stepperLabel}>{(stockOf(row.productNo)?.options.length ?? 0) > 0 ? '옵션당' : '예약'}</span>
                   <button type="button" aria-label={`${row.name} 물량 한 건 줄이기`}
-                    disabled={capOf(row.productNo) <= 1 || savingCap === String(row.productNo)}
+                    disabled={capOf(row.productNo) <= 1 || savingCap !== null}
                     onClick={() => saveCap(row.productNo, capOf(row.productNo) - 1)}>−</button>
                   <input type="number" min={1} max={1000} aria-label={`${row.name} 물량(건)`}
-                    value={capOf(row.productNo)} disabled={savingCap === String(row.productNo)}
+                    value={capOf(row.productNo)} disabled={savingCap !== null}
                     onChange={event => setCaps(previous => ({ ...previous, [String(row.productNo)]: Number(event.target.value) || 1 }))}
                     onBlur={event => saveCap(row.productNo, Number(event.target.value) || 1)}
                     onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
                   <span className={styles.stepperLabel}>건</span>
                   <button type="button" aria-label={`${row.name} 물량 한 건 늘리기`}
-                    disabled={capOf(row.productNo) >= 1000 || savingCap === String(row.productNo)}
+                    disabled={capOf(row.productNo) >= 1000 || savingCap !== null}
                     onClick={() => saveCap(row.productNo, capOf(row.productNo) + 1)}>+</button>
                 </span>
                 <del>{won(row.price)}원</del>
@@ -333,7 +349,7 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                             <span className={styles.stepper} data-busy={savingCap === key}>
                               <span className={styles.stepperLabel}>예약</span>
                               <input type="number" min={1} max={1000} aria-label={`${row.name} ${o.label} 자리 수`}
-                                value={capOf(row.productNo, o.code)} disabled={savingCap === key}
+                                value={capOf(row.productNo, o.code)} disabled={savingCap !== null}
                                 onChange={event => setCaps(previous => ({ ...previous, [key]: Number(event.target.value) || 1 }))}
                                 onBlur={event => saveCap(row.productNo, Number(event.target.value) || 1, o.code)}
                                 onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
@@ -349,7 +365,7 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
                   <small className={styles.shopPrice}>
                     {shopPrices[row.productNo].startsWith('오류')
                       ? shopPrices[row.productNo]
-                      : `자사몰 ${won(Number(shopPrices[row.productNo]))}원 → ${won(Math.floor(Number(shopPrices[row.productNo]) * (1 - row.rate) / 10) * 10)}원`}
+                      : `자사몰 ${won(Number(shopPrices[row.productNo]))}원 → ${won(priceAt(Number(shopPrices[row.productNo]), row.rate).price)}원`}
                   </small>
                 )}
               </li>
@@ -370,8 +386,8 @@ export default function AdminConsole({ plan, links, maxRate, instantDepth, allot
         {published && <p className={styles.note} style={{ marginTop: 12, whiteSpace: 'pre-line' }}>{published}</p>}
 
         <p className={styles.note} style={{ marginTop: 12 }}>
-          자사몰로 나가는 값은 <b>즉시구매 칸의 가격</b>입니다. 그 아래 한정 호가는 체결을 거쳐야 하므로
-          자사몰 판매가와 무관합니다 (체결 처리는 구현 전).
+          목록의 상품과 할인율은 <b>빵장의 오늘 할인</b>을 기준으로 제안합니다.
+          이 목록의 추가·제외와 할인율 수정은 자사몰 반영에만 사용되며, 빵장의 자동 진열 규칙은 바꾸지 않습니다.
           <br />
           <b>예약 n건</b>은 그 빵을 하루에 몇 <b>건</b>까지 할인가로 예약받을지입니다 —
           빵 개수가 아닙니다. 한 건은 손님이 옵션 하나를 고르는 단위라, 30건을 열어두고

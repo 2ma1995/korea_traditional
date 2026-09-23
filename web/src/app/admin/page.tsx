@@ -12,7 +12,8 @@ import { loadProductLinks, loadTiers } from '@/lib/settings';
 import { PRODUCTS } from '@/data/products';
 import { applyStock, fetchStock } from '@/lib/stock';
 import { MAX_DISCOUNT_RATE } from '@/data/indicators';
-import { buildDailyPlan } from '@/lib/discount';
+import { buildToday, priceAt } from '@/lib/offers';
+import { loadSkuSignals } from '@/lib/skuSignals';
 import { getMarketSnapshot } from '@/lib/market';
 
 /* 검색엔진에 올리지 않는다. 로그인이 붙기 전까지는 주소를 아는 사람만 들어온다. */
@@ -47,19 +48,20 @@ export default async function AdminPage() {
     fetchStock(),
   ]);
   const seasons = await listRounds();
-  const daily = buildDailyPlan(market, undefined, tiers);
+  const today = buildToday(market, tiers, undefined, new Date(), applyStock(PRODUCTS, stock), await loadSkuSignals(), allotments.value);
   /* 즉시구매 칸의 폭 = 가장 얕은 구간. 자사몰에 반영하는 기본값이다. */
   const instantDepth = Math.min(...tiers.map(tier => tier.rate));
   const plan: PlanSummary = {
-    date: daily.date,
-    headline: daily.headline,
-    reason: daily.reason,
-    rate: daily.rate,
-    items: daily.items.map(item => ({
+    date: today.date,
+    headline: today.mood.copy,
+    reason: today.mood.theme,
+    rate: today.rate,
+    items: today.offers.map(item => ({
       productNo: item.product.productNo,
       name: item.product.name,
       price: item.product.price,
-      finalPrice: item.finalPrice,
+      finalPrice: item.price,
+      rate: item.rate,
       /* 카페24에서 읽어온 값. 관리자 화면은 보여주기만 하고 바꾸지 않는다 */
       stock: stock.quantity[item.product.productNo] ?? null,
       /* 이 빵에 정한 물량. 정한 적 없으면 기본값이 뜬다 */
@@ -74,12 +76,13 @@ export default async function AdminPage() {
     })),
     /* 오늘 목록에 없는 빵 — 관리자가 '+'로 넣을 수 있다 */
     pool: applyStock(PRODUCTS, stock)
-      .filter(product => !daily.items.some(item => item.product.productNo === product.productNo))
+      .filter(product => !today.offers.some(item => item.product.productNo === product.productNo))
       .map(product => ({
         productNo: product.productNo,
         name: product.name,
         price: product.price,
-        finalPrice: Math.floor((product.price * (1 - instantDepth)) / 10) * 10,
+        finalPrice: priceAt(product.price, instantDepth).price,
+        rate: instantDepth,
         stock: stock.quantity[product.productNo] ?? null,
         options: (stock.options[product.productNo] ?? []).map(o => ({
           code: o.code, label: o.label, quantity: o.quantity, add: o.add,
@@ -88,7 +91,7 @@ export default async function AdminPage() {
         allotment: allotmentFor(allotments.value, product.productNo),
         sellable: stock.map[product.productNo] ?? product.inStock,
       })),
-    soldOutCount: daily.soldOut.length,
+    soldOutCount: today.soldOut.length,
   };
 
   return <main id="main-content" className="page-width inner-page">
@@ -98,8 +101,9 @@ export default async function AdminPage() {
         <h1>검수와 <em>승인.</em></h1>
         <p>오늘의 호가 범위를 확인하고 자사몰에 반영합니다.</p>
       </div>
+      <a href="/" target="_blank" rel="noopener noreferrer">빵장 화면 확인 ↗</a>
     </header>
-    <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} instantDepth={instantDepth} allotmentDefault={ALLOTMENT_DEFAULT} />
+    <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} allotmentDefault={ALLOTMENT_DEFAULT} />
     <TierSettings initial={tiers} maxRate={MAX_DISCOUNT_RATE} />
     <DividendSettings initial={dividend} maxRate={MAX_DIVIDEND_RATE} />
     {/* 공모 관련은 한데 모은다. 회차 관리는 공모주를 켰을 때만 — 꺼둔 기능의 폼이

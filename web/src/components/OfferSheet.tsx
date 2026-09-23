@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ProductPhoto from '@/components/ProductPhoto';
-import type { Mood, TodayOffer } from '@/lib/offers';
+import { priceAt, type Mood, type TodayOffer } from '@/lib/offers';
 import { shopProductUrl } from '@/lib/shop';
 import styles from './Market.module.css';
 
@@ -17,11 +17,14 @@ import styles from './Market.module.css';
  */
 export interface Bid {
   status: 'busy' | 'filled' | 'missed';
+  unit?: string | null;
+  depth?: number;
+  settled?: 'open' | 'paid';
   slot: number | null;
   /** 저장소에 남았는가. false면 이번 서버 세션 메모리에만 있다 — 화면에 밝힌다 */
   stored?: boolean;
   /** 오늘 가격으로 결제할 할인코드. 발급에 실패하면 null이다(예약은 그대로) */
-  coupon?: { code: string; rate: number; expiresOn: string } | null;
+  coupon?: { code: string; rate: number; expiresOn?: string } | null;
   /** 실패했다면 서버가 말한 이유. 없으면 '물량이 끝났다'는 뜻이다 */
   error?: string;
   /** 결제 기한(ISO). 이 시각까지 결제하지 않으면 자리가 반납된다 */
@@ -45,16 +48,8 @@ interface Props {
   bid: Bid | undefined;
   /** 관심(알림)에 담아둔 개수 */
   watching: number;
-  /** 실제로 살 개수 — watching이 0이면 1 */
-  qty: number;
   canBuy: boolean;
   lockNote: string;
-  /**
-   * 왼쪽 버튼이 무엇이 되는가.
-   *   'watch' — 오늘의 할인 빵에서 열었을 때. 아직 안 담은 빵이니 먼저 담게 한다
-   *   'qty'   — 내 포트폴리오에서 열었을 때. 이미 담은 빵이니 개수를 조절한다
-   */
-  left: 'watch' | 'qty';
   /**
    * 공모 청약권을 아직 쓰지 않았는가.
    *
@@ -76,10 +71,14 @@ interface Props {
 const won = (n: number) => n.toLocaleString('ko-KR');
 const shopUrl = shopProductUrl;
 
-export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, qty, canBuy, lockNote, left, canBid, unit, onNext, onBuy, onQty, onUnit, onClose }: Props) {
+export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, canBuy, lockNote, canBid, unit, onNext, onBuy, onQty, onUnit, onClose }: Props) {
   /* 고른 단위가 곧 결제 금액이다. 선택지가 없는 상품은 기본가 그대로 */
   const picked = offer.units.find(u => u.code === unit) ?? offer.units[0] ?? null;
-  const unitPrice = picked?.price ?? offer.price;
+  const booked = bid?.status === 'filled';
+  const discount = booked ? bid.depth ?? rate : rate;
+  const unitPrice = booked
+    ? priceAt(offer.product.price, discount).price + priceAt((picked?.listPrice ?? offer.product.price) - offer.product.price, discount).price
+    : picked?.price ?? offer.price;
   const unitList = picked?.listPrice ?? offer.product.price;
   /* 예약은 한 자리다 — 개수만큼 반복하지 않는다(0015: 한 사람당 한 자리).
      그래서 값도 고른 옵션 하나의 값이다. 아래 스테퍼의 개수는 포트폴리오 비중일 뿐,
@@ -89,6 +88,8 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
   /* 실제로 살 수 있는 수. 옵션마다 자리를 따로 세므로(0015) 고른 옵션 기준이다 —
      자사몰 재고와 오늘 연 자리 중 작은 쪽을 offers가 이미 계산해 둔다 */
   const stockLeft = picked ? picked.allotment : remaining;
+  const sheet = useRef<HTMLDivElement>(null);
+  const [copyError, setCopyError] = useState(false);
   const [copied, setCopied] = useState(false);
 
   /* 결제 기한 카운트다운. 자리를 붙들 수 있는 시간이 눈에 보여야 결제로 이어진다.
@@ -108,22 +109,38 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
   const clock = mmssNow && (
     <span className={styles.couponClock} data-urgent={remainMs !== null && remainMs < 10 * 60_000}>
       {remainMs === 0
-        ? '⏳ 기한이 지났습니다 — 자리가 반납됩니다'
-        : <>⏳ <b>{mmssNow}</b> 남았습니다 · 이 안에 결제하지 않으면 자리가 반납됩니다</>}
+        ? '결제 안내 기한이 지났습니다. 자사몰 주문 내역에서 결제 여부를 확인해 주세요.'
+        : <>⏳ <b>{mmssNow}</b> 남았습니다 · 안내 기한 · 결제 여부는 자사몰 주문 내역에서 확인</>}
     </span>
   );
-  const pct = Math.round(rate * 100);
+  const pct = Math.round(discount * 100);
   const up = changePct >= 0;
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    sheet.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Tab') return;
+      const controls = sheet.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled)');
+      if (!controls?.length) return;
+      const first = controls[0], last = controls[controls.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+      previous?.focus();
+    };
   }, [onClose]);
 
   return (
     <div className={styles.overlay} onClick={onClose} role="presentation">
-      <div className={styles.sheet} role="dialog" aria-modal="true" aria-label={`${offer.product.name} 상세`} onClick={e => e.stopPropagation()}>
+      <div ref={sheet} className={styles.sheet} role="dialog" aria-modal="true" aria-label={`${offer.product.name} 상세`} onClick={e => e.stopPropagation()}>
         <div className={styles.sheetGrip} aria-hidden="true" />
         <button type="button" className={styles.sheetClose} onClick={onClose} aria-label="닫기">✕</button>
 
@@ -133,9 +150,8 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
             {offer.badges.length > 0 && <p className={styles.sheetBadges}>{offer.badges.join(' · ')}</p>}
             <h3>{offer.product.name}</h3>
             <p className={styles.sheetPrice}>
-              <strong>{won(offer.price)}원</strong>
-              <del>{won(offer.product.price)}원</del>
-              <span>−{won(offer.saved)}원 ({pct}%)</span>
+              <strong>{won(payPrice)}원</strong>
+              {payPrice < payList && <><del>{won(payList)}원</del><span>−{won(payList - payPrice)}원 ({pct}%)</span></>}
             </p>
             {estimate && <p className={styles.estimate}>지금 기준 예상 · 15:30 종가로 확정</p>}
           </div>
@@ -148,7 +164,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
             <i>→</i>
             <span data-side={mood.side}>{mood.title}</span>
             <i>→</i>
-            <span>모든 빵 {pct}% 할인</span>
+            <span>{pct > 0 ? `이 빵 ${pct}% 할인` : '오늘은 정가 판매'}</span>
           </dd>
         </dl>
 
@@ -156,10 +172,10 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
             "오늘 90개 한정"이 나왔는데, 90개의 빵이 아니라 90묶음이라 뜻이 애매했다.
             자사몰 재고와 오늘 물량 중 작은 쪽이 실제로 살 수 있는 수다 */}
         <p className={styles.sheetStock}>
-          {picked
+          {offer.saved === 0 ? (offer.product.inStock ? '오늘은 자사몰에서 정가로 구매할 수 있어요.' : '현재 품절된 상품이에요.') : picked
             ? <>{picked.label} · <b>{stockLeft > 0 ? `남음 ${stockLeft}` : '오늘 물량 끝'}</b></>
             : <>오늘 {offer.allotment}건 한정 · <b>{remaining > 0 ? `남음 ${remaining}` : '오늘 물량 끝'}</b></>}
-          {watching > 0 && <> · 🔔 알림 {watching}개</>}
+          {watching > 0 && <> · ♥ 관심빵</>}
         </p>
 
         {/* 자사몰이 파는 단위를 그대로 고르게 한다. 빵장에서만 통하는 개수를 받으면
@@ -172,7 +188,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
             {offer.units.map(u => (
               <label key={u.code} className={styles.unit} data-picked={u.code === picked?.code} data-out={!u.sellable}>
                 <input type="radio" name={`unit-${offer.product.productNo}`} value={u.code}
-                  checked={u.code === picked?.code} disabled={!u.sellable}
+                  checked={u.code === picked?.code} disabled={!u.sellable || bid?.status === 'busy' || bid?.status === 'filled'}
                   onChange={() => onUnit(u.code)} />
                 <span className={styles.unitName}>{u.label}</span>
                 <span className={styles.unitPrice}>
@@ -183,10 +199,10 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
           </fieldset>
         )}
 
-        {bid?.status === 'filled' && (
+        {booked && (
           <>
             <p className={styles.sheetNote}>
-              <b>예약됐습니다 · {bid.slot}번째.</b>{picked && <> · {picked.label}</>}
+              <b>{bid.settled === 'paid' ? '결제 확인된 예약입니다.' : '예약 완료 · 결제 완료와는 달라요.'}</b>{picked && <> · {picked.label}</>}
               {bid.stored === false && <><br />⚠️ 저장소가 연결되지 않아 이번 서버 세션의 메모리에만 기록됩니다.</>}
             </p>
 
@@ -195,12 +211,14 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
             {/* 할인을 어떻게 주느냐에 따라 할 말이 다르다.
                 price — 자사몰 값이 이미 내려가 있다. 손님은 아무것도 안 해도 된다
                 coupon — 코드를 옮겨 적어야 한다 */}
-            {bid.delivery === 'price' ? (
+            {remainMs === 0 || bid.settled === 'paid' ? (
+              <p className={styles.sheetNote}>{bid.settled === 'paid' ? '다시 결제하지 말고 자사몰 주문 내역을 확인해 주세요.' : clock}</p>
+            ) : bid.delivery === 'price' ? (
               <div className={styles.couponBox}>
-                <span className={styles.couponLabel}>오늘 가격이 이미 적용돼 있습니다</span>
+                <span className={styles.couponLabel}>자사몰에서 최종 결제 금액을 확인해 주세요</span>
                 <span className={styles.couponFine}>
-                  막지몰에서 <b>{won(payPrice)}원</b>{picked && <> ({picked.label})</>} 그대로 결제하시면 됩니다 —
-                  코드 입력도, 회원가입도 필요 없습니다.
+                  예약 안내 금액은 <b>{won(payPrice)}원</b>{picked && <> ({picked.label})</>}입니다.
+                  자사몰에서 같은 옵션을 선택하고 최종 금액을 확인해 주세요.
                 </span>
                 {clock}
               </div>
@@ -209,11 +227,11 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
                 <span className={styles.couponLabel}>오늘 가격으로 결제할 코드</span>
                 <div className={styles.couponRow}>
                   <code>{bid.coupon.code}</code>
-                  <button type="button" onClick={() => { void navigator.clipboard?.writeText(bid.coupon!.code); setCopied(true); }}>
+                  <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(bid.coupon!.code); setCopied(true); setCopyError(false); } catch { setCopyError(true); } }}>
                     {copied ? '복사됨 ✓' : '복사'}
                   </button>
                 </div>
-                <span className={styles.couponFine}>{offer.product.name} 전용 · 결제할 때 입력하세요</span>
+                <span className={styles.couponFine} role="status">{copyError && '복사하지 못했어요. 코드를 직접 선택해 복사해 주세요. '}{offer.product.name} 전용 · 결제할 때 입력하세요</span>
                 {clock}
               </div>
             ) : (
@@ -230,9 +248,6 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
               </div>
             )}
 
-            <a className={styles.primary} href={shopUrl(offer.product.productNo)} target="_blank" rel="noopener noreferrer">
-              {bid.delivery === 'none' ? '자사몰에서 정가로 결제하기 ↗' : '이 가격으로 자사몰에서 결제하기 ↗'}
-            </a>
             {canBid && (
               <button type="button" className={styles.toNext} onClick={onNext}>
                 <b>🗳 청약권 1장이 생겼어요</b>
@@ -242,31 +257,27 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
           </>
         )}
         {bid?.status === 'missed' && (
-          <p className={styles.sheetNote}><b>한발 늦었어요.</b> 오늘 이 빵은 다 나갔습니다. ♡에 담아두면 내일 먼저 보입니다.</p>
+          <p className={styles.sheetNote}>{bid.error ?? '오늘 예약 물량이 끝났어요. 관심빵에 담아두고 다음 장을 확인해 주세요.'}</p>
         )}
 
         <div className={styles.sheetActions}>
-          {/* 이미 담아둔 빵이면 어디서 열었든 개수를 조절하게 한다 — 목록에서 열었다고
-              '관심 담김'만 보여주면, 담은 개수를 바꾸려고 포트폴리오까지 가야 한다 */}
-          {left === 'qty' || watching > 0 ? (
-            <div className={styles.stepper}>
-              <button type="button" onClick={() => onQty(qty - 1)} disabled={qty <= 0} aria-label="개수 줄이기">−</button>
-              <b aria-live="polite">♥ {qty}</b>
-              <button type="button" onClick={() => onQty(qty + 1)} disabled={qty >= remaining} aria-label="개수 늘리기">+</button>
-            </div>
-          ) : (
-            <button type="button" className={styles.ghost} aria-pressed={watching > 0}
-              onClick={() => onQty(watching > 0 ? 0 : 1)}>
-              {watching > 0 ? '♥ 관심 담김' : '♡ 관심 담기'}
-            </button>
-          )}
-          <button type="button" className={styles.primary}
-            disabled={!canBuy || remaining <= 0 || bid?.status === 'busy' || bid?.status === 'filled'} onClick={onBuy}>
-            {bid?.status === 'busy' ? '예약 중…' : bid?.status === 'filled' ? '예약 완료' : !canBuy ? lockNote : remaining <= 0 ? '오늘 물량 끝'
-              : `${won(payPrice)}원에 구매하기`}
+          <button type="button" className={styles.ghost} aria-pressed={watching > 0}
+            onClick={() => onQty(watching > 0 ? 0 : 1)}>
+            {watching > 0 ? '♥ 관심 해제' : '♡ 관심 담기'}
           </button>
+          {booked ? (
+            <a className={styles.primary} href={shopUrl(offer.product.productNo)} target="_blank" rel="noopener noreferrer">
+              {remainMs === 0 || bid.settled === 'paid' ? '자사몰에서 주문 확인 ↗' : bid.delivery === 'none' || (!bid.delivery && !bid.coupon) ? '자사몰 정가 확인 ↗' : '자사몰에서 결제 이어가기 ↗'}
+            </a>
+          ) : offer.saved === 0 ? (
+            <a className={styles.primary} href={shopUrl(offer.product.productNo)} target="_blank" rel="noopener noreferrer">자사몰에서 {offer.product.inStock ? '상품 보기' : '재입고 확인'} ↗</a>
+          ) : <button type="button" className={styles.primary}
+            disabled={!canBuy || stockLeft <= 0 || (picked !== null && !picked.sellable) || bid?.status === 'busy'} onClick={onBuy}>
+            {bid?.status === 'busy' ? '예약 중…' : !canBuy ? lockNote : stockLeft <= 0 ? '오늘 물량 끝'
+              : `${won(payPrice)}원에 예약하기`}
+          </button>}
         </div>
-        <p className={styles.sheetFine}>왼쪽 <b>♥ 숫자</b>는 포트폴리오 비중입니다 — 결제 금액과는 상관없습니다. 예약은 고른 옵션으로 <b>한 자리</b>가 잡히고, 몇 개를 살지는 막지몰에서 정하시면 됩니다. 담아둔 빵이 할인되는 날 알림을 받으시려면 <b>내 빵 포트폴리오</b>에서 켜 주세요.</p>
+        <p className={styles.sheetFine}>구매 수량과 최종 금액은 막지몰에서 확인해 주세요.<br />창을 닫아도 내 포트폴리오에서 구매를 이어갈 수 있어요.</p>
       </div>
     </div>
   );

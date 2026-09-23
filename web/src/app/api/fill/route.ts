@@ -6,10 +6,10 @@ import { marketHours } from '@/lib/orderbook';
 import { rateFor } from '@/lib/offers';
 import { demandBonusFor, inventoryBonusFor, skuRateFor } from '@/lib/skuAdjust';
 import { loadSkuSignals } from '@/lib/skuSignals';
-import { visitorId } from '@/lib/visitor';
+import { currentVisitorId, visitorId } from '@/lib/visitor';
 import { loadTiers } from '@/lib/settings';
 import { fetchStock } from '@/lib/stock';
-import { attachCoupon, loadFilledCounts, tryFill } from '@/lib/fills';
+import { attachCoupon, loadFilledCounts, loadMyReservations, tryFill, type MyReservation } from '@/lib/fills';
 import { issueCoupon } from '@/lib/coupon';
 import { adjustInventory } from '@/lib/inventory';
 import { allotmentFor, loadAllotments } from '@/lib/appSettings';
@@ -25,7 +25,7 @@ import { sweepExpired } from '@/lib/settle';
  * 클라이언트가 말하는 "남은 수량"을 믿으면 안 된다.
  */
 
-const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
+const NO_STORE = { 'Cache-Control': 'private, no-store, max-age=0', Vary: 'Cookie' };
 const bad = (error: string, status = 400) =>
   NextResponse.json({ ok: false as const, error }, { status, headers: NO_STORE });
 
@@ -34,11 +34,24 @@ const bad = (error: string, status = 400) =>
    응답 헤더의 no-store는 브라우저에게 하는 말이라 서버 쪽 캐시를 대신하지 못한다. */
 export const dynamic = 'force-dynamic';
 
+const reservationView = (reservation: MyReservation) => ({
+  ...reservation, status: 'filled' as const,
+  delivery: priceSyncActive() ? 'price' as const : reservation.coupon ? 'coupon' as const : 'none' as const,
+});
+const resume = (reservation: MyReservation) => NextResponse.json(
+  { ok: true, filled: true, already: true, ...reservationView(reservation) }, { headers: NO_STORE },
+);
+
 export async function GET() {
-  /* 손님이 화면을 여는 것이 곧 타이머다 — 기한 지난 예약을 여기서 정리한다.
-     Vercel 무료 플랜 크론은 하루 한 번이라 1시간 주기를 맡길 수 없다(lib/settle) */
-  await sweepExpired();
-  return NextResponse.json({ ok: true as const, filled: await loadFilledCounts() }, { headers: NO_STORE });
+  try {
+    await sweepExpired();
+    const [filled, mine] = await Promise.all([
+      loadFilledCounts(), loadMyReservations(await currentVisitorId()),
+    ]);
+    return NextResponse.json({ ok: true, filled, reservations: mine.map(reservationView) }, { headers: NO_STORE });
+  } catch (cause) {
+    return bad(cause instanceof Error ? cause.message : '예약 내역을 불러오지 못했습니다.', 503);
+  }
 }
 
 export async function POST(request: Request) {
@@ -49,6 +62,7 @@ export async function POST(request: Request) {
     return bad('본문을 읽지 못했습니다.');
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return bad('예약 요청이 올바르지 않습니다.');
   const productNo = Number(body.productNo);
   const depth = Number(body.depth);
   const product = PRODUCTS.find(item => item.productNo === productNo);
@@ -58,6 +72,14 @@ export async function POST(request: Request) {
   if (!product) return bad('없는 상품입니다.');
   if (!Number.isFinite(depth) || depth <= 0 || depth >= 1) return bad('할인 폭이 올바르지 않습니다.');
   const now = new Date();
+  const visitor = await visitorId();
+  // 기존 예약은 휴장·품절·시세 변경 뒤에도 결제 안내를 다시 열 수 있다.
+  try {
+    const existing = (await loadMyReservations(visitor, now)).find(row => row.productNo === productNo);
+    if (existing) return resume(existing);
+  } catch (cause) {
+    return bad(cause instanceof Error ? cause.message : '예약 확인에 실패했습니다.', 503);
+  }
   if (!marketHours(now).open) return bad('지금은 빵장이 닫혀 있습니다.', 409);
 
   /* 자리를 세기 전에 반납분을 먼저 정리한다 — 안 그러면 비어 있는 자리를
@@ -93,17 +115,19 @@ export async function POST(request: Request) {
   const quantity = Math.min(stock.quantity[productNo] ?? Infinity, cap);
 
   try {
-    const result = await tryFill(productNo, depth, quantity, now, await visitorId(), unit);
+    const result = await tryFill(productNo, depth, quantity, now, visitor, unit);
     /* 이미 잡고 있다(0015). 물량이 끝난 것과는 다른 일이라 다르게 말해야 한다 —
        "오늘 물량이 끝났습니다"라고 하면 손님이 자기 자리를 못 찾고 되돌아간다 */
     if (result.already) {
+      const existing = (await loadMyReservations(visitor, now)).find(row => row.productNo === productNo);
+      if (existing) return resume(existing);
       return NextResponse.json(
         { ok: false as const, already: true as const, error: '오늘 이 빵은 이미 예약하셨어요. 예약한 자리에서 결제해 주세요.' },
         { status: 409, headers: NO_STORE },
       );
     }
     /* 오늘 산 사람에게 공모 청약권 한 장. 구매가 증거금 역할을 한다 (lib/bidRight) */
-    await grantBidRight(now);
+    if (result.filled) await grantBidRight(now);
 
     /* 자리를 잡은 사람에게만 할인코드를 준다 — 화면 가격과 자사몰 결제가를 맞추는
        유일한 수단이다(lib/coupon). 발급이 실패해도 예약은 그대로 살린다.
@@ -128,7 +152,7 @@ export async function POST(request: Request) {
     const delivery = priceSyncActive() ? 'price' : coupon ? 'coupon' : 'none';
 
     return NextResponse.json(
-      { ok: true as const, ...result, quantity, coupon, delivery, intent: discountDelivery() },
+      { ok: true as const, ...result, quantity, coupon, delivery, unit, depth, settled: 'open', intent: discountDelivery() },
       { headers: NO_STORE },
     );
   } catch (err) {
