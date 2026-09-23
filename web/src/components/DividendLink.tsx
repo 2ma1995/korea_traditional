@@ -7,8 +7,9 @@ import styles from './Tabs.module.css';
  * 배당금 통장 — 자사몰 아이디 연결, 잔액, "배당금으로 할인받기".
  *
  * 이 서비스에는 로그인이 없어 배당을 받을 계정을 손님이 직접 알려줘야 한다
- * (공모 청약의 아이디 칸과 같은 이유). 잔액을 쓰면 그 금액의 할인 쿠폰이 자사몰
- * 쿠폰함에 들어가고, 자사몰에 로그인해 결제할 때 고른다(lib/payout.redeem).
+ * (공모 청약의 아이디 칸과 같은 이유). 휴장이 시작되면 잔액만큼 할인 쿠폰이 자사몰
+ * 쿠폰함에 **자동으로** 들어가고, 안 쓰면 다음 장에 거둬 잔액으로 돌아온다(lib/payout).
+ * 버튼은 그 자동 발급을 기다리지 않고 지금 받고 싶을 때만 쓴다.
  */
 
 const won = (n: number) => n.toLocaleString('ko-KR');
@@ -20,9 +21,11 @@ interface Props {
   initial: string | null;
   mode: 'wallet' | 'mileage';
   balance: number;
+  /** 지금 쿠폰함에 나가 있는 배당금 쿠폰 */
+  coupon?: { amount: number; until: string } | null;
 }
 
-export default function DividendLink({ initial, mode, balance: initialBalance }: Props) {
+export default function DividendLink({ initial, mode, balance: initialBalance, coupon: initialCoupon = null }: Props) {
   const [linked, setLinked] = useState(initial);
   const [editing, setEditing] = useState(!initial);
   const [member, setMember] = useState('');
@@ -30,6 +33,7 @@ export default function DividendLink({ initial, mode, balance: initialBalance }:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState('');
+  const [coupon, setCoupon] = useState(initialCoupon);
 
   const post = async (path: string, body?: unknown) => {
     const response = await fetch(path, {
@@ -65,7 +69,8 @@ export default function DividendLink({ initial, mode, balance: initialBalance }:
   const redeem = () => run(async () => {
     const json = await post('/api/dividend/redeem');
     setBalance(0);
-    setDone(`${won(json.amount)}원 쿠폰이 쿠폰함에 들어갔어요. 자사몰에 로그인해 결제할 때 고르세요 · ${won(json.minPrice)}원 이상 주문 · ${until(json.until)}까지`);
+    setCoupon({ amount: json.amount, until: json.until });
+    setDone(`${won(json.amount)}원 쿠폰이 쿠폰함에 들어갔어요. 자사몰에 로그인해 결제할 때 고르세요 · ${won(json.minPrice)}원 이상 주문`);
   });
 
   if (linked && !editing) {
@@ -74,11 +79,20 @@ export default function DividendLink({ initial, mode, balance: initialBalance }:
         {mode === 'wallet' && (
           <>
             <label>내 배당금 · 이번 달 말 소멸</label>
-            <strong>{won(balance)}P</strong>
+            <strong>{won(balance + (coupon?.amount ?? 0))}P</strong>
+            {coupon && (
+              <p className={styles.memberNote}>
+                <b>{won(coupon.amount)}원 쿠폰</b>이 자사몰 쿠폰함에 있어요 · {until(coupon.until)}까지.
+                안 쓰면 다음 장에 배당금으로 돌아와요.
+              </p>
+            )}
             {balance > 0 && !done && (
               <button type="button" className={styles.bid} disabled={busy} onClick={redeem}>
-                {busy ? '쿠폰 만드는 중…' : `${won(balance)}원 할인 쿠폰으로 받기`}
+                {busy ? '쿠폰 만드는 중…' : coupon ? `새로 쌓인 ${won(balance)}원 합쳐서 다시 받기` : `${won(balance)}원 할인 쿠폰으로 받기`}
               </button>
+            )}
+            {!coupon && balance === 0 && !done && (
+              <p className={styles.memberNote}>휴장일이 되면 쌓인 배당금이 할인 쿠폰으로 자동으로 들어가요.</p>
             )}
             {done && <p className={styles.memberNote} role="status">{done}</p>}
           </>

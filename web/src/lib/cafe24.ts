@@ -422,3 +422,26 @@ export async function issueCouponTo(couponNo: string, memberId: string): Promise
 export async function deleteCoupon(couponNo: string): Promise<void> {
   await adminApi(`/api/v2/admin/coupons/${couponNo}`, { method: 'PUT', body: { shop_no: 1, request: { deleted: 'D' } } });
 }
+
+/** 이 회원이 그 쿠폰을 썼는가. 발급 내역이 없으면 null(모름) */
+export async function couponUsedBy(couponNo: string, memberId: string): Promise<boolean | null> {
+  const data = await adminApi<{ issues?: { member_id: string; used_coupon: string }[] }>(
+    `/api/v2/admin/coupons/${couponNo}/issues?member_id=${encodeURIComponent(memberId)}&limit=10`,
+  );
+  const mine = (data.issues ?? []).filter(issue => issue.member_id === memberId);
+  if (!mine.length) return null;
+  return mine.some(issue => issue.used_coupon === 'T');
+}
+
+/**
+ * 회원 쿠폰함에서 그 쿠폰을 거둔다. 쿠폰 정의를 지워도 이미 발급된 쿠폰은 남아서
+ * 따로 거둬야 한다(2026-09-23 테스트몰 확인). 이미 썼거나 없으면 404 — 그건 성공으로 본다.
+ */
+export async function recaptureCoupon(couponNo: string, memberId: string): Promise<void> {
+  try {
+    await adminApi(`/api/v2/admin/customers/${encodeURIComponent(memberId)}/coupons/${couponNo}`, { method: 'DELETE' });
+  } catch (cause) {
+    if (cause instanceof Error && cause.message.includes('(404)')) return;
+    throw cause;
+  }
+}

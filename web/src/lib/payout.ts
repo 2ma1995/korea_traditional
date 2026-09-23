@@ -1,4 +1,4 @@
-import { createAmountCoupon, deleteCoupon, givePoints, issueCouponTo, memberExists, payoutMode } from '@/lib/cafe24';
+import { couponUsedBy, createAmountCoupon, deleteCoupon, givePoints, issueCouponTo, memberExists, payoutMode, recaptureCoupon } from '@/lib/cafe24';
 import { loadDividendPolicy, MAX_DIVIDEND_RATE } from '@/lib/appSettings';
 import { seoulDateString } from '@/lib/market';
 import { KRX_HOLIDAYS, marketHours } from '@/lib/orderbook';
@@ -10,7 +10,8 @@ import { supabase } from '@/lib/supabase';
  *
  *   손님   배당 카드에서 자사몰 아이디를 한 번 연결한다(linkMember)
  *   관리자 토요일에 지급 버튼을 누른다 — 미리보기(previewPayout)로 금액을 보고 지급(runPayout)
- *   손님   휴장일에 "배당금으로 할인받기"를 누르면 잔액만큼 할인 쿠폰이 쿠폰함에 들어간다(redeem)
+ *   자동   휴장이 시작되면 잔액만큼 할인 쿠폰이 쿠폰함에 들어가고, 장이 다시 열리면 안 쓴 쿠폰을
+ *          거둬 잔액으로 돌린다. 다음 휴장엔 새로 쌓인 것과 합쳐 다시 한 장(syncCoupons, 매일 00:05)
  *
  * 주는 방식은 두 가지다(lib/cafe24.payoutMode).
  *   wallet   배당금 통장. 우리가 잔액을 들고, 쓸 때 쿠폰으로 꺼낸다 — 지금 쓰는 방식
@@ -145,7 +146,12 @@ export async function runPayout(at: Date = new Date()): Promise<PayoutPreview & 
         .eq('week_from', preview.from).eq('member', line.member).eq('status', 'failed').select('member');
       if (!revived?.length) continue;
     }
-    if (mode === 'wallet') { results.push({ ...line, status: 'paid' }); continue; }
+    if (mode === 'wallet') {
+      results.push({ ...line, status: 'paid' });
+      /* 휴장일에 쌓였으면 크론을 기다리지 않고 쿠폰을 합쳐 다시 준다 */
+      if (inHoliday(new Date())) await refreshMember(line.member).catch(() => undefined);
+      continue;
+    }
 
     try {
       await givePoints(line.member, line.amount, reason);
@@ -186,7 +192,7 @@ export async function walletBalance(member: string | null, at: Date = new Date()
   const since = new Date(monthStart(at)).toISOString();
   const [{ data: credits }, { data: debits }] = await Promise.all([
     db.from('dividend_payouts').select('amount').eq('member', member).eq('channel', 'wallet').eq('status', 'paid').gte('paid_at', since),
-    db.from('dividend_redemptions').select('amount').eq('member', member).in('status', ['pending', 'issued']).gte('created_at', since),
+    db.from('dividend_redemptions').select('amount').eq('member', member).in('status', SPENT).gte('created_at', since),
   ]);
   const sum = (rows: { amount: number }[] | null) => (rows ?? []).reduce((total, row) => total + row.amount, 0);
   return Math.max(0, sum(credits) - sum(debits));
@@ -208,28 +214,57 @@ export function redeemWindowEnd(at: Date): string {
   return new Date(opens) < new Date(monthEnd) ? opens : monthEnd;
 }
 
+/* 잔액에서 빠지는 상태 — 쿠폰으로 나가 있거나(issued) 이미 썼다(used).
+   거둬들인 것(returned)·실패(failed)는 잔액으로 돌아온다 */
+const SPENT = ['pending', 'issued', 'used'];
+
+interface Redemption { id: number; member: string; amount: number; coupon_no: string | null; created_at: string }
+
+/** 이 아이디 쿠폰함에 지금 나가 있는 배당금 쿠폰. 화면이 "쿠폰함에 N원" 을 보여줄 때 쓴다 */
+export async function activeCoupon(member: string | null): Promise<{ amount: number; until: string } | null> {
+  const db = supabase();
+  if (!db || !member) return null;
+  const { data } = await db.from('dividend_redemptions').select('amount, created_at')
+    .eq('member', member).eq('status', 'issued').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (!data) return null;
+  return { amount: data.amount as number, until: redeemWindowEnd(new Date(data.created_at as string)) };
+}
+
 /**
- * 배당금을 꺼낸다 — 잔액 전부를 정액 할인 쿠폰 한 장으로 만들어 그 회원 쿠폰함에 넣는다.
+ * 나가 있는 쿠폰을 정리한다 — 썼으면 used, 안 썼으면 거둬서 returned(잔액으로 돌아온다).
+ * force가 아니면 기한(다음 거래일 15:00)이 지난 것만 본다.
+ */
+async function settleOut(member: string, at: Date, force: boolean): Promise<void> {
+  const db = supabase();
+  if (!db) return;
+  const { data } = await db.from('dividend_redemptions').select('id, member, amount, coupon_no, created_at')
+    .eq('member', member).eq('status', 'issued');
+  for (const row of (data ?? []) as Redemption[]) {
+    if (!row.coupon_no) continue;
+    if (!force && new Date(redeemWindowEnd(new Date(row.created_at))) > at) continue;
+    const used = await couponUsedBy(row.coupon_no, member).catch(() => null);
+    /* 모르면 건드리지 않는다 — 쓴 쿠폰을 잔액으로 되돌리면 두 번 쓰게 된다 */
+    if (used === null) continue;
+    if (used) { await db.from('dividend_redemptions').update({ status: 'used' }).eq('id', row.id); continue; }
+    await recaptureCoupon(row.coupon_no, member);
+    await deleteCoupon(row.coupon_no).catch(() => undefined);
+    await db.from('dividend_redemptions').update({ status: 'returned' }).eq('id', row.id);
+  }
+}
+
+/**
+ * 잔액 전부를 정액 할인 쿠폰 한 장으로 만들어 그 회원 쿠폰함에 넣는다.
  *
  * 한 번 결제에 쓸 수 있는 배당은 결제액의 MAX_DIVIDEND_RATE까지다. 쿠폰의 최소 주문금액을
- * 금액 ÷ 비율로 걸어 카페24가 막게 한다(2,000원 쿠폰이면 13,340원 이상 주문).
- *
- * ponytail: 잔액을 한 번에 다 꺼낸다. 나눠 쓰기가 필요해지면 금액을 받는다.
+ * 금액 ÷ 비율로 걸어 카페24가 막게 한다(1,500원 쿠폰이면 10,000원 이상 주문).
  */
-export async function redeem(visitor: string, at: Date = new Date()): Promise<{ amount: number; minPrice: number; until: string } | { error: string; status: number }> {
-  if (payoutMode() !== 'wallet') return { error: '배당금 쓰기를 준비 중이에요.', status: 503 };
-  const hours = marketHours(at);
-  if (hours.reason !== 'holiday' && hours.reason !== 'test') {
-    return { error: '배당금은 휴장일에 정가로 살 때 써요. 평일엔 빵장 할인을 이용해 주세요.', status: 409 };
-  }
+async function issueBalance(member: string, at: Date): Promise<{ amount: number; minPrice: number; until: string } | { error: string; status: number }> {
   const db = supabase();
   if (!db) return { error: '저장소가 없어 쓸 수 없습니다.', status: 503 };
-  const member = await linkedMember(visitor);
-  if (!member) return { error: '먼저 배당 받을 자사몰 아이디를 연결해 주세요.', status: 400 };
   const amount = await walletBalance(member, at);
   if (amount <= 0) return { error: '쓸 수 있는 배당금이 없어요.', status: 409 };
 
-  /* 먼저 적는다 — 동시에 두 번 눌러도 pending은 한 줄만 들어간다(0018 부분 unique) */
+  /* 먼저 적는다 — 동시에 두 번 불려도 pending은 한 줄만 들어간다(0018 부분 unique) */
   const { data: row, error } = await db.from('dividend_redemptions').insert({ member, amount, status: 'pending' }).select('id').single();
   if (error) return { error: error.code === '23505' ? '쿠폰을 만드는 중이에요. 잠시 뒤 쿠폰함을 확인해 주세요.' : `기록 실패: ${error.message}`, status: 409 };
 
@@ -237,10 +272,7 @@ export async function redeem(visitor: string, at: Date = new Date()): Promise<{ 
   const until = redeemWindowEnd(at);
   let couponNo: string | null = null;
   try {
-    couponNo = await createAmountCoupon({
-      name: `빵장 배당금 ${amount.toLocaleString()}원`, amount,
-      begin: kstDateTime(at), end: until, minPrice,
-    });
+    couponNo = await createAmountCoupon({ name: `빵장 배당금 ${amount.toLocaleString()}원`, amount, begin: kstDateTime(at), end: until, minPrice });
     await issueCouponTo(couponNo, member);
     await db.from('dividend_redemptions').update({ status: 'issued', coupon_no: couponNo }).eq('id', row.id);
     return { amount, minPrice, until };
@@ -251,4 +283,57 @@ export async function redeem(visitor: string, at: Date = new Date()): Promise<{ 
     await db.from('dividend_redemptions').update({ status: 'failed', coupon_no: couponNo, note }).eq('id', row.id);
     return { error: '쿠폰을 만들지 못했어요. 잠시 뒤 다시 해주세요.', status: 502 };
   }
+}
+
+const inHoliday = (at: Date) => ['holiday', 'test'].includes(marketHours(at).reason);
+
+/**
+ * 한 아이디의 쿠폰을 지금 상태에 맞춘다 — 자동 발급의 한 칸.
+ *
+ *   휴장일   새로 쌓인 배당금이 있으면, 나가 있는 쿠폰을 거두고 합친 금액으로 다시 한 장
+ *   거래일   기한이 지난 쿠폰을 정리 — 안 썼으면 거둬서 잔액으로 돌린다
+ *
+ * 월말이 지나면 지난달 적립분은 잔액에 안 잡혀(walletBalance) 자연히 소멸한다.
+ * 쿠폰 기한도 그달 말을 넘지 않는다(redeemWindowEnd).
+ */
+export async function refreshMember(member: string, at: Date = new Date()) {
+  if (payoutMode() !== 'wallet') return null;
+  if (!inHoliday(at)) { await settleOut(member, at, false); return null; }
+  if ((await walletBalance(member, at)) <= 0) return null;
+  await settleOut(member, at, true);
+  return issueBalance(member, at);
+}
+
+/** 매일 00:05 크론 — 연결된 모든 아이디의 쿠폰을 맞춘다(api/cron/dividend) */
+export async function syncCoupons(at: Date = new Date()) {
+  const db = supabase();
+  const report = { members: 0, issued: 0, errors: [] as string[] };
+  if (!db || payoutMode() !== 'wallet') return report;
+  const [{ data: links }, { data: out }] = await Promise.all([
+    db.from('dividend_links').select('member'),
+    db.from('dividend_redemptions').select('member').eq('status', 'issued'),
+  ]);
+  const members = [...new Set([...(links ?? []), ...(out ?? [])].map(row => row.member as string))];
+  report.members = members.length;
+  /* ponytail: 아이디마다 카페24 호출 몇 번 — 수백 명까지는 60초 안에 끝난다 */
+  for (const member of members) {
+    try {
+      const result = await refreshMember(member, at);
+      if (result && 'amount' in result) report.issued += 1;
+      else if (result && 'error' in result && result.status >= 500) report.errors.push(`${member}: ${result.error}`);
+    } catch (cause) {
+      report.errors.push(`${member}: ${cause instanceof Error ? cause.message.slice(0, 200) : String(cause)}`);
+    }
+  }
+  return report;
+}
+
+/** 손님이 "지금 받기"를 누를 때 — 크론을 기다리지 않고 그 자리에서 맞춘다 */
+export async function redeem(visitor: string, at: Date = new Date()): Promise<{ amount: number; minPrice: number; until: string } | { error: string; status: number }> {
+  if (payoutMode() !== 'wallet') return { error: '배당금 쓰기를 준비 중이에요.', status: 503 };
+  if (!inHoliday(at)) return { error: '배당금은 휴장일에 정가로 살 때 써요. 평일엔 빵장 할인을 이용해 주세요.', status: 409 };
+  const member = await linkedMember(visitor);
+  if (!member) return { error: '먼저 배당 받을 자사몰 아이디를 연결해 주세요.', status: 400 };
+  const result = await refreshMember(member, at);
+  return result ?? { error: '쓸 수 있는 배당금이 없어요.', status: 409 };
 }

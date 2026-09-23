@@ -31,10 +31,19 @@ const won = (n: number) => n.toLocaleString('ko-KR');
  *
  * 그래도 값어치가 있다 — 선착순이라, 옵션을 고르며 시간을 쓰는 사이 물량이 나가면
  * 안 된다. 자리를 먼저 잡아두고 결제하러 가는 순서가 맞다.
+ *
+ * 담은 수(− n +)는 **살 개수가 아니라 관심 비중**이다. 예약은 한 사람 한 빵 한 자리라
+ * (0015) 개수로 예약하지 않는다. 비중은 도넛과 "비중 1위"에 쓰인다 — 설계도 2층
+ * "관심 담은 빵이 도넛 비중으로 보인다". 2026-09-23에 일괄 예약을 다시 짜면서
+ * 스테퍼가 결정 없이 빠졌던 것을 되살렸다.
  */
 export default function Portfolio({ offers, entries, bids, onPick, unitOf, onUnit, onBuyAll, bulk }: Props) {
   const { setQty } = usePortfolio();
   const rows = entries.map(entry => ({ ...entry, offer: offers.find(o => o.product.productNo === entry.no) }));
+  const total = rows.reduce((sum, row) => sum + row.qty, 0);
+  const shareOf = (qty: number) => (total ? Math.round((qty / total) * 100) : 0);
+  /* 비중 1위 — 담은 수가 같으면 최근에 담은 쪽. 목록 순서(고정)와 따로 센다 */
+  const top = [...rows].sort((a, b) => b.qty - a.qty || b.at - a.at)[0];
   const discounted = rows.filter(row => row.offer && row.offer.saved > 0);
   const reserved = rows.find(row => bids[row.no]?.status === 'filled');
   const next = reserved ?? discounted[0] ?? rows[0];
@@ -55,6 +64,9 @@ export default function Portfolio({ offers, entries, bids, onPick, unitOf, onUni
   return <>
     <div className={styles.topPick}>
       <span className="eyebrow">내 관심빵 {rows.length}종 · 오늘 할인 {discounted.length}종</span>
+      {top && rows.length > 1 && (
+        <p className={styles.topSub}>비중 1위 {top.offer?.product.name ?? `상품 #${top.no}`} · {shareOf(top.qty)}%{top.offer && top.offer.saved > 0 ? ` · 오늘 ${won(top.offer.price)}원` : ''}</p>
+      )}
       <p>담아둔 빵의 옵션을 확인하고, 막지몰에서 구매하세요.</p>
     </div>
     <ul className={styles.pfList}>
@@ -66,6 +78,12 @@ export default function Portfolio({ offers, entries, bids, onPick, unitOf, onUni
           <span className={styles.pfName}>
             <button type="button" className={styles.pfNameBtn} onClick={() => onPick(row.no)}><b>{name}</b></button>
             <span>{booked ? '예약한 빵 · 구매 이어가기' : !row.offer?.product.inStock ? '현재 품절' : row.offer.saved > 0 ? `오늘 ${won(row.offer.price)}원부터 · 옵션별 확인` : '오늘 할인 대상 아님 · 정가 판매'}</span>
+            {rows.length > 1 && (
+              <span className={styles.pfShare} aria-label={`관심 비중 ${shareOf(row.qty)}%`}>
+                <i style={{ width: `${shareOf(row.qty)}%` }} />
+                <b>{shareOf(row.qty)}%</b>
+              </span>
+            )}
           </span>
           <span className={styles.pfCtl}>
             {/* 옵션은 여기서 고른다. 자사몰 링크에 옵션을 미리 붙일 수 없어서
@@ -85,7 +103,10 @@ export default function Portfolio({ offers, entries, bids, onPick, unitOf, onUni
             <button type="button" className={styles.link} onClick={() => onPick(row.no)} aria-label={`${name} ${booked ? '결제 안내' : '옵션 확인'}`}>
               {booked ? '결제 안내' : '자세히'}
             </button>
-            <button type="button" onClick={() => setQty(row.no, 0)} aria-label={`${name} 관심 해제`}>×</button>
+            {/* 1에서 −를 누르면 관심 해제 — 따로 × 버튼을 두지 않는다 */}
+            <button type="button" onClick={() => setQty(row.no, row.qty - 1)} aria-label={row.qty > 1 ? `${name} 관심 줄이기` : `${name} 관심 해제`}>−</button>
+            <b aria-label={`${name} 담은 수`}>{row.qty}</b>
+            <button type="button" onClick={() => setQty(row.no, row.qty + 1)} aria-label={`${name} 관심 늘리기`}>+</button>
           </span>
         </li>;
       })}

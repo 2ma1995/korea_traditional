@@ -18,7 +18,7 @@ import type { WeekReport } from '@/lib/fills';
 import { badgesFor, DAILY_ALLOTMENT, moodFor, priceAt, rateFor, unitsFor, type TodayMarket, type TodayOffer } from '@/lib/offers';
 import { withSkuBonus } from '@/lib/skuAdjust';
 import { OPEN_AT } from '@/lib/orderbook';
-import { qtyOf, usePortfolio, useStableHoldings } from '@/lib/portfolioStore';
+import { qtyOf, sortHoldings, usePortfolio, useStableHoldings } from '@/lib/portfolioStore';
 import { useKospiLive, type Point } from '@/lib/useKospiLive';
 import styles from './Market.module.css';
 import DividendLink from '@/components/DividendLink';
@@ -51,7 +51,7 @@ interface Props {
   /** 휴장일에만 온다. 내 주간 활동점수와 이번 주 배당 */
   score: WeeklyScore | null;
   /** 배당 지급 방식 · 연결한 자사몰 아이디 · 배당금 잔액. 휴장일이 아니거나 꺼져 있으면 null */
-  wallet: { mode: 'wallet' | 'mileage'; member: string | null; balance: number } | null;
+  wallet: { mode: 'wallet' | 'mileage'; member: string | null; balance: number; coupon: { amount: number; until: string } | null } | null;
 }
 
 type Sort = 'popular' | 'watched' | 'all';
@@ -311,7 +311,9 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const hits = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o));
   /* 차트 툴팁에 보여줄 빵들 — 내 관심빵(오늘 빵장에 있는 것, 비중 순, 최대 3).
      없으면 빵을 보여주지 않고 "알림받기로 담아라" 안내만 한다 */
-  const watched = entries.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o)).slice(0, 3);
+  /* 상위 3개는 담은 수 많은 순 → 같으면 최근 담은 순(sortHoldings). entries는 줄이 튀지 않게
+     고정한 표시 순서라 여기 쓰면 먼저 담은 셋만 뽑힌다 */
+  const watched = sortHoldings(portfolio).map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o)).slice(0, 3);
   const chartBreads = watched.map(o => ({ no: o.product.productNo, name: o.product.name, emoji: EMOJI[o.product.productNo] ?? '🍞', listPrice: o.product.price }));
   const tierLabel = live.tier.label;
 
@@ -383,7 +385,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           )}
 
           {/* 점수 카드는 주말에만 뜨지만 통장은 휴장일이면 늘 보여준다 — 추석 목·금에도 쓸 수 있어야 한다 */}
-          {wallet && <DividendLink initial={wallet.member} mode={wallet.mode} balance={wallet.balance} />}
+          {wallet && <DividendLink initial={wallet.member} mode={wallet.mode} balance={wallet.balance} coupon={wallet.coupon} />}
 
           <h3 className={styles.weekSub}>이번 주 빵장은 이랬어요</h3>
           {week && week.fills > 0 ? (

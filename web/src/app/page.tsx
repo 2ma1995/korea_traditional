@@ -15,7 +15,7 @@ import { currentVisitorId } from '@/lib/visitor';
 import { recordVisit } from '@/lib/visits';
 import { applyStock, fetchStock, withSold } from '@/lib/stock';
 import { payoutMode } from '@/lib/cafe24';
-import { linkedMember, walletBalance } from '@/lib/payout';
+import { activeCoupon, linkedMember, walletBalance } from '@/lib/payout';
 
 /**
  * 빵장 — 서버는 오늘의 재료를 모아 넘기기만 한다.
@@ -58,7 +58,11 @@ export default async function BreadMarketPage() {
     : [null, null, null];
   /* 배당금은 휴장일에 정가로 살 때 쓴다 — 평일 휴장일(추석)에도 통장은 보여준다 */
   const wallet = holiday && payoutMode()
-    ? { mode: payoutMode()!, member, balance: payoutMode() === 'wallet' ? await walletBalance(member, now) : 0 }
+    ? {
+        mode: payoutMode()!, member,
+        balance: payoutMode() === 'wallet' ? await walletBalance(member, now) : 0,
+        coupon: payoutMode() === 'wallet' ? await activeCoupon(member) : null,
+      }
     : null;
 
   /* 이번 공모 회차 — 관리자가 만든 회차 중 오늘 열려 있는 것. 없으면 null이고
