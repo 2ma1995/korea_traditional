@@ -95,9 +95,28 @@ const BASE_SCOPES = [
  *
  * 기업이 개발자센터에서 권한을 켜면 CAFE24_ORDER_SCOPE=on 을 넣고 재인증한다.
  */
-export const SCOPES = process.env.CAFE24_ORDER_SCOPE === 'on'
-  ? ([...BASE_SCOPES, 'mall.read_order'] as const)
-  : BASE_SCOPES;
+/* payoutMode는 아래에 있다 — 함수 선언이라 여기서 불러도 된다 */
+export const SCOPES: readonly string[] = [
+  ...BASE_SCOPES,
+  ...(process.env.CAFE24_ORDER_SCOPE === 'on' ? ['mall.read_order'] : []),
+  /* 주말 배당(lib/payout). 아이디 확인에 회원 읽기, 적립금 방식이면 적립금 쓰기까지.
+     주문 조회와 같은 이유로 개발자센터에 등록한 뒤에만 켠다 — DIVIDEND_PAYOUT */
+  ...(payoutMode() ? ['mall.read_customer'] : []),
+  ...(payoutMode() === 'mileage' ? ['mall.write_mileage'] : []),
+];
+
+/**
+ * 배당을 어떻게 주는가.
+ *   wallet   배당금은 우리 통장(dividend_payouts)에 쌓고, 쓸 때 그 금액의 할인 쿠폰을 발급한다.
+ *            프로모션 권한만 있으면 된다 — 2026-09-23 테스트몰에서 회원 쿠폰 발급을 확인했다
+ *   mileage  카페24 적립금으로 바로 넣는다. 적립금(WRITE_MILEAGE) 권한은 앱 권한 목록에
+ *            없어서 카페24에 따로 신청해야 한다(2026-09-23 확인)
+ *   (없음)   배당은 계산해서 보여주기만 한다
+ */
+export function payoutMode(): 'wallet' | 'mileage' | null {
+  const mode = process.env.DIVIDEND_PAYOUT;
+  return mode === 'wallet' || mode === 'mileage' ? mode : null;
+}
 
 /** 인증을 시작할 주소. state는 CSRF 방지용으로 호출부가 쿠키에 함께 심는다. */
 export function authorizeUrl(state: string): string {
@@ -344,4 +363,62 @@ export async function setVariantAmount(
     { method: 'PUT', body: { shop_no: 1, request: { additional_amount: amount.toFixed(2) } } },
   );
   return data.variant;
+}
+
+/* ── 회원 · 적립금 ─────────────────────────────────────── */
+
+/** 이 아이디의 회원이 있는가. 배당을 엉뚱한 곳(오타 난 아이디)에 보내지 않으려고 연결할 때 본다 */
+export async function memberExists(memberId: string): Promise<boolean> {
+  const query = new URLSearchParams({ member_id: memberId, fields: 'member_id' });
+  const data = await adminApi<{ customers?: { member_id: string }[] }>(`/api/v2/admin/customers?${query}`);
+  return (data.customers ?? []).some(c => c.member_id === memberId);
+}
+
+/**
+ * 적립금 지급. 되돌리려면 type 'decrease'로 같은 금액을 다시 보낸다 — 카페24가 원장을 든다.
+ * 요청 모양·scope(WRITE_MILEAGE)는 apidocs.cafe24.com/docs/admin/post-points(2026-09-01)와 대조했다.
+ * 1회 최대 1,000,000원, member_id는 20자 이하.
+ */
+export async function givePoints(memberId: string, amount: number, reason: string): Promise<void> {
+  await adminApi('/api/v2/admin/points', {
+    method: 'POST',
+    body: { shop_no: 1, request: { member_id: memberId, amount: amount.toFixed(2), type: 'increase', reason } },
+  });
+}
+
+/* ── 쿠폰 (배당금 꺼내 쓰기) ───────────────────────────────
+   필드는 apidocs.cafe24.com/docs/admin/post-coupons · post-coupons-by-coupon-no-issues ·
+   put-coupons-by-coupon-no(2026-09-01)와 대조했고, 2026-09-23 테스트몰에서 만들고·발급하고·지웠다.
+   ⚠️ benefit_type 'F'(즉시적립)는 발급만으로 적립금이 들어가지 않는다 — 주문에 써야 적립된다.
+   ⚠️ 이메일로 가입한 회원의 member_id는 이메일이 아니다(tester@naver.com → tester). */
+
+/** 정액 할인 쿠폰을 만든다. 돌려주는 값은 coupon_no */
+export async function createAmountCoupon(input: {
+  name: string; amount: number; begin: string; end: string; minPrice: number;
+}): Promise<string> {
+  const data = await adminApi<{ coupon: { coupon_no: string } }>('/api/v2/admin/coupons', {
+    method: 'POST',
+    body: { shop_no: 1, request: {
+      coupon_name: input.name.slice(0, 50),
+      benefit_type: 'A', issue_type: 'M', issue_sub_type: 'M',
+      available_period_type: 'F', available_begin_datetime: input.begin, available_end_datetime: input.end,
+      available_site: ['W', 'M'], available_scope: 'O', available_coupon_count_by_order: 1,
+      available_price_type: 'O', available_order_price_type: 'U', available_min_price: input.minPrice,
+      discount_amount: { benefit_price: input.amount },
+    } },
+  });
+  return data.coupon.coupon_no;
+}
+
+/** 쿠폰을 그 회원 쿠폰함에 넣는다 */
+export async function issueCouponTo(couponNo: string, memberId: string): Promise<void> {
+  await adminApi(`/api/v2/admin/coupons/${couponNo}/issues`, {
+    method: 'POST',
+    body: { shop_no: 1, request: { issued_member_scope: 'M', member_id: [memberId], send_sms_for_issue: 'F', allow_duplication: 'F', single_issue_per_once: 'T' } },
+  });
+}
+
+/** 쿠폰을 지운다. 발급이 실패했을 때 빈 쿠폰을 남기지 않으려고 쓴다 */
+export async function deleteCoupon(couponNo: string): Promise<void> {
+  await adminApi(`/api/v2/admin/coupons/${couponNo}`, { method: 'PUT', body: { shop_no: 1, request: { deleted: 'D' } } });
 }

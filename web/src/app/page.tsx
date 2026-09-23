@@ -14,6 +14,8 @@ import { loadSkuSignals } from '@/lib/skuSignals';
 import { currentVisitorId } from '@/lib/visitor';
 import { recordVisit } from '@/lib/visits';
 import { applyStock, fetchStock, withSold } from '@/lib/stock';
+import { payoutMode } from '@/lib/cafe24';
+import { linkedMember, walletBalance } from '@/lib/payout';
 
 /**
  * 빵장 — 서버는 오늘의 재료를 모아 넘기기만 한다.
@@ -47,12 +49,17 @@ export default async function BreadMarketPage() {
   const holiday = today.hours.reason === 'holiday';
   const weekAgo = new Date(now);
   weekAgo.setDate(weekAgo.getDate() - 7);
-  const [week, score] = holiday
+  const [week, score, member] = holiday
     ? await Promise.all([
         loadWeekReport(seoulDateString(weekAgo), seoulDateString(now)),
         isWeekend(now) ? weeklyScoreFor(visitor, now) : null,
+        payoutMode() ? linkedMember(visitor) : null,
       ])
-    : [null, null];
+    : [null, null, null];
+  /* 배당금은 휴장일에 정가로 살 때 쓴다 — 평일 휴장일(추석)에도 통장은 보여준다 */
+  const wallet = holiday && payoutMode()
+    ? { mode: payoutMode()!, member, balance: payoutMode() === 'wallet' ? await walletBalance(member, now) : 0 }
+    : null;
 
   /* 이번 공모 회차 — 관리자가 만든 회차 중 오늘 열려 있는 것. 없으면 null이고
      화면이 공모 섹션을 통째로 감춘다(lib/ipo). 절기 자동 편성은 2026-09-21에 걷어냈다. */
@@ -81,6 +88,7 @@ export default async function BreadMarketPage() {
         today={today}
         tiers={tiers}
         week={week}
+        wallet={wallet}
         score={score}
         round={round}
         ipo={{ ...ipoCounts, ...mine }}

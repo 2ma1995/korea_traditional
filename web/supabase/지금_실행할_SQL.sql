@@ -1,5 +1,5 @@
 -- ============================================================================
--- 지금 실행할 SQL — 0001 ~ 0017 한 장 (새 창고든 쓰던 창고든 이것 하나만 돌린다)
+-- 지금 실행할 SQL — 0001 ~ 0018 한 장 (새 창고든 쓰던 창고든 이것 하나만 돌린다)
 --
 --   어디서   Supabase 대시보드 → SQL Editor → 붙여넣고 Run
 --   무엇을   예약(fills) · 공모 청약(ipo_bids) · 관심 담기(watches)
@@ -7,7 +7,8 @@
 --            주말 배당 재료(fills.visitor · visits) · 할인코드(coupons)
 --            예약 결제 기한(fills.expires_at · settled) · 웹 푸시(push_subscriptions)
 --            한 예약 한 청약(ipo_bids.fill_id) · 한 IP 자리 한도(fills.ip_hash)
---   범위     0001 ~ 0017, 0003·0004 제외 (migrations/ 폴더와 같다 — 새 마이그레이션을 만들면 여기도 붙인다)
+--            배당금(dividend_links · dividend_payouts · dividend_redemptions)
+--   범위     0001 ~ 0018, 0003·0004 제외 (migrations/ 폴더와 같다 — 새 마이그레이션을 만들면 여기도 붙인다)
 --   왜       없으면 전부 **서버 메모리에만** 저장된다. 서버가 재시작되면 사라진다.
 --            화면은 정상 동작하고 "이번 서버 세션의 메모리에만 기록됩니다"라고 밝힌다.
 --
@@ -509,6 +510,44 @@ create unique index if not exists fills_ip_seq
   where ip_hash is not null and settled <> 'expired';
 comment on index fills_ip_seq is '한 IP 한 빵 N자리 — 0017';
 
+-- ── 0018 · 주말 배당 적립금 ──────────────────────────────────────────────────
+create table if not exists dividend_links (
+  visitor    text        primary key,
+  member     text        not null,
+  linked_at  timestamptz not null default now()
+);
+create index if not exists dividend_links_member_idx on dividend_links (member);
+comment on table dividend_links is '방문자 → 자사몰 아이디. 주말 배당 적립금을 보낼 곳 — 0018';
+
+create table if not exists dividend_payouts (
+  week_from  date        not null,
+  member     text        not null,
+  visitor    text        not null,
+  score      smallint    not null,
+  amount     integer     not null check (amount > 0),
+  status     text        not null default 'pending',   -- pending · paid · failed
+  note       text,
+  created_at timestamptz not null default now(),
+  paid_at    timestamptz,
+  primary key (week_from, member)
+);
+comment on table dividend_payouts is '주간 배당 지급 기록. 한 아이디 한 주 한 번 — 0018';
+alter table dividend_payouts add column if not exists channel text not null default 'wallet';  -- wallet · mileage
+
+create table if not exists dividend_redemptions (
+  id         bigserial   primary key,
+  member     text        not null,
+  amount     integer     not null check (amount > 0),
+  coupon_no  text,
+  status     text        not null default 'pending',   -- pending · issued · failed
+  note       text,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists dividend_redemptions_one_pending
+  on dividend_redemptions (member) where status = 'pending';
+create index if not exists dividend_redemptions_member_idx on dividend_redemptions (member, created_at);
+comment on table dividend_redemptions is '배당금을 할인 쿠폰으로 꺼낸 기록 — 0018';
+
 -- ── 권한 · RLS ──────────────────────────────────────────────────────────────
 -- RLS는 정책 없이 켜 둔다. anon 키로는 아무것도 안 보이고 service_role만 통과한다.
 -- 서버만 이 표들을 읽고 쓴다(lib/supabase.ts).
@@ -524,6 +563,9 @@ alter table ipo_rounds     enable row level security;
 alter table ipo_candidates enable row level security;
 alter table coupons        enable row level security;
 alter table push_subscriptions enable row level security;
+alter table dividend_links     enable row level security;
+alter table dividend_payouts   enable row level security;
+alter table dividend_redemptions enable row level security;
 
 commit;
 
@@ -552,6 +594,9 @@ select * from (
   ('coupons',        '0011', '할인코드 — lib/coupon.ts'),
     ('visits',         '0010', '거래일 출석 — lib/visits.ts'),
     ('push_subscriptions', '0014', '웹 푸시 — lib/push.ts'),
+    ('dividend_links',     '0018', '배당 받을 아이디 — lib/payout.ts'),
+    ('dividend_payouts',   '0018', '배당 지급 기록 — lib/payout.ts'),
+    ('dividend_redemptions', '0018', '배당금 꺼내 쓰기 — lib/payout.ts'),
     ('daily_plans',    '0001', '자사몰 가격 복원 — lib/priceSync.ts'),
     ('cafe24_tokens',  '0001', '카페24 토큰 — lib/cafe24.ts'),
     ('discount_tiers', '0002', '할인 구간 — lib/settings.ts'),

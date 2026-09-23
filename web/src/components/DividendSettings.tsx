@@ -117,6 +117,7 @@ export default function DividendSettings({ initial, maxRate }: Props) {
 
         <p className={styles.note}>
           점수는 <b>관심빵 담기 · Bread Market 구매 · 거래일 3일 이상 출석</b> 셋을 각각 주 1회만 셉니다.
+          휴장일이 낀 주는 출석 기준을 <b>거래일 − 1일</b>로 낮춥니다(최소 1일).
           같은 행동을 반복해도 점수가 쌓이지 않습니다.
           <br />
           배당은 <b>매주 토요일</b> 지급하고 <b>매월 말일 23:59</b>에 소멸합니다. 한 번 결제에 쓸 수 있는 금액은

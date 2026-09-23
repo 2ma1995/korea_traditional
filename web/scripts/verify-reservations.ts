@@ -30,10 +30,17 @@ async function main() {
   // No realtime is used in this test; older local Node versions lack WebSocket.
   globalThis.WebSocket = class { constructor() { throw new Error('Unexpected realtime connection'); } } as unknown as typeof WebSocket;
   let reads = 0;
+  const releases: { filter: string | null; body: unknown }[] = [];
   globalThis.fetch = async (input, init) => {
-    assert.equal(init?.method ?? 'GET', 'GET', 'Unverified payment must not trigger a write');
     const url = new URL(String(input));
     assert.ok(url.pathname.includes('/rest/v1/fills'));
+    /* 쓰기는 반납 한 가지만 허용한다 — 'open'인 그 줄을 'expired'로. 결제 판정 수단이
+       없다고 'paid'로 올리거나 다른 줄을 건드리면 여기서 걸린다 */
+    if ((init?.method ?? 'GET') !== 'GET') {
+      assert.equal(init?.method, 'PATCH', 'Unverified payment must only release the slot');
+      releases.push({ filter: url.searchParams.get('settled'), body: JSON.parse(String(init?.body)) });
+      return new Response(JSON.stringify([{ id: 1 }]));
+    }
     reads++;
     if (url.searchParams.has('visitor')) {
       assert.equal(url.searchParams.get('visitor'), 'eq.alice');
@@ -52,6 +59,8 @@ async function main() {
        '붙들기'는 쿠폰은 있는데 카페24를 못 읽었을 때만이다. */
     assert.deepEqual(await sweepExpired(at), { checked: 1, held: 0, paid: 0, expired: 1 });
     assert.equal(reads, 2);
+    /* 'open'일 때만 바꾼다 — 두 인스턴스가 같은 줄을 동시에 반납해도 한쪽만 재고를 되돌린다 */
+    assert.deepEqual(releases, [{ filter: 'eq.open', body: { settled: 'expired', slot: null } }]);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.WebSocket = originalSocket;

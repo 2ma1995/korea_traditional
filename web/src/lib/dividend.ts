@@ -1,6 +1,7 @@
 import { loadDividendPolicy } from '@/lib/appSettings';
 import { boughtInWindow } from '@/lib/fills';
 import { seoulDateString } from '@/lib/market';
+import { KRX_HOLIDAYS } from '@/lib/orderbook';
 import { countVisits } from '@/lib/visits';
 import { watchedInWindow } from '@/lib/watches';
 
@@ -24,13 +25,31 @@ import { watchedInWindow } from '@/lib/watches';
  * 여기서는 "이번 주에 얼마를 줄 것인가"만 계산한다 — 월말 소멸도 카페24 쪽 정책이다.
  */
 
-/** 출석 점수를 받는 최소 거래일 수 */
+/** 출석 점수를 받는 최소 거래일 수 — 평소(거래일 5일) 기준 */
 export const VISIT_DAYS_FOR_POINT = 3;
+
+/**
+ * 이번 주에 출석으로 인정할 날 수.
+ *
+ * 휴장일이 낀 주는 거래일이 줄어든다. 추석 주(9/21)와 10/5 주는 사흘뿐이라
+ * "3일"을 그대로 두면 하루도 빠짐없이 와야 한다. 거래일 − 1(하루는 빠져도 된다),
+ * 평소 기준 3일을 넘지 않게, 최소 1일.
+ */
+export function visitDaysNeeded(from: string, to: string): number {
+  let trading = 0;
+  for (let d = new Date(`${from}T00:00:00Z`); d.toISOString().slice(0, 10) < to; d.setUTCDate(d.getUTCDate() + 1)) {
+    const day = d.getUTCDay();
+    if (day !== 0 && day !== 6 && !KRX_HOLIDAYS.has(d.toISOString().slice(0, 10))) trading += 1;
+  }
+  return Math.max(1, Math.min(VISIT_DAYS_FOR_POINT, trading - 1));
+}
 
 export interface WeeklyScore {
   watched: boolean;
   bought: boolean;
   visitDays: number;
+  /** 이번 주 출석 인정 기준(일). 휴장일이 낀 주는 줄어든다 */
+  visitNeeded: number;
   attended: boolean;
   /** 0~3 */
   score: number;
@@ -75,8 +94,9 @@ export function weekWindow(at: Date): { from: string; to: string } {
 export async function weeklyScoreFor(visitor: string | null, at: Date = new Date()): Promise<WeeklyScore> {
   const { from, to } = weekWindow(at);
   const policy = await loadDividendPolicy();
+  const visitNeeded = visitDaysNeeded(from, to);
   const empty: WeeklyScore = {
-    watched: false, bought: false, visitDays: 0, attended: false,
+    watched: false, bought: false, visitDays: 0, visitNeeded, attended: false,
     score: 0, amount: 0, max: policy.weeklyMax, from, to,
   };
   if (!visitor) return empty;
@@ -87,10 +107,10 @@ export async function weeklyScoreFor(visitor: string | null, at: Date = new Date
     countVisits(visitor, from, to),
   ]);
 
-  const attended = visitDays >= VISIT_DAYS_FOR_POINT;
+  const attended = visitDays >= visitNeeded;
   const score = Number(watched) + Number(bought) + Number(attended);
   return {
-    watched, bought, visitDays, attended, score,
+    watched, bought, visitDays, visitNeeded, attended, score,
     amount: score === 0 ? 0 : policy.tiers[score - 1],
     max: policy.weeklyMax,
     from, to,

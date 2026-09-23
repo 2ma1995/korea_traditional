@@ -4,6 +4,7 @@ import AdminLogin from '@/components/AdminLogin';
 import { isAdmin } from '@/lib/adminAuth';
 import TierSettings from '@/components/TierSettings';
 import IpoSettings from '@/components/IpoSettings';
+import DividendPayout from '@/components/DividendPayout';
 import DividendSettings from '@/components/DividendSettings';
 import IpoRounds from '@/components/IpoRounds';
 import { ALLOTMENT_DEFAULT, allotmentFor, loadAllotments, loadDividendPolicy, loadIpoEnabled, MAX_DIVIDEND_RATE } from '@/lib/appSettings';
@@ -15,6 +16,7 @@ import { MAX_DISCOUNT_RATE } from '@/data/indicators';
 import { buildToday, priceAt } from '@/lib/offers';
 import { loadSkuSignals } from '@/lib/skuSignals';
 import { getMarketSnapshot } from '@/lib/market';
+import { payoutMode } from '@/lib/cafe24';
 
 /* 검색엔진에 올리지 않는다. 로그인이 붙기 전까지는 주소를 아는 사람만 들어온다. */
 export const metadata: Metadata = {
@@ -106,6 +108,7 @@ export default async function AdminPage() {
     <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} allotmentDefault={ALLOTMENT_DEFAULT} />
     <TierSettings initial={tiers} maxRate={MAX_DISCOUNT_RATE} />
     <DividendSettings initial={dividend} maxRate={MAX_DIVIDEND_RATE} />
+    <DividendPayout mode={payoutMode()} />
     {/* 공모 관련은 한데 모은다. 회차 관리는 공모주를 켰을 때만 — 꺼둔 기능의 폼이
         화면 절반을 차지하면, 오늘 할 일(가격 반영)이 그만큼 아래로 밀린다 */}
     <IpoSettings initial={ipo.value} stored={ipo.stored} />

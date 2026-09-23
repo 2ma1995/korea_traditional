@@ -3,6 +3,7 @@ import { PRODUCTS, type Product } from '@/data/products';
 import { getProduct, getVariants, setProductPrice, setVariantAmount } from '@/lib/cafe24';
 import { getMarketSnapshot, seoulDateString } from '@/lib/market';
 import { rateFor } from '@/lib/offers';
+import { marketHours } from '@/lib/orderbook';
 import { loadProductLinks, loadTiers } from '@/lib/settings';
 import { applyStock, fetchStock } from '@/lib/stock';
 import { discountDelivery } from '@/lib/discountDelivery';
@@ -259,6 +260,12 @@ export async function applyPrices(
   meta: PlanMeta,
 ): Promise<{ applied: SyncItem[]; skipped: SyncReport['skipped']; note: string | null; refused?: string }> {
   const skipped: SyncReport['skipped'] = [];
+  /* 휴장일에는 바꾸지 않는다. 빵장이 안 열리는 날이고, 주말엔 되돌리는 자정 크론도
+     돌지 않아 할인가가 그대로 남는다. 15:30 크론은 이미 건너뛰는데 관리자 버튼이 뚫려 있었다 */
+  const hours = marketHours();
+  if (hours.reason === 'holiday') {
+    return { applied: [], skipped, note: null, refused: `오늘은 ${hours.closedFor ?? '휴장일'}이라 반영하지 않습니다. 다음 장 ${hours.nextOpen ?? ''}에 반영하세요.` };
+  }
   const db = supabase();
   if (!db) return { applied: [], skipped, note: null, refused: '저장소가 없어 원가를 적을 수 없습니다 — 되돌릴 수 없는 변경은 하지 않습니다.' };
 
