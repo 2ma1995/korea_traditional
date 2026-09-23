@@ -213,6 +213,10 @@ export function marketHours(at: Date = new Date()): MarketHours {
   /* 테스트 중에는 요일·시간을 보지 않는다. 판정 로직 자체는 그대로 남겨둔다 */
   if (alwaysOpen()) return { open: true, reason: 'test', nowLabel };
 
+  /* 휴장일 화면·배당금 쿠폰을 평일에 시험하려고 — 로컬 전용. 배포본에 넣으면 빵장이 닫힌다 */
+  if (process.env.MARKET_FORCE_HOLIDAY === 'on') {
+    return { open: false, reason: 'holiday', nowLabel, closedFor: '시험', nextOpen: nextOpenLabel(parts.date) };
+  }
   if (isClosedDay(parts)) {
     const closedFor = KRX_HOLIDAYS.get(parts.date) ?? '주말';
     return { open: false, reason: 'holiday', nowLabel, closedFor, nextOpen: nextOpenLabel(parts.date) };

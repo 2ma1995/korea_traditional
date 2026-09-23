@@ -57,6 +57,8 @@ export default function DividendLink({ initial, mode, balance: initialBalance }:
   const link = () => run(async () => {
     const json = await post('/api/dividend/link', { member: member.trim() });
     setLinked(json.member);
+    setBalance(json.balance ?? 0);
+    setDone('');
     setEditing(false);
   });
 
