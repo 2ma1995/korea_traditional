@@ -189,41 +189,6 @@ export async function restoreToday(at: Date = new Date()): Promise<SyncReport> {
   return report;
 }
 
-/**
- * 옵션 추가금도 같은 비율로 깎는다.
- *
- * 막지는 수량을 옵션으로 판다(1개 / 3개 +7,700원 / 5개 +14,700원). 판매가만 깎으면
- * 깎인 금액이 고정이라 **많이 살수록 할인율이 떨어진다** — 4,500원을 5% 깎아도
- * 3개면 실효 1.9%, 5개면 1.2%다. 추가금도 깎아야 "오늘 5%"가 옵션과 무관해진다.
- *
- * 추가금이 0인 품목(기본 수량)은 건너뛴다 — 깎을 것이 없는데 쓰기를 날릴 이유가 없다.
- * 옵션이 없는 상품은 목록이 비어 그대로 지나간다.
- *
- * 품목 조회가 실패하면 빈 배열을 준다. 판매가는 이미 바뀌었으므로 여기서 예외를
- * 던지면 그 상품이 '건너뜀'으로 기록되고, **바꾼 가격의 복원 근거가 사라진다**.
- */
-export async function discountVariants(cafe24No: number, rate: number) {
-  const changed: NonNullable<SyncItem['variants']> = [];
-  let variants;
-  try {
-    variants = await getVariants(cafe24No);
-  } catch {
-    return changed;
-  }
-  for (const v of variants) {
-    const amount = Number(v.additional_amount);
-    if (!Number.isFinite(amount) || amount <= 0) continue;
-    try {
-      const after = await setVariantAmount(cafe24No, v.variant_code, floorTo10(amount * (1 - rate)));
-      changed.push({ code: v.variant_code, originalAmount: v.additional_amount, newAmount: after.additional_amount });
-    } catch {
-      /* 이 품목만 정가로 남는다. 나머지는 계속 깎는다 — 하나 때문에 전부 멈추면
-         이미 내려간 판매가와 더 어긋난다 */
-    }
-  }
-  return changed;
-}
-
 /** 스위치가 꺼져 있을 때 — 바꾸지 않고 "무엇을 바꿀 것인가"만 만든다 */
 async function planOnly(products: Product[], rate: number): Promise<SyncItem[]> {
   return products.map(product => ({
@@ -236,7 +201,7 @@ async function planOnly(products: Product[], rate: number): Promise<SyncItem[]> 
   }));
 }
 
-interface PlanMeta { rate: number; changePct: number | null; headline: string; reason: string | null; approvedBy: string | null }
+export interface PlanMeta { rate: number; changePct: number | null; headline: string; reason: string | null; approvedBy: string | null }
 
 /**
  * 판매가를 바꾸고 원가를 적는다 — 15:30 크론과 관리자 버튼이 같이 쓴다.
@@ -249,10 +214,10 @@ interface PlanMeta { rate: number; changePct: number | null; headline: string; r
  *     (maxDuration) 가격은 내려갔는데 되돌릴 근거가 없다. 먼저 적어둔 것을 못
  *     바꿨다면 자정 복원이 같은 값을 한 번 더 쓸 뿐이라 해가 없다.
  *
- * ponytail: ①은 읽고 쓰는 사이가 잠겨 있지 않다 — 같은 초에 버튼과 크론이 동시에
- *           들어오면 둘 다 통과한다. 그게 실제로 문제가 되면 plan_date insert로 잠근다.
- * ponytail: 옵션 추가금은 여전히 바꾼 뒤에 적힌다(discountVariants). 끊기면 추가금만
- *           깎인 채 남을 수 있다.
+ *
+ * ①은 오늘 줄을 'approved'(반영 중)로 먼저 잡은 쪽만 진행한다(claimDay). 버튼과 크론이
+ * 같은 초에 들어와도 한쪽은 insert가 기본키에 걸리거나 updated_at 비교에서 진다.
+ * ②는 옵션 추가금도 마찬가지다 — 목표 금액까지 적어둔 뒤에 판매가·추가금을 바꾼다.
  */
 export async function applyPrices(
   date: string,
@@ -269,13 +234,8 @@ export async function applyPrices(
   const db = supabase();
   if (!db) return { applied: [], skipped, note: null, refused: '저장소가 없어 원가를 적을 수 없습니다 — 되돌릴 수 없는 변경은 하지 않습니다.' };
 
-  const { data: existing, error: readError } = await db
-    .from('daily_plans').select('status, items').eq('plan_date', date).maybeSingle();
-  if (readError) return { applied: [], skipped, note: null, refused: `오늘 기록을 읽지 못했습니다: ${readError.message}` };
-  /* 복원이 끝난 날은 status가 draft다. 그 외에 원가가 적혀 있으면 아직 깎인 상태다 */
-  if (existing && existing.status !== 'draft' && (existing.items ?? []).length) {
-    return { applied: [], skipped, note: null, refused: `${date}에는 이미 판매가를 바꿔두었습니다. 자정 복원 전에 다시 걸면 깎인 값을 원가로 잃습니다.` };
-  }
+  const refused = await claimDay(date, meta);
+  if (refused) return { applied: [], skipped, note: null, refused };
 
   const links = await loadProductLinks();
   const recorded: SyncItem[] = [];
@@ -290,10 +250,18 @@ export async function applyPrices(
       /* 할인은 자사몰의 현재 판매가를 기준으로 건다 — 그 사이 기업이 가격을 바꿨을 수 있다 */
       const before = await getProduct(cafe24No);
       const target = floorTo10(Number(before.price) * (1 - rate));
+      /* 옵션 추가금도 같은 비율로 깎는다 — 판매가만 깎으면 많이 살수록 할인율이 떨어진다
+         (4,500원을 5% 깎아도 5개 옵션이면 실효 1.2%). 추가금 0인 기본 품목은 건너뛴다.
+         조회가 실패하면 추가금 없이 판매가만 간다 — 예외로 멈추면 그 상품 전체를 못 건다 */
+      const variants = (await getVariants(cafe24No).catch(() => []))
+        .filter(v => Number.isFinite(Number(v.additional_amount)) && Number(v.additional_amount) > 0)
+        .map(v => ({ code: v.variant_code, originalAmount: v.additional_amount, newAmount: String(floorTo10(Number(v.additional_amount) * (1 - rate))) }));
       const item: SyncItem = {
         productNo: product.productNo, name: product.name, cafe24ProductNo: cafe24No, rate,
-        originalPrice: before.price, newPrice: String(target),
+        originalPrice: before.price, newPrice: String(target), variants,
       };
+      /* 바꾸기 전에 원가(판매가·추가금 모두)를 적는다. 못 바꾼 것까지 적혀 있어도
+         자정 복원이 같은 값을 한 번 더 쓸 뿐이라 해가 없다 */
       recorded.push(item);
       if (!(await record(date, meta, recorded, skipped.length))) {
         recorded.pop();
@@ -303,7 +271,14 @@ export async function applyPrices(
       }
       const after = await setProductPrice(cafe24No, target);
       item.newPrice = after.price;
-      item.variants = await discountVariants(cafe24No, rate);
+      for (const v of variants) {
+        try {
+          v.newAmount = (await setVariantAmount(cafe24No, v.code, Number(v.newAmount))).additional_amount;
+        } catch {
+          /* 이 품목만 정가로 남는다. 나머지는 계속 깎는다 — 하나 때문에 전부 멈추면
+             이미 내려간 판매가와 더 어긋난다 */
+        }
+      }
       applied.push(item);
     } catch (cause) {
       skipped.push({
@@ -314,11 +289,49 @@ export async function applyPrices(
     }
   }
 
-  /* 실제 판매가와 추가금 원가까지 담아 마무리한다 */
-  if (recorded.length && !(await record(date, meta, recorded, skipped.length))) saved = false;
+  /* 실제로 바뀐 값까지 담아 마무리한다. 하나도 못 바꿨으면 'failed'로 남긴다 —
+     'approved'(반영 중)로 두면 5분 동안 아무도 다시 못 건다 */
+  if (!(await record(date, meta, recorded, skipped.length))) saved = saved && !recorded.length;
   const note = saved ? null
     : `⚠️ 원가 기록 일부를 저장하지 못했습니다. 자정 복원이 빠뜨릴 수 있으니 확인하세요: ${applied.map(i => `${i.name} ${i.originalPrice}`).join(' · ')}`;
   return { applied, skipped, note };
+}
+
+/** 반영 중 표시가 이보다 오래됐고 적힌 원가가 없으면, 끊긴 실행으로 보고 다시 잡는다 */
+const STALE_CLAIM_MS = 5 * 60 * 1000;
+
+/**
+ * 오늘 반영을 한 곳만 하게 잡는다. 잡으면 null, 못 잡으면 거절 사유.
+ *
+ * 줄이 없으면 insert로 잡는다 — 동시에 둘이 넣으면 기본키(plan_date)가 한쪽을 막는다.
+ * 줄이 있으면 비어 있을 때만(복원 끝 draft / 원가 없는 failed / 끊긴 approved)
+ * updated_at이 읽은 그대로일 때 덮어쓴다 — 그 사이 누가 먼저 잡았으면 0줄이 바뀐다.
+ */
+export async function claimDay(date: string, meta: PlanMeta): Promise<string | null> {
+  const db = supabase();
+  if (!db) return '저장소가 없어 원가를 적을 수 없습니다 — 되돌릴 수 없는 변경은 하지 않습니다.';
+  const claim = {
+    plan_date: date, rate: meta.rate, kospi_change: meta.changePct, headline: `${meta.headline} · 반영 중`,
+    reason: meta.reason, items: [], status: 'approved', approved_at: new Date().toISOString(), approved_by: meta.approvedBy,
+  };
+  const { error } = await db.from('daily_plans').insert(claim);
+  if (!error) return null;
+  if (error.code !== '23505') return `오늘 기록을 잡지 못했습니다: ${error.message}`;
+
+  const { data: existing } = await db.from('daily_plans').select('status, items, updated_at, approved_at').eq('plan_date', date).maybeSingle();
+  if (!existing) return '오늘 기록이 방금 바뀌었습니다. 잠시 뒤 다시 누르세요.';
+  const empty = !((existing.items as unknown[] | null) ?? []).length;
+  /* 끊겼는지는 approved_at으로 본다 — 반영 중에는 상품마다 record()가 갱신한다.
+     updated_at은 트리거가 어떤 수정에도 지금 시각으로 덮어써 기준이 못 된다 */
+  const stale = Date.now() - new Date((existing.approved_at as string | null) ?? 0).getTime() > STALE_CLAIM_MS;
+  if (existing.status === 'approved' && empty && !stale) return '다른 곳(버튼 또는 15:30 크론)에서 지금 반영하고 있습니다.';
+  const free = existing.status === 'draft' || (empty && (existing.status === 'failed' || existing.status === 'approved'));
+  /* 원가가 적혀 있으면 아직 깎인 상태다 — 다시 걸면 깎인 값을 원가로 잃는다 */
+  if (!free) return `${date}에는 이미 판매가를 바꿔두었습니다. 자정 복원 전에 다시 걸면 깎인 값을 원가로 잃습니다.`;
+
+  const { data: won } = await db.from('daily_plans').update(claim)
+    .eq('plan_date', date).eq('updated_at', existing.updated_at as string).select('plan_date');
+  return won?.length ? null : '다른 곳에서 동시에 반영을 시작했습니다.';
 }
 
 async function record(date: string, meta: PlanMeta, items: SyncItem[], skipped: number): Promise<boolean> {

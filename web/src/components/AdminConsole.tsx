@@ -331,7 +331,7 @@ export default function AdminConsole({ plan, links, maxRate, allotmentDefault }:
                   <small className={styles.adjusted}>제안 {Math.round(row.suggested * 100)}%</small>
                 )}
                 {/* 옵션이 값을 바꾸는 상품은 기본가만 봐서는 손님이 얼마를 내는지 모른다.
-                    추가금도 같은 비율로 깎이므로(lib/priceSync.discountVariants)
+                    추가금도 같은 비율로 깎이므로(lib/priceSync.applyPrices)
                     어느 옵션을 골라도 할인율은 같다 — 그걸 눈으로 확인하는 자리다 */}
                 {(() => {
                   const opts = stockOf(row.productNo)?.options ?? [];

@@ -1,5 +1,6 @@
 import { couponUsedBy, createAmountCoupon, deleteCoupon, givePoints, issueCouponTo, memberExists, payoutMode, recaptureCoupon } from '@/lib/cafe24';
 import { loadDividendPolicy, MAX_DIVIDEND_RATE } from '@/lib/appSettings';
+import { limiter } from '@/lib/attempts';
 import { seoulDateString } from '@/lib/market';
 import { KRX_HOLIDAYS, marketHours } from '@/lib/orderbook';
 import { weeklyScoreFor, weekWindow } from '@/lib/dividend';
@@ -27,6 +28,7 @@ import { supabase } from '@/lib/supabase';
 
 /** 카페24 적립금 API의 member_id 한도(20자) — apidocs.cafe24.com/docs/admin/post-points */
 const MEMBER_MAX = 20;
+const lookups = limiter('dividend_link', 10, 60 * 60 * 1000);
 
 export interface PayoutLine {
   member: string;
@@ -65,7 +67,11 @@ export async function linkMember(visitor: string, raw: unknown): Promise<{ membe
   const db = supabase();
   if (!db) return { error: '저장소가 없어 연결할 수 없습니다.', status: 503 };
 
-  /* ponytail: 있는 아이디인지 알려주는 창구가 된다(아이디 추측). 막으려면 IP 시도 제한을 붙인다 */
+  /* 있는 아이디인지 알려주는 창구라 IP마다 한 시간에 10번까지만 묻는다(아이디 떠보기).
+     손님은 한두 번이면 끝난다. 성공해도 센다 — 성공도 "있다"는 답이다 */
+  const locked = await lookups.locked();
+  if (locked) return { error: `확인 시도가 너무 많아요. ${locked}분 뒤에 다시 해주세요.`, status: 429 };
+  await lookups.hit();
   if (!(await memberExists(member))) {
     return { error: '자사몰에 없는 아이디예요. 이메일로 가입했다면 @ 앞부분이 아이디일 수 있어요.', status: 404 };
   }
@@ -304,23 +310,50 @@ export async function refreshMember(member: string, at: Date = new Date()) {
   return issueBalance(member, at);
 }
 
-/** 매일 00:05 크론 — 연결된 모든 아이디의 쿠폰을 맞춘다(api/cron/dividend) */
+/** 크론 한 번에 쓰는 시간. maxDuration(60초) 전에 끊고, 남은 사람은 다음 날 이어서 한다 */
+const SYNC_BUDGET_MS = 45_000;
+
+/**
+ * 매일 00:05 크론 — 할 일이 있는 아이디만 골라 쿠폰을 맞춘다(api/cron/dividend).
+ *
+ * 연결한 사람 전부를 한 명씩 조회하지 않는다. 이번 달 적립·지출과 나가 있는 쿠폰을
+ * 한꺼번에 읽어 잔액을 메모리에서 계산하고, 실제로 움직일 사람만 카페24를 부른다.
+ *   휴장일  잔액이 남은 사람(새로 쌓였거나 아직 안 받았다)
+ *   거래일  기한이 지난 쿠폰이 나가 있는 사람
+ * 시간 예산을 넘기면 멈추고 deferred로 남긴다 — 다음 날 크론이 이어받는다.
+ * ponytail: 읽기가 PostgREST 기본 1,000줄에서 잘린다. 한 달 적립이 1,000건을 넘으면 페이지로 읽는다.
+ */
 export async function syncCoupons(at: Date = new Date()) {
   const db = supabase();
-  const report = { members: 0, issued: 0, errors: [] as string[] };
+  const report = { members: 0, issued: 0, settled: 0, deferred: 0, errors: [] as string[] };
   if (!db || payoutMode() !== 'wallet') return report;
-  const [{ data: links }, { data: out }] = await Promise.all([
-    db.from('dividend_links').select('member'),
-    db.from('dividend_redemptions').select('member').eq('status', 'issued'),
+  const deadline = Date.now() + SYNC_BUDGET_MS;
+  const since = new Date(monthStart(at)).toISOString();
+
+  const [{ data: credits }, { data: debits }, { data: out }] = await Promise.all([
+    db.from('dividend_payouts').select('member, amount').eq('channel', 'wallet').eq('status', 'paid').gte('paid_at', since),
+    db.from('dividend_redemptions').select('member, amount').in('status', SPENT).gte('created_at', since),
+    db.from('dividend_redemptions').select('member, created_at').eq('status', 'issued'),
   ]);
-  const members = [...new Set([...(links ?? []), ...(out ?? [])].map(row => row.member as string))];
-  report.members = members.length;
-  /* ponytail: 아이디마다 카페24 호출 몇 번 — 수백 명까지는 60초 안에 끝난다 */
-  for (const member of members) {
+  const balance = new Map<string, number>();
+  for (const row of (credits ?? []) as { member: string; amount: number }[]) balance.set(row.member, (balance.get(row.member) ?? 0) + row.amount);
+  for (const row of (debits ?? []) as { member: string; amount: number }[]) balance.set(row.member, (balance.get(row.member) ?? 0) - row.amount);
+
+  const holiday = inHoliday(at);
+  const todo = holiday
+    ? [...balance].filter(([, left]) => left > 0).map(([member]) => member)
+    : [...new Set(((out ?? []) as { member: string; created_at: string }[])
+        .filter(row => new Date(redeemWindowEnd(new Date(row.created_at))) <= at)
+        .map(row => row.member))];
+  report.members = todo.length;
+
+  for (const [i, member] of todo.entries()) {
+    if (Date.now() > deadline) { report.deferred = todo.length - i; break; }
     try {
       const result = await refreshMember(member, at);
       if (result && 'amount' in result) report.issued += 1;
       else if (result && 'error' in result && result.status >= 500) report.errors.push(`${member}: ${result.error}`);
+      else if (!holiday) report.settled += 1;
     } catch (cause) {
       report.errors.push(`${member}: ${cause instanceof Error ? cause.message.slice(0, 200) : String(cause)}`);
     }
