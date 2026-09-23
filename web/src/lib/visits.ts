@@ -51,7 +51,7 @@ export async function countVisits(visitor: string, from: string, to: string): Pr
     .eq('visitor', visitor)
     .gte('day', from)
     .lt('day', to);
-  const closed = [...KRX_HOLIDAYS].filter(day => day >= from && day < to);
+  const closed = [...KRX_HOLIDAYS.keys()].filter(day => day >= from && day < to);
   if (closed.length) query = query.not('day', 'in', `(${closed.join(',')})`);
   const { count, error } = await query;
 

@@ -75,6 +75,9 @@ export interface MarketHours {
   reason: 'open' | 'before' | 'after' | 'holiday' | 'test';
   /** KST 기준 현재 시각 표시용 */
   nowLabel: string;
+  /** 휴장일에만 — 왜 쉬는가("추석" · "주말")와 다음 거래일("9/28(월)") */
+  closedFor?: string;
+  nextOpen?: string;
 }
 
 /** 10원 단위 절사 — 카페24에 반영하는 금액과 화면 금액을 맞춘다. */
@@ -107,7 +110,7 @@ function seoulParts(at: Date) {
 }
 
 /**
- * 한국거래소 휴장일 중 평일인 날 (KST 날짜). 코스피가 쉬는 날은 빵장도 쉰다.
+ * 한국거래소 휴장일 중 평일인 날 (KST 날짜 → 화면에 쓰는 이름). 코스피가 쉬는 날은 빵장도 쉰다.
  *
  * 2026 — 한국거래소 휴장일 공고 17일 그대로(6/3 지방선거 · 7/17 제헌절 포함).
  * 2027 — 거래소 공고(매년 12월) 전이라 우주항공청 2027년 월력요항으로 셌다.
@@ -117,22 +120,55 @@ function seoulParts(at: Date) {
  * ponytail: 손으로 적는 달력이라 2028년부터는 비어 있다 — 비어 있으면 평일은 전부
  *   개장으로 본다(예전과 같다). 거래소가 12월에 다음 해를 공고하면 그 해를 붙인다.
  */
-export const KRX_HOLIDAYS: ReadonlySet<string> = new Set([
+export const KRX_HOLIDAYS: ReadonlyMap<string, string> = new Map([
   // 2026
-  '2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18', '2026-03-02',
-  '2026-05-01', '2026-05-05', '2026-05-25', '2026-06-03', '2026-07-17',
-  '2026-08-17', '2026-09-24', '2026-09-25', '2026-10-05', '2026-10-09',
-  '2026-12-25', '2026-12-31',
+  ['2026-01-01', '신정'],
+  ['2026-02-16', '설날'],
+  ['2026-02-17', '설날'],
+  ['2026-02-18', '설날'],
+  ['2026-03-02', '삼일절 대체공휴일'],
+  ['2026-05-01', '노동절'],
+  ['2026-05-05', '어린이날'],
+  ['2026-05-25', '부처님오신날 대체공휴일'],
+  ['2026-06-03', '지방선거'],
+  ['2026-07-17', '제헌절'],
+  ['2026-08-17', '광복절 대체공휴일'],
+  ['2026-09-24', '추석'],
+  ['2026-09-25', '추석'],
+  ['2026-10-05', '개천절 대체공휴일'],
+  ['2026-10-09', '한글날'],
+  ['2026-12-25', '성탄절'],
+  ['2026-12-31', '연말'],
   // 2027
-  '2027-01-01', '2027-02-08', '2027-02-09', '2027-03-01', '2027-05-03',
-  '2027-05-05', '2027-05-13', '2027-07-19', '2027-08-16', '2027-09-14',
-  '2027-09-15', '2027-09-16', '2027-10-04', '2027-10-11', '2027-12-27',
-  '2027-12-31',
+  ['2027-01-01', '신정'],
+  ['2027-02-08', '설날'],
+  ['2027-02-09', '설날 대체공휴일'],
+  ['2027-03-01', '삼일절'],
+  ['2027-05-03', '노동절 대체공휴일'],
+  ['2027-05-05', '어린이날'],
+  ['2027-05-13', '부처님오신날'],
+  ['2027-07-19', '제헌절 대체공휴일'],
+  ['2027-08-16', '광복절 대체공휴일'],
+  ['2027-09-14', '추석'],
+  ['2027-09-15', '추석'],
+  ['2027-09-16', '추석'],
+  ['2027-10-04', '개천절 대체공휴일'],
+  ['2027-10-11', '한글날 대체공휴일'],
+  ['2027-12-27', '성탄절 대체공휴일'],
+  ['2027-12-31', '연말'],
 ]);
 
 /** 주말이거나 거래소 휴장일인가 — 코스피가 안 열리는 날 */
 const isClosedDay = ({ weekday, date }: { weekday: string; date: string }) =>
   weekday === 'Sat' || weekday === 'Sun' || KRX_HOLIDAYS.has(date);
+
+/** 이 KST 날짜 다음의 첫 거래일 — "9/28(월)". UTC 자정으로만 더해 시간대가 끼지 않게 한다 */
+function nextOpenLabel(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  do d.setUTCDate(d.getUTCDate() + 1);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6 || KRX_HOLIDAYS.has(d.toISOString().slice(0, 10)));
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${'일월화수목금토'[d.getUTCDay()]})`;
+}
 
 /** 토·일인가. 평일 공휴일과 구분해야 하는 곳(주말 배당)이 쓴다 */
 export const isWeekend = (at: Date = new Date()) => {
@@ -178,7 +214,8 @@ export function marketHours(at: Date = new Date()): MarketHours {
   if (alwaysOpen()) return { open: true, reason: 'test', nowLabel };
 
   if (isClosedDay(parts)) {
-    return { open: false, reason: 'holiday', nowLabel };
+    const closedFor = KRX_HOLIDAYS.get(parts.date) ?? '주말';
+    return { open: false, reason: 'holiday', nowLabel, closedFor, nextOpen: nextOpenLabel(parts.date) };
   }
   if (hour * 60 + minute < OPEN_HOUR * 60 + OPEN_MINUTE) return { open: false, reason: 'before', nowLabel };
   return { open: true, reason: 'open', nowLabel };

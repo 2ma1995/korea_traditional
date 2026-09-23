@@ -86,7 +86,7 @@ export default async function BreadMarketPage() {
         ipo={{ ...ipoCounts, ...mine }}
         ipoOn={ipoOn.value && round !== null}
         points={intraday?.points ?? []}
-        kospi={{ value: market.kospi.value, changePct: market.kospi.changePct, live: market.kospi.live, marketOpen: market.kospiMarketOpen }}
+        kospi={{ value: market.kospi.value, changePct: market.kospi.changePct, live: market.kospi.live, marketOpen: market.kospiMarketOpen, updatedAt: market.kospi.updatedAt }}
       />
       </MarketIntro>
     </main>

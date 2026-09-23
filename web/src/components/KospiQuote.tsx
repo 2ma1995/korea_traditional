@@ -31,6 +31,8 @@ export interface KospiView {
   live: boolean;
   /** 네이버 marketStatus 기준 개장 여부. Yahoo 폴백이면 null(모름) */
   marketOpen: boolean | null;
+  /** 이 값이 찍힌 시각(epoch ms). 휴장일에 "9/23(수) 종가"로 기준일을 밝힌다 */
+  updatedAt?: number | null;
 }
 
 /**

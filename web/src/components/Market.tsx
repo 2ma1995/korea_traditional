@@ -121,6 +121,10 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const openAt = OPEN_AT;
   /* 휴장일 — 주말·공휴일이다. 가격이 움직이지 않으니 화면이 할 말이 달라진다 */
   const holiday = today.hours.reason === 'holiday';
+  /* 휴장일엔 오늘 종가가 없다 — 히어로는 직전 거래일 종가를 기준으로 말한다 */
+  const closed = holiday
+    ? { closedFor: today.hours.closedFor ?? '휴장', nextOpen: today.hours.nextOpen ?? '다음 거래일', at: kospi.updatedAt ?? null }
+    : null;
 
   /* 표시 가격은 실시간 폭으로. 실제 예약은 서버 확정 폭(today.rate)으로 간다 */
   /* 장중 '지금 기준 예상'도 빵마다 갈린다 — 서버가 계산한 SKU 보정을 실시간 폭 위에 얹는다.
@@ -324,7 +328,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         <a href="#foryou">내 포트폴리오 <span aria-hidden="true">↘</span></a>
       </nav>
       {/* ══ MARKET ══ */}
-      <KospiLive k={k} mood={mood} rate={rate} phase={phase} openAt={openAt} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} base={live.base} bonus={live.bonus} />
+      <KospiLive k={k} mood={mood} rate={rate} phase={phase} closed={closed} openAt={openAt} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} base={live.base} bonus={live.bonus} />
 
       {/* ══ 휴장일 — 가격 대신 이번 주 결산. 국장이 쉬면 폭도 쉰다 ══ */}
       {holiday && (

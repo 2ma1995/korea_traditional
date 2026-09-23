@@ -31,6 +31,8 @@ interface Props {
   /** 하락 마감이라 얹은 폭. 0이면 이유 줄에 안 쓴다 */
   bonus: number;
   phase: Phase;
+  /** 휴장일에만 — 왜 쉬는가, 다음 거래일, 직전 종가가 찍힌 시각. 평일엔 null */
+  closed: { closedFor: string; nextOpen: string; at: number | null } | null;
   openAt: string;
   tiers: DiscountTier[];
   /** 차트 툴팁에 보여줄 빵들 — 내 관심빵 전부(오늘 빵장에 있는 것), 없으면 대표 빵 */
@@ -42,6 +44,12 @@ interface Props {
 
 export const DRAW_MS = 1600;
 const fmt = (n: number) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** 시세가 찍힌 KST 날짜 — "9/23(수)". timeZone을 박아 서버·브라우저가 같은 글자를 낸다 */
+const kstDay = (ms: number) => {
+  const parts = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', weekday: 'short' }).formatToParts(new Date(ms));
+  const get = (type: string) => parts.find(part => part.type === type)?.value ?? '';
+  return `${get('month')}/${get('day')}(${get('weekday')})`;
+};
 
 /* KST 시각 계산기들 — 마감 후에도 화면이 '어디로 가는지' 말해야 해서 넷이다 */
 const kstNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
@@ -88,7 +96,7 @@ function useCountdown(target: (kst: Date) => Date, on: boolean) {
   return on ? left : null;
 }
 
-export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, tiers, breads, noWatch, tierLabel }: Props) {
+export default function KospiLive({ k, mood, rate, base, bonus, phase, closed, openAt, tiers, breads, noWatch, tierLabel }: Props) {
   /* 내린 날은 "구간 20% + 하락장 3%p"로 쪼개 보여준다 — 23%가 어디서 왔는지 */
   const why = bonus > 0
     ? <>{tierLabel} {Math.round(base * 100)}% <b className={styles.down}>+ 하락장 {Math.round(bonus * 100)}%p</b></>
@@ -114,7 +122,19 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
      틱이 쌓이면 아래에서 실시간 틱으로 교체된다. 그래서 문구가 때에 따라 달라진다. */
   const liveNow = phase === 'live';
   const dirTone = up ? 'up' : 'down';
-  const facts: { t: string; tone: 'up' | 'down' | 'mood' | 'ink' | 'muted' }[] = has ? [
+  /* 휴장일엔 오늘 종가가 없다. 보이는 숫자는 직전 거래일 종가이고, 등락도 그 전 거래일 대비다.
+     그래서 "오늘은 상승 마감"·"어제보다"라고 쓰지 않고 그날을 밝힌다. 날짜는 달력으로
+     추정하지 않고 시세가 찍힌 시각에서 읽는다 — 시세가 묵었으면 묵은 날짜가 보여야 한다 */
+  const anchorDay = closed ? (closed.at ? kstDay(closed.at) : '직전 거래일') : null;
+  const vsPrev = closed ? '전 거래일보다' : '어제보다';
+  const facts: { t: string; tone: 'up' | 'down' | 'mood' | 'ink' | 'muted' }[] = !has ? [] : closed ? [
+    { t: `${anchorDay} 종가 ${fmt(k.value)} ${up ? '▲' : '▼'}`, tone: dirTone },
+    { t: `${vsPrev} ${up ? '+' : ''}${fmt(diff)} (${Math.abs(k.changePct).toFixed(2)}%)`, tone: dirTone },
+    { t: `최고 ${fmt(s[iMax])} ▲`, tone: 'up' },
+    { t: `최저 ${fmt(s[iMin])} ▼`, tone: 'down' },
+    { t: `오늘은 ${closed.closedFor} 휴장 · 정가`, tone: 'ink' },
+    { t: `다음 장 ${closed.nextOpen} ${openAt}`, tone: 'muted' },
+  ] : [
     { t: `${liveNow ? '현재' : '마감'} ${fmt(k.value)} ${up ? '▲' : '▼'}`, tone: dirTone },
     { t: `어제보다 ${up ? '+' : ''}${fmt(diff)} (${Math.abs(k.changePct).toFixed(2)}%)`, tone: dirTone },
     { t: `${liveNow ? '오늘 최고' : '최고'} ${fmt(s[iMax])} ▲`, tone: 'up' },
@@ -122,7 +142,7 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
     { t: `${liveNow ? '지금 라인' : '오늘의 라인'} ${mood.theme}`, tone: 'mood' },
     { t: `${liveNow ? '지금 기준 ' : ''}기본 할인 ${Math.round(rate * 100)}%`, tone: 'ink' },
     { t: liveNow ? '15:30 확정' : phase === 'open' ? '00:00 CLOSE' : phase === 'locked' ? `${openAt} OPEN` : '다음 거래일 09:00 LIVE', tone: 'muted' },
-  ] : [];
+  ];
 
   return (
     <section className={styles.hero} data-phase={phase} data-dir={up ? 'up' : 'down'} aria-label="오늘의 시장">
@@ -140,8 +160,8 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
         <div>
           <strong key={k.seq} className={`${styles.index} ${k.dir === 'up' ? styles.rollUp : k.dir === 'down' ? styles.rollDown : ''}`}>{fmt(k.value)}</strong>
           <span className={styles.diff}>
-            어제보다 <b className={up ? styles.up : styles.down}>{up ? '+' : ''}{fmt(diff)} ({Math.abs(k.changePct).toFixed(2)}%)</b>
-            <i>|</i>{phase === 'live' ? '실시간' : '15:30 마감'}
+            {vsPrev} <b className={up ? styles.up : styles.down}>{up ? '+' : ''}{fmt(diff)} ({Math.abs(k.changePct).toFixed(2)}%)</b>
+            <i>|</i>{phase === 'live' ? '실시간' : closed ? `${anchorDay} 종가` : '15:30 마감'}
           </span>
         </div>
         <span className={`${styles.pct} ${up ? styles.up : styles.down}`}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</span>
@@ -178,9 +198,18 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
       </div>
       <div className={styles.marketResult}>
       <p className={styles.eyebrow}>THE DAILY BREAD PRICE</p>
-      <p className={styles.resultTitle}>{phase === 'live' ? '지금 기준, 예상 할인' : '오늘의 빵장 할인'}</p>
-      <div className={styles.resultRate}>{Math.round(rate * 100)}<span>%</span></div>
-      <p className={styles.resultNote}>{mood.theme}<br />{phase === 'live' ? '15:30 마감 후 할인율이 확정돼요.' : phase === 'closed' ? '오늘 빵장은 마감됐어요.' : `${openAt}부터 오늘의 가격으로 만나요.`}</p>
+      {closed ? (
+        <>
+          <p className={styles.resultTitle}>오늘은 {closed.closedFor} 휴장</p>
+          <p className={styles.resultNote}>코스피가 쉬는 날이라 정가로 판매해요.<br />다음 장은 {closed.nextOpen} {openAt}에 열려요.</p>
+        </>
+      ) : (
+        <>
+          <p className={styles.resultTitle}>{phase === 'live' ? '지금 기준, 예상 할인' : '오늘의 빵장 할인'}</p>
+          <div className={styles.resultRate}>{Math.round(rate * 100)}<span>%</span></div>
+          <p className={styles.resultNote}>{mood.theme}<br />{phase === 'live' ? '15:30 마감 후 할인율이 확정돼요.' : phase === 'closed' ? '오늘 빵장은 마감됐어요.' : `${openAt}부터 오늘의 가격으로 만나요.`}</p>
+        </>
+      )}
 
       {/* 카운트다운 — 그래프 아래 가운데. 상태는 위, 무엇까지 남은 시간인지는 숫자 왼쪽에 */}
       <div className={styles.countCenter}>
@@ -209,7 +238,7 @@ export default function KospiLive({ k, mood, rate, base, bonus, phase, openAt, t
       ) : (
         <div className={styles.verdict}>
           <div>
-            <span className={styles.eyebrow}>오늘은 {k.changePct > 0 ? '상승' : k.changePct < 0 ? '하락' : '보합'} 마감<span className={styles.stamp}>확정 ✓</span></span>
+            <span className={styles.eyebrow}>{anchorDay ?? '오늘은'} {k.changePct > 0 ? '상승' : k.changePct < 0 ? '하락' : '보합'} 마감<span className={styles.stamp}>확정 ✓</span></span>
             <p className={styles.why1}>국장 <b className={up ? styles.up : styles.down}>{up ? '▲' : '▼'} {Math.abs(k.changePct).toFixed(2)}%</b> · {why} → {mood.theme} — {mood.copy.split(/(?<=\.)\s+/)[0]}</p>
           </div>
         </div>
