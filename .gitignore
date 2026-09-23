@@ -40,3 +40,6 @@ npm-debug.log*
 /.claude/
 /.mcp.json
 /.ignore
+
+# 개인 작업 — 팀 저장소에 올리지 않는다
+/포트폴리오_수정안.html
