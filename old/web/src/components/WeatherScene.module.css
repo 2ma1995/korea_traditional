@@ -1,0 +1,107 @@
+.scene {
+  --scene-ink: #384c3a;
+  --scene-accent: #a45e61;
+  --scene-paper: #f6f1e8;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--scene-paper);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .65s ease, visibility .65s;
+}
+.scene[data-active='true'] { opacity: 1; visibility: visible; }
+.scene[data-weather='rain'] { --scene-paper: #edf0e5; --scene-ink: #344b40; --scene-accent: #537762; }
+.scene[data-weather='leaves'] { --scene-paper: #f5eddd; --scene-ink: #644b36; --scene-accent: #a05b3a; }
+.scene[data-weather='snow'] { --scene-paper: #edf0ee; --scene-ink: #46565b; --scene-accent: #667f86; }
+.weather { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.light, .landscape, .paperVeil { position: absolute; inset: 0; }
+.light { background: radial-gradient(ellipse at 77% 18%, #fff4c4aa, transparent 48%), radial-gradient(ellipse at 0% 80%, #c9d6b786, transparent 50%); }
+.landscape { top: 60%; background: radial-gradient(ellipse at 15% 140%, #b9caa062, transparent 70%), radial-gradient(ellipse at 90% 180%, #ccd3a760, transparent 70%); }
+/* A translucent paper wash keeps moving weather behind the centered lettering. */
+.paperVeil { z-index: 2; background: radial-gradient(ellipse 40% 39% at 50% 48%, var(--scene-paper) 0%, color-mix(in srgb, var(--scene-paper) 82%, transparent) 50%, transparent 100%); }
+.copy { position: relative; z-index: 3; text-align: center; color: var(--scene-ink); width: min(860px, calc(100% - 48px)); padding: 64px 0; transform: translateY(17px); transition: transform .75s ease; }
+.scene[data-active='true'] .copy { transform: translateY(0); }
+.seasonLabel { display: block; font-family: var(--font-serif-kr), serif; font-size: 13px; letter-spacing: .32em; color: var(--scene-accent); margin-bottom: 28px; }
+.seasonLabel > span { margin: 0 12px; }
+.copy h2 { font-size: clamp(36px, 4.2vw, 60px); line-height: 1.62; font-weight: 400; letter-spacing: -.02em; word-break: keep-all; }
+.copy h2 > span { display: block; }
+.copy h2 em { color: var(--scene-accent); }
+.copy p { color: var(--scene-ink); opacity: .72; font-size: 13px; line-height: 1.9; margin-top: 24px; word-break: keep-all; }
+.seal { display: inline-block; font-family: var(--font-serif-kr), serif; color: #aa6551; border: 1px solid currentColor; outline: 1px solid currentColor; outline-offset: -4px; padding: 8px 8px; font-size: 12px; line-height: 1.35; transform: rotate(-6deg); margin-top: 32px; opacity: .8; }
+.blossomBranch { position: absolute; left: -2%; top: -12%; width: min(44vw, 650px); height: auto; opacity: .58; transform: rotate(-11deg); transform-origin: top left; }
+.particle { position: absolute; left: var(--x); top: -10%; opacity: 0; width: var(--size); height: var(--size); animation: driftFall var(--duration) linear var(--delay) infinite; animation-play-state: paused; }
+.particle > i { display: block; height: 100%; width: 100%; transform: rotate(var(--turn)); }
+.petals .particle > i { border-radius: 80% 5% 75% 35%; background: linear-gradient(135deg, #e1a4af, #f1cdd2 60%, #f4dfd8); box-shadow: inset 1px 1px 0 #e8b8bd88; }
+.petals .particle:nth-of-type(3n) > i { background: linear-gradient(135deg, #dda6a3, #f3d5cb); }
+.petals .particle:nth-of-type(5n) { filter: blur(1.3px); }
+.rain .light { background: radial-gradient(ellipse at 80% 0, #c8d9ac66, transparent 55%), radial-gradient(ellipse at 10% 100%, #8da5894d, transparent 65%); }
+.rain .landscape { top: 70%; background: linear-gradient(0deg, #a9beab33, transparent); }
+.summerCanopy { position: absolute; right: -5%; top: -12%; width: 430px; height: 440px; transform: rotate(-15deg); opacity: .25; }
+.summerCanopy > i { position: absolute; top: calc(var(--leaf-index) * 31px); right: calc(var(--leaf-index) * 11px); width: 180px; height: 65px; border-radius: 100% 0 100% 0; background: linear-gradient(150deg, #688363aa, #9eb79066); transform: rotate(calc(var(--leaf-index) * 19deg)); }
+.rain .particle { width: 1px; height: 60px; animation-name: rainFall; }
+.rain .particle > i { background: linear-gradient(0deg, #64877588, #789b8722); transform: rotate(12deg); }
+.rain .particle:nth-of-type(3n) { height: 95px; }
+.ripples { position: absolute; left: 0; right: 0; bottom: 0; height: 20%; opacity: .5; }
+.ripples > i { position: absolute; left: var(--x); top: 40%; width: 90px; height: 15px; border: 1px solid #809b804d; border-radius: 50%; animation: ripple 3s ease-out var(--delay) infinite; animation-play-state: paused; }
+.leaves .light { background: radial-gradient(ellipse at 78% 10%, #efc16f44, transparent 55%), radial-gradient(ellipse at 0 100%, #dab87850, transparent 60%); }
+.leaves .landscape { top: 72%; background: radial-gradient(ellipse at 13% 170%, #c49b4d40, transparent 80%), radial-gradient(ellipse at 100% 140%, #c3864550, transparent 75%); }
+.leaves .particle { width: calc(var(--size) * 1.8); height: calc(var(--size) * 1.8); }
+.leaves .particle > i { background: linear-gradient(135deg, #c2904b, #b4603b); clip-path: polygon(49% 0, 60% 25%, 76% 12%, 74% 38%, 100% 32%, 85% 55%, 95% 66%, 62% 75%, 53% 100%, 47% 100%, 43% 75%, 10% 66%, 18% 53%, 0 32%, 28% 38%, 23% 12%, 41% 25%); }
+.leaves .particle > i::after { content: ''; display: block; width: 1px; height: 82%; margin: 18% auto 0; background: #f2c78188; }
+.leaves .particle:nth-of-type(3n) > i { background: linear-gradient(120deg, #d6b75b, #bc8e40); }
+.leaves .particle:nth-of-type(4n) { filter: blur(.6px); }
+.snow .light { background: radial-gradient(ellipse at 50% 80%, #fdfdf7, transparent 70%), radial-gradient(ellipse at 5% 5%, #bacbd151, transparent 60%), radial-gradient(ellipse at 90% 20%, #c4d0d044, transparent 50%); }
+.snow .landscape { top: 72%; background: radial-gradient(ellipse 85% 100% at 0 100%, #fafbf6 40%, transparent 41%), radial-gradient(ellipse 100% 120% at 100% 125%, #fbfcf7 50%, transparent 51%); opacity: .7; }
+.snow .particle { animation-name: snowFall; }
+.snow .particle > i { border-radius: 50%; background: #fff; box-shadow: 0 0 5px #fff8; }
+.snow .particle:nth-of-type(3n) { filter: blur(1px); }
+.snow .particle:nth-of-type(7n) { width: 10px; height: 10px; filter: blur(2px); }
+.scene[data-active='true'] .particle,
+.scene[data-active='true'] .ripples > i { animation-play-state: running; }
+@keyframes driftFall {
+  0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: var(--alpha); }
+  45% { transform: translate3d(calc(var(--drift) * -.35), 45vh, 0) rotate(110deg); }
+  85% { opacity: var(--alpha); }
+  100% { transform: translate3d(var(--drift), 120vh, 0) rotate(250deg); opacity: 0; }
+}
+@keyframes rainFall {
+  0% { transform: translate3d(40px, -10vh, 0); opacity: 0; }
+  12% { opacity: var(--alpha); }
+  90% { opacity: var(--alpha); }
+  100% { transform: translate3d(-120px, 120vh, 0); opacity: 0; }
+}
+@keyframes snowFall {
+  0% { transform: translate3d(0, -10vh, 0); opacity: 0; }
+  15% { opacity: var(--alpha); }
+  50% { transform: translate3d(calc(var(--drift) * .4), 45vh, 0); }
+  85% { opacity: var(--alpha); }
+  100% { transform: translate3d(var(--drift), 120vh, 0); opacity: 0; }
+}
+@keyframes ripple { 0% { transform: scale(.1); opacity: .6; } 100% { transform: scale(2); opacity: 0; } }
+@keyframes scrollHint { 0% { transform: translateY(-14px); } 100% { transform: translateY(29px); } }
+@media (max-width: 760px) {
+  .copy { width: calc(100% - 44px); }
+  .copy h2 { font-size: clamp(30px, 7.6vw, 44px); }
+  .copy p { max-width: 300px; margin: 24px auto 0; font-size: 12px; }
+  .seasonLabel { font-size: 12px; margin-bottom: 24px; }
+  .seal { margin-top: 28px; font-size: 12px; }
+  .blossomBranch { width: 72vw; left: -14%; top: -4%; opacity: .52; }
+  .summerCanopy { width: 250px; height: 320px; right: -30%; top: -7%; }
+  .summerCanopy > i { width: 130px; height: 42px; }
+  .paperVeil { background: radial-gradient(ellipse 60% 32% at 50% 49%, var(--scene-paper), color-mix(in srgb, var(--scene-paper) 75%, transparent) 55%, transparent); }
+  .particle:nth-of-type(2n) { display: none; }
+}
+@media (max-height: 550px) {
+  .copy { padding-block: 44px; }
+  .copy h2 { font-size: 32px; line-height: 1.5; }
+  .seasonLabel { margin-bottom: 12px; font-size: 12px; }
+  .copy p { margin-top: 16px; font-size: 12px; }
+  .seal { margin-top: 16px; font-size: 12px; }
+}
+
+/* 이 장면들은 오프닝 안에서만 쓴다. 동작 줄이기에서도 그대로 재생한다 —
+   globals.css의 설명 참고. 건너뛰기 버튼으로 언제든 빠져나올 수 있다. */

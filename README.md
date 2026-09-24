@@ -130,9 +130,11 @@ web/
       cafe24.ts       카페24 Admin API
     data/         상품 · 지표 마스터 (할인 구간 · 상한)
   supabase/
-    migrations/   0001 ~ 0010
+    migrations/   0001 ~ 0018
     지금_실행할_SQL.sql
-deck/             발표덱 (HTML · PDF)
+docs/             설계도 · 세팅 가이드 · 기획 · 인수인계
+deck/             발표덱 (V10 HTML · V9 PPTX)
+old/              지금 서비스와 안 맞는 이전 자료 — 원래 폴더 구조 그대로 보관
 ```
 
 ---
@@ -140,14 +142,14 @@ deck/             발표덱 (HTML · PDF)
 ## 문서
 
 - [`web/supabase/지금_실행할_SQL.sql`](./web/supabase/지금_실행할_SQL.sql) — DB 준비 한 장 + 확인 쿼리
-- [`deck/MAKJI_Bread_Market_v5.html`](./deck/) — 발표덱 (발표용 · 화살표로 넘김)
-- [`deck/MAKJI_Bread_Market_v5_figma.html`](./deck/) — Figma 반입용 (18장 세로 배치)
+- [`deck/MAKJI_최종발표덱_V10.html`](./deck/MAKJI_최종발표덱_V10.html) — 발표덱 (배포된 동작 기준 · 방향키로 넘김 · F 발표 모드)
+- [`deck/MAKJI_최종발표덱_V9_완성본.pptx`](./deck/) — 이전 PPTX 원본
 - [`docs/빵장_세팅_가이드.md`](./docs/빵장_세팅_가이드.md) — **기업 전달용.** Supabase · 카페24 · Vercel 세팅과 환경변수, 개발 지식 없이 따라 하는 순서
 - [`docs/인수인계/`](./docs/인수인계/) — 날짜별 인수인계. 새 세션은 가장 최근 것부터
 - [`docs/설계/팀공유_빵장_설계도.md`](./docs/설계/팀공유_빵장_설계도.md) — 지금 어떻게 돌고 있나
 - [`docs/설계/할인율_구간_실측검증.md`](./docs/설계/할인율_구간_실측검증.md) — 코스피 5년 분포 집계
-- [`docs/기획/`](./docs/기획/) — PRD · 통합기획서 · 기능별 기획 · 의사결정 기록
-- [`docs/페이지/절기_베이커리_캘린더.html`](./docs/페이지/절기_베이커리_캘린더.html) — 24절기 제품 라인업
+- [`docs/기획/`](./docs/기획/) — 공모주 · 주말 배당 기획
+- [`old/`](./old/) — 절기 화면 · 호가창 시절 기획서 · 이전 발표덱. 지금 서비스와 맞지 않아 옮겼다
 
 ---
 
