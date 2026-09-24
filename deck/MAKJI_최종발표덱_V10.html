@@ -1,0 +1,705 @@
+<meta charset="utf-8">
+<title>막지 빵장 발표덱 V10</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+  /* V9(MAKJI_최종발표덱_V9_완성본.pptx)의 색·글꼴을 그대로 쓴다 */
+  :root {
+    color-scheme: light;
+    --green: #123F34;
+    --cream: #F6F0E6;
+    --terra: #C85B35;
+    --mint: #DDEAE2;
+    --body: #3D5A50;
+    --muted: #7A8F86;
+    --line: #C9D8CF;
+    --paper: #E4DDCF;
+    --on-dark: #D5E2DC;
+    --on-dark-muted: #9DB5AB;
+    --terra-on-dark: #F0A583;
+    --ps: 1;
+  }
+  @page { size: 1280px 720px; margin: 0; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--green);
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding-inline: 16px;
+    padding-block: 20px 40px;
+  }
+
+  /* ── 도구 막대 ── */
+  .bar {
+    max-width: 1280px; margin: 0 auto 16px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    font-size: 14px; color: var(--body);
+  }
+  .bar h1 { font-size: 17px; font-weight: 900; letter-spacing: -.02em; margin: 0; color: var(--green); }
+  .bar .spacer { flex: 1; }
+  .bar button {
+    font: inherit; font-weight: 700; font-size: 13.5px;
+    border: 1.5px solid var(--green); background: var(--green); color: var(--cream);
+    border-radius: 999px; padding: 7px 14px; cursor: pointer;
+  }
+  .bar button.ghost { background: transparent; color: var(--green); }
+  .bar button:focus-visible { outline: 3px solid var(--terra); outline-offset: 2px; }
+  .legend { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .bar .keys { color: var(--muted); }
+
+  /* ── 슬라이드 틀: 1280×720 무대를 화면 폭에 맞춰 줄인다 ── */
+  .deck { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; --s: 1; }
+  .frame {
+    position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 9;
+    overflow: hidden; border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(18,63,52,.12), 0 8px 24px rgba(18,63,52,.10);
+    scroll-margin-top: 16px;
+  }
+  .stage {
+    position: absolute; left: 0; top: 0;
+    width: 1280px; height: 720px;
+    transform: scale(var(--s)); transform-origin: 0 0;
+    background: var(--cream); color: var(--green);
+    padding: 44px 64px 40px;
+    display: flex; flex-direction: column;
+  }
+  .stage.dark { background: var(--green); color: var(--cream); }
+
+  /* 발표 모드 — 한 장만, 화면에 꽉 차게 */
+  body.present { overflow: hidden; }
+  body.present .bar, body.present .frame:not(.cur) { display: none; }
+  body.present .frame.cur {
+    position: fixed; inset: 0; z-index: 10; aspect-ratio: auto; border-radius: 0;
+    background: #0B211B; box-shadow: none;
+  }
+  body.present .frame.cur .stage { left: 50%; top: 50%; transform: translate(-50%, -50%) scale(var(--ps)); transform-origin: 50% 50%; }
+
+  /* 변경 표시 — 팀 검토용. 발표·인쇄에서는 숨긴다 */
+  .chg {
+    display: none; font-size: 13px; font-weight: 700; letter-spacing: 0;
+    padding: 3px 10px; border-radius: 999px; border: 1.5px solid var(--terra); color: var(--terra);
+  }
+  .chg.new { background: var(--terra); color: var(--cream); }
+  body.marks .chg { display: inline-block; }
+  body.present .chg { display: none; }
+  .bar .chg { display: inline-block; }
+
+  /* ── 공통 조판 ── */
+  .hd { display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 500; letter-spacing: .16em; color: var(--muted); }
+  .hd .sec { letter-spacing: .02em; font-weight: 700; color: var(--terra); }
+  .hd .pg { margin-left: auto; display: inline-flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: .08em; }
+  .dark .hd { color: var(--on-dark-muted); }
+  .t { font-size: 36px; font-weight: 900; letter-spacing: -.035em; line-height: 1.28; margin: 22px 0 0; text-wrap: balance; }
+  .sub { font-size: 18.5px; color: var(--body); margin: 10px 0 0; letter-spacing: -.015em; line-height: 1.5; }
+  .dark .sub { color: var(--on-dark); }
+  .main { flex: 1; min-height: 0; margin-top: 26px; display: flex; flex-direction: column; gap: 16px; }
+  .note { font-size: 14.5px; color: var(--muted); line-height: 1.55; letter-spacing: -.01em; margin: 0; }
+  .accent { color: var(--terra); }
+
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+  .card { background: var(--mint); border-radius: 12px; padding: 20px 22px; }
+  .card.solid { background: var(--green); color: var(--cream); }
+  .card.line { background: transparent; border: 1.5px solid var(--line); }
+  .card h3 { font-size: 21px; font-weight: 900; letter-spacing: -.03em; margin: 0; line-height: 1.3; }
+  .card p { font-size: 16px; line-height: 1.55; margin: 8px 0 0; color: var(--body); letter-spacing: -.015em; }
+  .card.solid p { color: var(--on-dark); }
+  .k { font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--terra); }
+  .card.solid .k { color: var(--terra-on-dark); }
+  .card .why { margin-top: 12px; font-size: 15px; font-weight: 700; color: var(--green); }
+  .card ul { margin: 10px 0 0; padding-left: 18px; font-size: 15.5px; line-height: 1.6; color: var(--body); letter-spacing: -.015em; }
+  .card.solid ul { color: var(--on-dark); }
+
+  .band { background: var(--green); color: var(--cream); border-radius: 12px; padding: 15px 22px; font-size: 17.5px; font-weight: 700; letter-spacing: -.02em; line-height: 1.45; }
+  .band.soft { background: var(--mint); color: var(--green); }
+  .band em { font-style: normal; color: var(--terra-on-dark); }
+  .band.soft em { color: var(--terra); }
+
+  /* 흐름 — 단계 사이에 화살표 */
+  .flow { display: flex; align-items: stretch; gap: 10px; }
+  .flow > .card { flex: 1; }
+  .ar { align-self: center; font-size: 22px; color: var(--terra); font-weight: 700; }
+  .card.solid .ar { color: var(--terra-on-dark); }
+
+  /* 카드 안의 작은 단계 */
+  .mini { display: flex; align-items: stretch; gap: 6px; margin-top: 12px; }
+  .mini > div { flex: 1; background: var(--cream); border-radius: 8px; padding: 9px 11px; font-size: 14px; line-height: 1.4; color: var(--body); }
+  .mini > div b { display: block; font-size: 15px; color: var(--green); }
+  .card.solid .mini > div { background: rgba(246,240,230,.10); color: var(--on-dark); }
+  .card.solid .mini > div b { color: var(--cream); }
+  .mini > .ar { flex: 0 0 auto; background: none; padding: 0; font-size: 16px; }
+
+  /* 데이터 흐름도 */
+  .dfd { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1.25fr; gap: 10px; align-items: stretch; flex: 1; }
+  .dfd .col { display: flex; flex-direction: column; gap: 7px; }
+  .dfd .col > .k { margin-bottom: 2px; }
+  .chip { background: var(--mint); border-radius: 8px; padding: 8px 11px; font-size: 14.5px; line-height: 1.4; color: var(--green); letter-spacing: -.015em; }
+  .chip small { display: block; font-size: 13px; color: var(--body); }
+  .chip.solid { background: var(--green); color: var(--cream); }
+  .chip.solid small { color: var(--on-dark); }
+  .chip.line { background: transparent; border: 1.5px solid var(--line); }
+  .dfd .col.hub { justify-content: center; }
+  .dfd .col.hub .chip { flex: 0; }
+
+  .pill { display: inline-block; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--cream); color: var(--green); border: 1.5px solid var(--green); }
+  .card.solid .pill { background: transparent; color: var(--cream); border-color: #7FA396; }
+
+  table.tb { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .tb th { background: var(--green); color: var(--cream); font-size: 15px; font-weight: 700; text-align: left; padding: 10px 14px; }
+  .tb td { font-size: 16px; padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--green); line-height: 1.45; letter-spacing: -.015em; }
+  .tb td.r, .tb th.r { text-align: right; }
+  .tb td.b { font-weight: 700; }
+  .tb tr.hi td { background: var(--mint); font-weight: 700; }
+  .tb .dim { color: var(--muted); }
+  .card .tb td { border-color: #BFD3C8; }
+
+  /* ── 표지·정리 ── */
+  .cover-h { font-size: 78px; font-weight: 900; letter-spacing: -.05em; line-height: 1.18; margin: 96px 0 0; }
+  .cover-h em, .end-h em { font-style: normal; color: #E58A62; }
+  .pillars { margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid rgba(246,240,230,.22); }
+  .pillars > div { padding: 22px 24px 4px 0; }
+  .pillars > div + div { padding-left: 24px; border-left: 1px solid rgba(246,240,230,.22); }
+  .pillars b { display: block; font-size: 22px; font-weight: 900; letter-spacing: -.03em; }
+  .pillars span { display: block; font-size: 15.5px; color: var(--on-dark); margin-top: 6px; line-height: 1.5; }
+  .end-h { font-size: 50px; font-weight: 900; letter-spacing: -.045em; line-height: 1.25; margin: 70px 0 0; text-wrap: balance; }
+  .dark .foot { margin-top: 18px; font-size: 15.5px; color: var(--on-dark); }
+
+  .clock { font-size: 26px; font-weight: 900; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .clock small { font-size: 16px; font-weight: 700; }
+  .big { font-size: 46px; font-weight: 900; letter-spacing: -.04em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+
+  @media print {
+    body { background: none; padding: 0; }
+    .bar { display: none; }
+    .deck { max-width: none; gap: 0; display: block; }
+    .frame { width: 1280px; height: 720px; aspect-ratio: auto; border-radius: 0; box-shadow: none; break-after: page; }
+    .stage { transform: none !important; }
+    .chg { display: none !important; }
+  }
+</style>
+
+<div class="bar">
+  <h1>막지 빵장 발표덱 V10</h1>
+  <span class="legend"><span class="chg">수정</span> V9에서 내용이 바뀐 장 <span class="chg new">추가</span> 새로 넣은 장</span>
+  <span class="spacer"></span>
+  <span class="keys">← → 이동 · F 발표 모드 · Esc 나가기</span>
+  <span id="count">1 / 18</span>
+  <button type="button" class="ghost" id="marks" aria-pressed="true">변경 표시 끄기</button>
+  <button type="button" id="play">발표 모드</button>
+</div>
+
+<main class="deck" id="deck">
+
+<!-- 01 표지 -->
+<section class="frame"><div class="stage dark">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="pg">01</span></div>
+  <h2 class="cover-h">국장이 끝나면,<br><em>빵장</em>이 시작된다</h2>
+  <p class="sub" style="font-size:21px;margin-top:22px">오늘의 시장이 구매 이유가 되고, 오늘 남긴 관심이 다음 방문으로 이어집니다.</p>
+  <div class="pillars">
+    <div><b>시장 연동 가격</b><span>코스피 종가가 오늘의 할인을 정합니다</span></div>
+    <div><b>관심빵 포트폴리오</b><span>아직 사지 않은 관심까지 기록합니다</span></div>
+    <div><b>주말 배당금</b><span>평일 활동을 휴장일 쿠폰으로 돌려줍니다</span></div>
+  </div>
+  <p class="foot">㈜스윗앤스위츠 MAKJI 기업연계 프로젝트 · 2026.09.30</p>
+</div></section>
+
+<!-- 02 RFP -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="pg"><span class="chg">수정</span>02</span></div>
+  <h2 class="t">시장 데이터를 실제 구매와 재방문으로 연결합니다</h2>
+  <p class="sub">RFP의 핵심은 시장 연동의 정합성, 개인화의 실용성, 자발적 참여입니다.</p>
+  <div class="main">
+    <div class="g3" style="flex:1">
+      <div class="card"><div class="k">RFP 01</div><h3 style="margin-top:10px">시장을 상품과 연결</h3><p>오늘의 시장 변화로 할인 대상과 가격을 결정</p><div class="why">매일 방문할 이유</div></div>
+      <div class="card"><div class="k">RFP 02</div><h3 style="margin-top:10px">관심을 구매로 연결</h3><p>고객의 관심빵과 예약 기록으로 관심 상품을 다시 제안</p><div class="why">다시 찾을 이유</div></div>
+      <div class="card"><div class="k">RFP 03</div><h3 style="margin-top:10px">참여를 재방문으로 연결</h3><p>활동 기록과 보상으로 다음 방문과 구매를 유도</p><div class="why">자발적으로 참여할 이유</div></div>
+    </div>
+    <div class="band">빵시장 MVP를 <em>실제로 구현해 배포</em>했고, 재방문과 구매전환으로 효과를 검증합니다.</div>
+  </div>
+</div></section>
+
+<!-- 03 서비스 구조 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="pg"><span class="chg">수정</span>03</span></div>
+  <h2 class="t">빵시장의 관심을 기록해 휴장일 재방문으로 이어갑니다</h2>
+  <p class="sub">세 가지 핵심 기능 — 빵시장이 중심이고, 포트폴리오와 배당금이 다음 행동을 연결합니다.</p>
+  <div class="main">
+    <div class="flow" style="flex:1">
+      <div class="card solid"><div class="k">1 · 빵시장</div><h3 style="margin-top:10px">거래일 15:30–24:00</h3><p>시장 변화로 오늘 살 이유를 만듭니다.</p><p style="margin-top:14px;font-size:15px">종가 연동 할인 · 한정 수량 예약<br>자사몰 가격 실제 반영</p></div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="card"><div class="k">2 · 빵 포트폴리오</div><h3 style="margin-top:10px">관심빵 · 예약 · 출석</h3><p>행동을 기록해 다음 알림과 주간 결산의 근거로 씁니다.</p><p style="margin-top:14px;font-size:15px">관심 비중 · 15:30 할인 알림</p></div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="card solid"><div class="k">3 · 주말 배당금</div><h3 style="margin-top:10px">토요일 결산 · 휴장일 쿠폰</h3><p>휴장일에 다시 올 이유를 만듭니다.</p><p style="margin-top:14px;font-size:15px">주간 활동점수 · 배당금 통장</p></div>
+    </div>
+    <p class="note">계절 공모주는 별도로 운영하는 신제품 수요 검증 이벤트입니다.</p>
+  </div>
+</div></section>
+
+<!-- 04 빵시장 ① 컨셉 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">빵시장 ①</span><span class="pg"><span class="chg">수정</span>04</span></div>
+  <h2 class="t">15시 30분, 오늘의 시장에 맞는 빵 할인이 시작됩니다</h2>
+  <p class="sub">국장 종가로 할인 대상과 가격을 확정하고, 자정이 지나면 자사몰 가격을 정상가로 되돌립니다.</p>
+  <div class="main">
+    <div class="g4">
+      <div class="card line"><div class="clock">09:00–15:30</div><h3 style="margin-top:6px;font-size:18px">장중 LIVE</h3><p style="font-size:15px">실시간 코스피로 '지금 마감한다면' 예상 할인</p></div>
+      <div class="card solid"><div class="clock">15:30</div><h3 style="margin-top:6px;font-size:18px">빵장 개장</h3><p style="font-size:15px">종가로 대상·할인 확정, 자사몰 판매가 인하</p></div>
+      <div class="card line"><div class="clock">15:30–24:00</div><h3 style="margin-top:6px;font-size:18px">할인 구매</h3><p style="font-size:15px">빵·옵션별 한정 수량을 선착순 예약</p></div>
+      <div class="card line"><div class="clock">24:00 <small>→ 00:10</small></div><h3 style="margin-top:6px;font-size:18px">마감 · 정상가 복원</h3><p style="font-size:15px">판매를 닫고, 00:10에 자사몰 가격 복원</p></div>
+    </div>
+    <div class="g3" style="flex:1">
+      <div class="card"><div class="k">상승장에는 식사빵</div><h3 style="margin-top:8px;font-size:19px">"만족스러운 장 마감, 든든한 마무리."</h3><p>식빵 같은 식사형·데일리 베이커리<br>테트리스 브레드, 모닝롤 등</p></div>
+      <div class="card"><div class="k">하락장에는 디저트빵</div><h3 style="margin-top:8px;font-size:19px">"아쉬운 장 마감, 달달한 위로 한 입."</h3><p>달콤한 디저트형 베이커리<br>초코케이크, 티라미수 등</p></div>
+      <div class="card line"><div class="k">보합에는 전 상품</div><h3 style="margin-top:8px;font-size:19px">등락 ±0.1% 미만</h3><p>방향이 없는 날은 라인을 나누지 않고 모든 빵을 할인 대상으로 봅니다.</p></div>
+    </div>
+    <p class="note">국장이 쉬는 날(주말·공휴일·거래소 휴장일)은 정상가로 판매하고, 휴장일에는 배당금 쿠폰으로 방문을 연결합니다.</p>
+  </div>
+</div></section>
+
+<!-- 05 빵시장 ② 할인율 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">빵시장 ②</span><span class="pg"><span class="chg">수정</span>05</span></div>
+  <h2 class="t">시장 변동폭으로 할인율을 정하고 상품별로 보정합니다</h2>
+  <p class="sub">기본 할인은 5단계이며, 상품별 보정을 더해도 전체 할인율은 38%를 넘지 않습니다.</p>
+  <div class="main">
+    <div class="g2" style="grid-template-columns:1.05fr 1fr;flex:1">
+      <table class="tb">
+        <thead><tr><th>KOSPI 절대 등락률</th><th class="r">기본 할인</th></tr></thead>
+        <tbody>
+          <tr><td>0% 이상 0.3% 미만</td><td class="r b">5%</td></tr>
+          <tr><td>0.3% 이상 0.8% 미만</td><td class="r b">10%</td></tr>
+          <tr><td>0.8% 이상 1.5% 미만</td><td class="r b">15%</td></tr>
+          <tr><td>1.5% 이상 2.5% 미만</td><td class="r b">20%</td></tr>
+          <tr><td>2.5% 이상</td><td class="r b">30%</td></tr>
+        </tbody>
+      </table>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card" style="padding:16px 20px"><div class="k">상품별 추가 보정</div>
+          <table class="tb" style="margin-top:6px">
+            <tbody>
+              <tr><td>관심 대비 구매전환</td><td class="r b">0 / 2 / 3%p</td></tr>
+              <tr><td>재고 부담</td><td class="r b">0 / 1 / 2%p</td></tr>
+              <tr><td style="border:0">하락장 대상 상품</td><td class="r b" style="border:0">+3%p</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="band">기본 할인 + 상품별 보정 · 전체 최대 <em>38%</em></div>
+        <p class="note">같은 상품은 같은 가격 · 옵션 추가금도 같은 비율로 할인 · 10원 단위 버림</p>
+      </div>
+    </div>
+    <p class="note">수요·재고 보정은 표본이 쌓이면 자동으로 켜지고(관심 고객 20명 미만이면 0), 상품별 마진 상한은 원가를 받은 뒤 설정합니다.</p>
+  </div>
+</div></section>
+
+<!-- 06 빵시장 ③ 구매 방식 (추가) -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">빵시장 ③</span><span class="pg"><span class="chg new">추가</span>06</span></div>
+  <h2 class="t">빵장에서 자리를 잡고, 자사몰에서 오늘의 가격으로 결제합니다</h2>
+  <p class="sub">할인 물량은 한정이고, 자사몰 판매가가 실제로 바뀌어 할인 코드를 옮겨 적을 필요가 없습니다.</p>
+  <div class="main">
+    <div class="g2" style="flex:1">
+      <div class="card">
+        <div class="k">한정 수량 선착순 예약</div>
+        <div class="mini">
+          <div><b>예약</b>빵장에서 자리 확보</div><span class="ar" aria-hidden="true">→</span>
+          <div><b>결제</b>1시간 안에 자사몰에서</div><span class="ar" aria-hidden="true">→</span>
+          <div><b>반납</b>기한이 지나면 다음 사람에게</div>
+        </div>
+        <ul>
+          <li>빵·옵션마다 하루 기본 30건 — 자사몰 재고와 관리자 상한 중 작은 쪽</li>
+          <li>같은 빵은 한 사람 한 자리, 한 인터넷 주소(IP)당 5자리까지</li>
+          <li>50명 동시 예약 시험으로 초과·누락·중복 없이 체결되는지 확인</li>
+        </ul>
+      </div>
+      <div class="card solid">
+        <div class="k">자사몰 가격 실제 반영</div>
+        <div class="mini">
+          <div><b>15:30</b>원가를 먼저 기록</div><span class="ar" aria-hidden="true">→</span>
+          <div><b>15:30</b>판매가·옵션 추가금 같은 비율 인하</div><span class="ar" aria-hidden="true">→</span>
+          <div><b>00:10</b>기록한 원가로 복원</div>
+        </div>
+        <ul>
+          <li>하루 한 번만 반영하고, 휴장일에는 바꾸지 않음</li>
+          <li>할인은 자사몰의 현재 판매가 기준, 10원 단위 버림</li>
+          <li>원가를 기록할 수 없으면 가격을 바꾸지 않음</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">자사몰이 파는 단위(1개·3개·5개, 맛, 구성)를 그대로 예약합니다. 가격 반영 스위치는 기업이 승인한 뒤 켜고, 그 전에는 계산만 합니다.</p>
+  </div>
+</div></section>
+
+<!-- 07 포트폴리오 — 데이터 흐름도 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">포트폴리오</span><span class="pg"><span class="chg">수정</span>07</span></div>
+  <h2 class="t">구매하지 않은 관심도 다음 알림과 배당의 근거가 됩니다</h2>
+  <p class="sub">포트폴리오는 주문내역에 구매 전 행동을 더해 고객의 관심을 이어갑니다.</p>
+  <div class="main">
+    <div class="dfd">
+      <div class="col"><div class="k">고객 행동</div>
+        <div class="chip line">관심빵 담기</div>
+        <div class="chip line">빵장 예약</div>
+        <div class="chip line">거래일 출석</div>
+        <div class="chip line">알림 구독</div>
+      </div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="col"><div class="k">기록</div>
+        <div class="chip">관심 기록<small>빵 · 날짜</small></div>
+        <div class="chip">예약 기록<small>빵 · 옵션 · 자리</small></div>
+        <div class="chip">출석<small>하루 1회</small></div>
+        <div class="chip">알림 구독<small>동의 · 철회</small></div>
+      </div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="col hub"><div class="k">포트폴리오</div>
+        <div class="chip solid"><b>관심 비중</b><small>담은 빵의 비중 · 비중 1위</small></div>
+        <div class="chip solid"><b>주간 활동점수</b><small>관심 · 예약 · 출석</small></div>
+        <div class="chip solid"><b>빵별 수요 신호</b><small>관심 대비 예약 전환</small></div>
+      </div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="col"><div class="k">쓰는 곳</div>
+        <div class="chip">개인 화면<small>내 관심빵이 오늘 할인인지</small></div>
+        <div class="chip">15:30 알림<small>최근 7일 담은 빵이 할인되면 웹 푸시</small></div>
+        <div class="chip">주간 결산과 배당<small>활동점수 → 배당등급</small></div>
+        <div class="chip">기업의 상품 운영<small>수요 보정 · 잠재수요</small></div>
+      </div>
+    </div>
+    <div class="band soft" style="font-size:16.5px">로그인·개인정보 없이 브라우저 표식으로 기록하고, 배당을 받을 때만 <em>자사몰 아이디</em>를 연결합니다.</div>
+    <p class="note">관심과 예약은 따로 저장합니다. 장바구니와 알림 반응 기록은 2단계에서 더합니다.</p>
+  </div>
+</div></section>
+
+<!-- 08 배당금 ① 지급 구조 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">배당금 ①</span><span class="pg"><span class="chg">수정</span>08</span></div>
+  <h2 class="t">평일 활동을 토요일에 결산하고, 휴장일에 쿠폰으로 돌려줍니다</h2>
+  <p class="sub">휴장일에는 상품 정가를 유지하고, 평일에 쌓인 활동을 결산 화면과 할인 쿠폰으로 보상합니다.</p>
+  <div class="main">
+    <div class="flow">
+      <div class="card"><div class="k">평일</div><h3 style="margin-top:8px;font-size:18px">관심·예약·출석 기록</h3></div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="card solid"><div class="k">토요일</div><h3 style="margin-top:8px;font-size:18px">한 주 결산 · 지급</h3><p style="font-size:14.5px">관리자가 금액을 확인하고 지급</p></div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="card"><div class="k">배당금 통장</div><h3 style="margin-top:8px;font-size:18px">이번 달 잔액</h3><p style="font-size:14.5px">빵장이 잔액을 보관</p></div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="card solid"><div class="k">휴장일 00:05</div><h3 style="margin-top:8px;font-size:18px">쿠폰 자동 발급</h3><p style="font-size:14.5px">잔액만큼 쿠폰함으로</p></div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="card"><div class="k">다음 거래일 15:00</div><h3 style="margin-top:8px;font-size:18px">안 쓰면 회수</h3><p style="font-size:14.5px">잔액으로 돌려 다음에 합침</p></div>
+    </div>
+    <div class="band">검증할 가설: 주간 결산과 보상이 평일 이용자의 <em>휴장일 재방문·구매</em>를 늘린다.</div>
+    <p class="note">처음 한 번, 배당을 받을 자사몰 아이디를 연결합니다(실제 회원인지 확인). 배당금은 자사몰 할인 쿠폰으로 지급하는 서비스 명칭이며 현금 배당이나 투자 수익이 아닙니다. 카페24 적립금 권한이 열리면 적립금 지급으로 바꿀 수 있습니다.</p>
+  </div>
+</div></section>
+
+<!-- 09 배당금 ② 점수와 등급 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">배당금 ②</span><span class="pg"><span class="chg">수정</span>09</span></div>
+  <h2 class="t">평일 활동을 주간 점수로 합산해 최대 800P를 지급합니다</h2>
+  <p class="sub">동일 행동은 주 1회만 인정하며, 구매 전 참여도 보상합니다.</p>
+  <div class="main">
+    <div class="g2" style="flex:1;align-items:start">
+      <table class="tb">
+        <thead><tr><th>활동</th><th class="r">주간 점수</th></tr></thead>
+        <tbody>
+          <tr><td>관심빵 등록</td><td class="r b">+1</td></tr>
+          <tr><td>빵장 구매(예약)</td><td class="r b">+1</td></tr>
+          <tr><td>거래일 출석 (주 3일)</td><td class="r b">+1</td></tr>
+          <tr><td class="dim">장바구니 등록</td><td class="r dim">2단계</td></tr>
+          <tr><td class="dim">가격 알림 반응</td><td class="r dim">2단계</td></tr>
+        </tbody>
+      </table>
+      <table class="tb">
+        <thead><tr><th>합산 점수</th><th>등급</th><th class="r">배당금</th></tr></thead>
+        <tbody>
+          <tr><td>0점</td><td class="dim">없음</td><td class="r">0P</td></tr>
+          <tr><td>1점</td><td>BASIC</td><td class="r b">300P</td></tr>
+          <tr><td>2점</td><td>PLUS</td><td class="r b">500P</td></tr>
+          <tr class="hi"><td>3점</td><td>PRIME</td><td class="r">800P</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="band soft" style="font-size:16.5px">관심빵을 담기만 해도 1점 · 구매 전에도 첫 배당 <em>300P</em></div>
+    <p class="note">휴장일이 낀 주는 출석 기준을 그 주 거래일 − 1일로 낮춥니다(최소 1일). 한 아이디는 한 주에 한 번 받고, 주간 예산 상한(기본 50만P)은 관리자가 정합니다. 금액과 배점은 기업 승인 전 제안값입니다.</p>
+  </div>
+</div></section>
+
+<!-- 10 배당금 ③ 사용 정책 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">배당금 ③</span><span class="pg"><span class="chg">수정</span>10</span></div>
+  <h2 class="t">배당금은 한 달 동안 모아 휴장일에 쿠폰 한 장으로 씁니다</h2>
+  <p class="sub">지급 한도는 주간 800P, 사용 한도는 결제금액의 15%로 각각 관리합니다.</p>
+  <div class="main">
+    <div class="g2" style="grid-template-columns:.8fr 1.2fr;flex:1">
+      <div class="card solid" style="display:flex;flex-direction:column;justify-content:center">
+        <div class="k">월 누적 예시</div>
+        <p style="font-size:19px;margin-top:12px;color:var(--cream)">300P + 500P + 300P + 800P</p>
+        <div class="big" style="margin-top:6px">= 1,900P</div>
+        <p style="margin-top:14px">1,900P 보유 → <b style="color:var(--cream)">12,670원 이상</b> 주문하면 1,900원 할인<br>800P라면 5,340원부터 쓸 수 있습니다.</p>
+      </div>
+      <table class="tb">
+        <thead><tr><th>사용 조건</th><th>운영 기준</th></tr></thead>
+        <tbody>
+          <tr><td class="b">발급</td><td>휴장일(주말·공휴일) 00:05, 잔액 전액을 쿠폰 한 장으로</td></tr>
+          <tr><td class="b">사용 기한</td><td>다음 거래일 15:00까지 · 이번 달 말 소멸</td></tr>
+          <tr><td class="b">최소 주문금액</td><td>쿠폰 금액 ÷ 15% (10원 단위 올림)</td></tr>
+          <tr><td class="b">주문별 한도</td><td>결제금액의 15% 이내 · 한 주문에 쿠폰 1장</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">안 쓴 쿠폰은 다음 장이 열릴 때 회수해 잔액으로 돌리고, 다음 휴장일에 새로 쌓인 금액과 합쳐 다시 발급합니다. 쿠폰은 장이 열리기(15:30) 전에 끝나 평일 빵장 할인과 겹치지 않습니다.</p>
+  </div>
+</div></section>
+
+<!-- 11 공모주 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">공모주</span><span class="pg"><span class="chg">수정</span>11</span></div>
+  <h2 class="t">계절 공모주는 출시 전 고객 수요를 확인하는 이벤트입니다</h2>
+  <p class="sub">핵심 서비스와 별도로, 기업이 개발할 수 있는 신제품 후보에 고객의 선택을 더합니다.</p>
+  <div class="main">
+    <div class="flow" style="flex:1">
+      <div class="card"><div class="k">01</div><h3 style="margin-top:8px">개발 가능한 후보 공개</h3><p>기업이 승인한 후보를 관리자가 회차로 등록합니다.</p></div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="card solid"><div class="k">02</div><h3 style="margin-top:8px">구매 고객의 청약</h3><p>그날 빵장에서 예약한 고객이 먹고 싶은 후보에 청약합니다. 한 예약에 한 번.</p></div>
+      <span class="ar" aria-hidden="true">→</span>
+      <div class="card"><div class="k">03</div><h3 style="margin-top:8px">출시 우선순위 검토</h3><p>고객 수요와 내부 평가를 함께 보고 출시 여부를 판단합니다.</p></div>
+    </div>
+    <div class="band soft" style="font-size:16.5px">구매가 증거금 역할을 합니다 — 청약에는 <em>실제로 산 고객</em>의 선택만 셉니다.</div>
+    <p class="note">후보 청약률과 결과 재확인율을 보고, 출시 후 실제 구매까지 연결해 확인합니다. 관리자가 회차를 열 때만 화면에 나타납니다.</p>
+  </div>
+</div></section>
+
+<!-- 12 단계적 도입 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="pg"><span class="chg">수정</span>12</span></div>
+  <h2 class="t">빵시장부터 검증하고, 승인과 데이터가 준비되는 대로 켭니다</h2>
+  <p class="sub">세 단계 기능은 모두 구현했고, 다음 단계로 넘어갈 조건을 먼저 정합니다.</p>
+  <div class="main">
+    <div class="g3" style="flex:1">
+      <div class="card solid"><span class="pill">구현 완료 · 체험몰 검증</span><div class="k" style="margin-top:14px">1단계</div><h3 style="margin-top:6px">빵시장과 행동 기록</h3><p>종가 연동 · 5단계 할인 · 자정 복원<br>한정 수량 예약 · 관심빵 알림</p><p style="margin-top:14px"><b style="color:var(--cream)">확인:</b> 가격과 기록의 정확성</p></div>
+      <div class="card"><span class="pill">구현 완료 · 승인 대기</span><div class="k" style="margin-top:14px">2단계</div><h3 style="margin-top:6px">주말 배당금</h3><p>주간 결산 · 쿠폰 지급 · 사용 한도 15%</p><p style="margin-top:14px"><b style="color:var(--green)">조건:</b> 정책·예산 승인, 적립금 권한</p></div>
+      <div class="card"><span class="pill">구현 완료 · 표본 대기</span><div class="k" style="margin-top:14px">3단계</div><h3 style="margin-top:6px">상품 운영과 계절 확장</h3><p>수요·재고 보정 자동 적용 · 계절 공모 회차</p><p style="margin-top:14px"><b style="color:var(--green)">조건:</b> 관심 고객 20명 표본 · 상품 원가 · 후보</p></div>
+    </div>
+    <div class="band soft" style="font-size:16.5px">남은 연동: <em>주문 조회</em>(실제 결제 확인 · 취소 회수) · 카페24 적립금 권한</div>
+    <p class="note">RFP의 FX Bakery · Bread Index 확장 설계는 별도 산출물로 관리합니다.</p>
+  </div>
+</div></section>
+
+<!-- 13 KPI -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="pg"><span class="chg">수정</span>13</span></div>
+  <h2 class="t">재방문과 구매가 늘고 혜택 비용을 감당하는지 확인합니다</h2>
+  <p class="sub">기능별 조회 수보다 다음 행동으로의 전환과 추가로 남는 이익을 함께 봅니다.</p>
+  <div class="main">
+    <table class="tb">
+      <thead><tr><th>검증 대상</th><th>핵심 KPI</th><th>함께 확인할 위험</th><th>지금 측정</th></tr></thead>
+      <tbody>
+        <tr><td class="b">빵시장</td><td>다음 거래일 재방문율, 방문 대비 구매율</td><td>정상가 매출 이동</td><td>● 재방문 · ◐ 구매(예약 기준)</td></tr>
+        <tr><td class="b">포트폴리오</td><td>관심빵 등록률, 알림 후 구매율</td><td>알림 수신 거부</td><td>● 등록 · ○ 알림 후 구매</td></tr>
+        <tr><td class="b">주말 배당금</td><td>휴장일 재방문율, 배당 후 구매율</td><td>보상비용, 금요일 구매 지연</td><td>● 재방문 · ● 쿠폰 사용</td></tr>
+        <tr><td class="b">계절 공모주</td><td>후보 청약률, 청약자의 출시 후 구매율</td><td>개발비용, 관심과 구매의 차이</td><td>● 청약 · ○ 출시 후 구매</td></tr>
+      </tbody>
+    </table>
+    <div class="band">최상위 KPI: 할인·포인트 비용을 뺀 <em>대상 고객 1인당 증분 공헌이익</em></div>
+    <p class="note">● 지금 기록 중 · ◐ 대리값(실제 결제 확인은 주문 조회 연동 후) · ○ 추가 기록 필요(알림 클릭, 출시 후 구매). 초기 기준선을 확보한 뒤 목표치를 정하고, 가능하면 비교군을 둡니다.</p>
+  </div>
+</div></section>
+
+<!-- 14 정리 -->
+<section class="frame"><div class="stage dark">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="pg">14</span></div>
+  <h2 class="end-h">오늘의 구매 이유가<br>다음 방문의 근거로 <em>남습니다</em></h2>
+  <p class="sub" style="font-size:20px;margin-top:18px">국장이 끝나면 빵장이 시작되고, 고객의 관심은 다음 행동으로 이어집니다.</p>
+  <div class="pillars">
+    <div><b>빵시장</b><span>시장 변화로 오늘 살 이유를 만듭니다.</span></div>
+    <div><b>빵 포트폴리오</b><span>아직 사지 않은 관심까지 기록합니다.</span></div>
+    <div><b>주말 배당금</b><span>평일 활동을 다음 방문과 구매로 돌려줍니다.</span></div>
+  </div>
+  <p class="foot">막지는 무엇이 팔렸는지와 함께, 고객이 무엇을 원했는지 확인할 수 있습니다.</p>
+</div></section>
+
+<!-- 부록 A 운영 기준 · 관리자 화면 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">부록 A</span><span class="pg"><span class="chg">수정</span>A</span></div>
+  <h2 class="t">가격과 데이터, 보상은 운영 기준 안에서 관리합니다</h2>
+  <p class="sub">운영값은 배포 없이 관리자 화면에서 바꾸고, 큰 스위치는 서버 설정에 둡니다.</p>
+  <div class="main">
+    <div class="g3" style="flex:1">
+      <div class="card"><h3 style="font-size:19px">가격</h3><ul><li>전체 할인율 최대 38%</li><li>시세를 못 받으면 할인 보류</li><li>하루 한 번 반영 · 휴장일 차단</li><li>00:10 기록한 원가로 복원</li></ul></div>
+      <div class="card"><h3 style="font-size:19px">데이터</h3><ul><li>관심과 예약을 분리해 기록</li><li>출석은 하루 1회, 중복 제거</li><li>개인정보 없는 익명 표식</li><li>알림 동의와 철회 반영</li></ul></div>
+      <div class="card"><h3 style="font-size:19px">배당금</h3><ul><li>주간 지급 최대 800P</li><li>주문별 사용 최대 15%</li><li>한 아이디 한 주 한 번</li><li>주간 예산 상한 (기본 50만P)</li></ul></div>
+    </div>
+    <div class="card solid" style="padding:16px 22px">
+      <div class="k">관리자 화면에서 바꾸는 값</div>
+      <p style="margin-top:6px">오늘의 목록과 가격(자사몰 현재가 확인·빵 넣고 빼기) · 빵·옵션별 한정 물량 · 할인 구간 · 배당 정책과 주간 예산 · 배당 지급(미리보기 후 지급) · 공모 회차</p>
+    </div>
+    <p class="note">관리자 화면은 비밀번호로 잠기고, 15분 안에 5번 틀리면 잠시 막힙니다.</p>
+  </div>
+</div></section>
+
+<!-- 부록 B 상품 목록 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">부록 B</span><span class="pg"><span class="chg">수정</span>B</span></div>
+  <h2 class="t">할인 상품은 식사형과 디저트형으로 나누어 운영합니다</h2>
+  <p class="sub">상품 분류는 영양 효능이 아닌 제품 형태와 소비 상황을 기준으로 합니다.</p>
+  <div class="main">
+    <div class="g2" style="flex:1;align-items:start">
+      <div><div class="k" style="font-size:15px;margin-bottom:8px">상승장 · 식사형·데일리 6종</div>
+        <table class="tb"><thead><tr><th>상품</th><th class="r">정상가</th></tr></thead><tbody>
+          <tr><td>냉동생지 3종</td><td class="r">21,000원</td></tr>
+          <tr><td>테트리스 브레드</td><td class="r">11,000원</td></tr>
+          <tr><td>제로 무설탕 모닝롤</td><td class="r">4,500원</td></tr>
+          <tr><td>비건 잉글리시 머핀</td><td class="r">1,500원</td></tr>
+          <tr><td>대만식 샌드위치</td><td class="r">2,600원</td></tr>
+          <tr><td>ZERO 카스테라</td><td class="r">12,000원</td></tr>
+        </tbody></table></div>
+      <div><div class="k" style="font-size:15px;margin-bottom:8px">하락장 · 달달한 위로 4종</div>
+        <table class="tb"><thead><tr><th>상품</th><th class="r">정상가</th></tr></thead><tbody>
+          <tr><td>마틸다 초코케이크</td><td class="r">42,000원</td></tr>
+          <tr><td>달항아리 티라미수</td><td class="r">15,000원</td></tr>
+          <tr><td>글루텐프리 휘낭시에</td><td class="r">3,800원</td></tr>
+          <tr><td>글루텐프리 스콘</td><td class="r">3,800원</td></tr>
+        </tbody></table></div>
+    </div>
+    <p class="note">표의 가격은 기획서 기재값입니다. 실제 할인은 자사몰의 현재 판매가에 적용하고, 재고와 옵션도 자사몰에서 읽어 옵니다.</p>
+  </div>
+</div></section>
+
+<!-- 부록 C 수요·재고 보정 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">부록 C</span><span class="pg"><span class="chg">수정</span>C</span></div>
+  <h2 class="t">수요와 재고 보정은 충분한 데이터가 쌓인 뒤 적용합니다</h2>
+  <p class="sub">아래 기준은 효과를 검증할 MVP 제안값이며, 확정된 최적값이 아닙니다.</p>
+  <div class="main">
+    <div class="g2" style="flex:1;align-items:start">
+      <div><div class="k" style="font-size:15px;margin-bottom:8px">수요 보정</div>
+        <table class="tb"><thead><tr><th>관심 대비 구매전환율</th><th class="r">추가 할인</th></tr></thead><tbody>
+          <tr><td>45% 이상</td><td class="r b">0%p</td></tr>
+          <tr><td>20% 이상 45% 미만</td><td class="r b">+2%p</td></tr>
+          <tr><td>20% 미만</td><td class="r b">+3%p</td></tr>
+        </tbody></table>
+        <p class="note" style="margin-top:10px">관심 고객 20명 미만이면 보정 0 · 관찰 기간은 최근 7일</p></div>
+      <div><div class="k" style="font-size:15px;margin-bottom:8px">재고 보정</div>
+        <table class="tb"><thead><tr><th>재고 커버일수</th><th class="r">추가 할인</th></tr></thead><tbody>
+          <tr><td>3일 미만</td><td class="r b">0%p</td></tr>
+          <tr><td>3일 이상 7일 미만</td><td class="r b">+1%p</td></tr>
+          <tr><td>7일 이상</td><td class="r b">+2%p</td></tr>
+        </tbody></table>
+        <p class="note" style="margin-top:10px">커버일수 = 재고 ÷ 최근 7일 일평균 판매량 · 판매량 0·결측이면 보정 보류</p></div>
+    </div>
+    <div class="band soft" style="font-size:16.5px">최대합 38% = 기본 30% + 수요 3%p + 재고 2%p + 하락장 3%p</div>
+  </div>
+</div></section>
+
+<!-- 부록 D 결정 사항 -->
+<section class="frame"><div class="stage">
+  <div class="hd">MAKJI&nbsp;&nbsp;/&nbsp;&nbsp;BREAD MARKET<span class="sec">부록 D</span><span class="pg"><span class="chg">수정</span>D</span></div>
+  <h2 class="t">구현하며 정한 규칙과, 기업과 확정할 운영값을 나눕니다</h2>
+  <p class="sub">발표에서 확정된 구조와 기업 협의가 필요한 값을 구분합니다.</p>
+  <div class="main">
+    <div class="g2" style="flex:1;align-items:start">
+      <table class="tb">
+        <thead><tr><th colspan="2">구현에 반영한 규칙</th></tr></thead>
+        <tbody>
+          <tr><td class="b">보합</td><td>등락 ±0.1% 미만이면 전 상품 대상</td></tr>
+          <tr><td class="b">특수 거래일</td><td>거래소 휴장일 달력(2027년까지)</td></tr>
+          <tr><td class="b">반올림</td><td>10원 단위 버림</td></tr>
+          <tr><td class="b">배당 시각</td><td>토요일 지급 · 휴장일 00:05 쿠폰</td></tr>
+          <tr><td class="b">사용 한도</td><td>결제금액 15% · 쿠폰 1장</td></tr>
+        </tbody>
+      </table>
+      <table class="tb">
+        <thead><tr><th colspan="2">기업과 확정할 항목</th></tr></thead>
+        <tbody>
+          <tr><td class="b">가격</td><td>상품별 마진 상한(원가), 가격 반영 승인</td></tr>
+          <tr><td class="b">배당금</td><td>배점·금액, 월간 한도, 다른 쿠폰과의 중복</td></tr>
+          <tr><td class="b">연동 권한</td><td>주문 조회, 카페24 적립금</td></tr>
+          <tr><td class="b">데이터·검증</td><td>전환율 분모, 동의·보관 기준, 비교군</td></tr>
+          <tr><td class="b">계절 공모주</td><td>후보와 일정, 출시 판단 책임자</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">보완 자료: 한 달 판매 집계 원본, 상품별 원가·재고, 실제 막지몰 계정. 기업의 공식 콘텐츠와 상품 이미지는 사전 협의·승인이 필요합니다.</p>
+  </div>
+</div></section>
+
+</main>
+
+<script>
+(() => {
+  const body = document.body;
+  const deck = document.getElementById('deck');
+  const frames = [...deck.querySelectorAll('.frame')];
+  const count = document.getElementById('count');
+  const play = document.getElementById('play');
+  const marks = document.getElementById('marks');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let cur = 0;
+
+  body.classList.add('marks');
+
+  /* 1280×720 무대를 틀 폭에 맞춰 줄인다. 발표 모드는 화면 전체에 맞춘다 */
+  const fit = () => {
+    const w = frames[0].getBoundingClientRect().width || 1280;
+    deck.style.setProperty('--s', String(w / 1280));
+    document.documentElement.style.setProperty('--ps', String(Math.min(window.innerWidth / 1280, window.innerHeight / 720)));
+  };
+  new ResizeObserver(fit).observe(deck);
+  window.addEventListener('resize', fit);
+  fit();
+
+  const label = () => { count.textContent = `${cur + 1} / ${frames.length}`; };
+  const go = (i) => {
+    cur = Math.max(0, Math.min(frames.length - 1, i));
+    frames.forEach((f, j) => f.classList.toggle('cur', j === cur));
+    if (!body.classList.contains('present')) frames[cur].scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    label();
+  };
+
+  /* 스크롤로 보고 있는 장을 따라간다 — 방향키가 거기서 이어지게 */
+  const seen = new IntersectionObserver((entries) => {
+    if (body.classList.contains('present')) return;
+    for (const e of entries) if (e.isIntersecting) { cur = frames.indexOf(e.target); label(); }
+  }, { threshold: 0.6 });
+  frames.forEach((f) => seen.observe(f));
+
+  const setPresent = (on) => {
+    body.classList.toggle('present', on);
+    frames.forEach((f, j) => f.classList.toggle('cur', j === cur));
+    fit();
+    try {
+      if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+      if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    } catch (_) { /* 전체 화면이 안 되는 곳에서는 창 안에서만 발표 모드 */ }
+    if (!on) frames[cur].scrollIntoView({ block: 'start' });
+  };
+
+  play.addEventListener('click', () => setPresent(true));
+  marks.addEventListener('click', () => {
+    const on = !body.classList.contains('marks');
+    body.classList.toggle('marks', on);
+    marks.setAttribute('aria-pressed', String(on));
+    marks.textContent = on ? '변경 표시 끄기' : '변경 표시 켜기';
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(cur + 1); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(cur - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(frames.length - 1); }
+    else if (e.key === 'Escape' && body.classList.contains('present')) setPresent(false);
+    else if (e.key === 'f' || e.key === 'F') setPresent(!body.classList.contains('present'));
+  });
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && body.classList.contains('present')) setPresent(false);
+  });
+  deck.addEventListener('click', (e) => {
+    if (!body.classList.contains('present')) return;
+    go(cur + (e.clientX > window.innerWidth / 2 ? 1 : -1));
+  });
+
+  label();
+})();
+</script>
