@@ -8,20 +8,28 @@ async function main() {
   const at = new Date('2026-09-23T17:00:00+09:00');
   const first = await tryFill(32, 0.07, 30, at, 'alice', 'OPTION2');
   assert.equal(first.filled, true);
-  const repeated = await tryFill(32, 0.10, 30, at, 'alice', 'OPTION1');
+  // 같은 옵션을 또 누르면 새 자리를 주지 않는다 — 한 사람 한 자리
+  const repeated = await tryFill(32, 0.07, 30, at, 'alice', 'OPTION2');
   assert.equal(repeated.already, true);
   assert.equal(repeated.filled, false);
+  // 다른 옵션은 따로 한 자리다(0019) — 휘낭시에 코코넛·피칸을 둘 다 잡을 수 있다
+  const other = await tryFill(32, 0.07, 30, at, 'alice', 'OPTION1');
+  assert.equal(other.filled, true);
   const mine = await loadMyReservations('alice', at);
-  assert.equal(mine.length, 1);
-  assert.equal(mine[0].unit, 'OPTION2');
-  assert.equal(mine[0].depth, 0.07);
-  assert.equal(mine[0].slot, first.slot);
+  assert.deepEqual(mine.map(m => m.unit).sort(), ['OPTION1', 'OPTION2']);
+  const option2 = mine.find(m => m.unit === 'OPTION2')!;
+  assert.equal(option2.depth, 0.07);
+  assert.equal(option2.slot, first.slot);
   assert.deepEqual(await loadMyReservations('bob', at), []);
   assert.deepEqual(await loadMyReservations(null, at), []);
   assert.deepEqual(await loadMyReservations('alice', new Date('2026-09-24T17:00:00+09:00')), []);
-  assert.equal((await loadFilledCounts(at))['32:0.070'], 1);
-  assert.equal((await tryFill(32, 0.07, 30, at, 'bob', 'OPTION2')).filled, true);
+  // 빵 전체와 옵션별로 함께 센다 — 화면이 옵션마다 '물량 끝'을 말하려면 옵션별 수가 필요하다
   assert.equal((await loadFilledCounts(at))['32:0.070'], 2);
+  assert.equal((await loadFilledCounts(at))['32:0.070:OPTION2'], 1);
+  assert.equal((await tryFill(32, 0.07, 30, at, 'bob', 'OPTION2')).filled, true);
+  assert.equal((await loadFilledCounts(at))['32:0.070'], 3);
+  assert.equal((await loadFilledCounts(at))['32:0.070:OPTION2'], 2);
+  assert.equal((await loadFilledCounts(at))['32:0.070:OPTION1'], 1);
   // Price-mode reservations have no coupon: unknown payment must not restore stock.
   process.env.SUPABASE_URL = 'http://reservation-test.invalid';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'local-test-key';

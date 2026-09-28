@@ -1,5 +1,5 @@
 -- ============================================================================
--- 지금 실행할 SQL — 0001 ~ 0018 한 장 (새 창고든 쓰던 창고든 이것 하나만 돌린다)
+-- 지금 실행할 SQL — 0001 ~ 0019 한 장 (새 창고든 쓰던 창고든 이것 하나만 돌린다)
 --
 --   어디서   Supabase 대시보드 → SQL Editor → 붙여넣고 Run
 --   무엇을   예약(fills) · 공모 청약(ipo_bids) · 관심 담기(watches)
@@ -8,7 +8,7 @@
 --            예약 결제 기한(fills.expires_at · settled) · 웹 푸시(push_subscriptions)
 --            한 예약 한 청약(ipo_bids.fill_id) · 한 IP 자리 한도(fills.ip_hash)
 --            배당금(dividend_links · dividend_payouts · dividend_redemptions)
---   범위     0001 ~ 0018, 0003·0004 제외 (migrations/ 폴더와 같다 — 새 마이그레이션을 만들면 여기도 붙인다)
+--   범위     0001 ~ 0019, 0003·0004 제외 (migrations/ 폴더와 같다 — 새 마이그레이션을 만들면 여기도 붙인다)
 --   왜       없으면 전부 **서버 메모리에만** 저장된다. 서버가 재시작되면 사라진다.
 --            화면은 정상 동작하고 "이번 서버 세션의 메모리에만 기록됩니다"라고 밝힌다.
 --
@@ -548,6 +548,28 @@ create unique index if not exists dividend_redemptions_one_pending
 create index if not exists dividend_redemptions_member_idx on dividend_redemptions (member, created_at);
 comment on table dividend_redemptions is '배당금을 할인 쿠폰으로 꺼낸 기록 — 0018';
 
+-- ── 0019 · 한 사람 한 자리를 옵션마다로 ─────────────────────────────────────
+--
+-- 0015의 fills_one_per_visitor는 (day, product_no, visitor)였다 — 같은 날 같은 빵은 한 자리.
+-- 그런데 물량은 옵션마다 따로 연다(0015 ①). 휘낭시에 코코넛·피칸·초코를 다 좋아하는
+-- 손님은 하루에 하나만 잡을 수 있었다. 관심빵을 옵션별로 담게 하면서 예약도 옵션별로 연다.
+--
+-- 같은 옵션을 두 번 잡지는 못한다 — 같은 요청을 두 번 보내 자리 둘을 먹던 문제(0015 ②)는
+-- 그대로 막힌다. 한 IP 한 빵 N자리(0017)는 상품 단위 그대로라, 옵션이 많은 빵이어도
+-- 한 사람이 쓸어 담지 못한다.
+--
+-- coalesce(unit, '') — 옵션이 없는 빵(unit=null)도 한 사람 한 자리로 센다. 그냥 unit을 넣으면
+-- 포스트그레스가 NULL을 서로 다른 값으로 봐서 그 빵들에서만 잠금이 풀린다(0015와 같은 이유).
+--
+-- 코드는 이 마이그레이션 전에도 돌아간다. 옛 인덱스가 남아 있으면 두 번째 옵션 예약이
+-- 거기 걸리고, api/fill이 "이 빵은 이미 예약하셨어요"로 답한다 — 예전 규칙 그대로.
+
+drop index if exists fills_one_per_visitor;
+create unique index if not exists fills_one_per_visitor_unit
+  on fills (day, product_no, coalesce(unit, ''), visitor)
+  where visitor is not null and settled is distinct from 'expired';
+comment on index fills_one_per_visitor_unit is '같은 날 같은 옵션은 한 사람당 한 자리. 반납된 예약은 비켜 간다 — 0019';
+
 -- ── 권한 · RLS ──────────────────────────────────────────────────────────────
 -- RLS는 정책 없이 켜 둔다. anon 키로는 아무것도 안 보이고 service_role만 통과한다.
 -- 서버만 이 표들을 읽고 쓴다(lib/supabase.ts).
@@ -630,5 +652,21 @@ select * from (
     and col.table_name   = want.tbl
     and col.column_name  = want.col
   group by want.label, want.made_by, want.used_by
+
+  union all
+
+  -- ③ 인덱스 — 규칙이 인덱스에 들어 있는 것
+  select
+    3,
+    want.name,
+    case when i.indexname is null then '❌ 없음' else '✅ 있음' end,
+    want.made_by,
+    want.used_by
+  from (values
+    ('fills_one_per_visitor_unit', '0019', '옵션마다 한 사람 한 자리 — lib/fills.ts')
+  ) as want(name, made_by, used_by)
+  left join pg_indexes i
+    on  i.schemaname = 'public'
+    and i.indexname  = want.name
 ) as checks
 order by "상태" desc, "순서", "확인 대상";

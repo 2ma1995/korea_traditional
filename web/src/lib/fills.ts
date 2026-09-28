@@ -74,7 +74,7 @@ export interface FillResult {
   remaining: number;
   /** 체결됐다면 몇 번째였나 */
   slot: number | null;
-  /** 이 사람이 오늘 이 빵을 이미 잡고 있다 — 새 자리를 주지 않는다(0015) */
+  /** 이 사람이 오늘 이 옵션을 이미 잡고 있다 — 새 자리를 주지 않는다(0015 → 0019에서 옵션 단위) */
   already?: boolean;
   /** 저장소에 남았는가. false면 이번 서버 세션 메모리에만 있다 */
   stored: boolean;
@@ -123,18 +123,24 @@ export async function loadMyReservations(visitor: string | null, at: Date = new 
   }));
 }
 
-/** "productNo:depth" → 오늘 체결 수. 클라이언트가 그대로 받아 잔량을 계산한다 */
+/**
+ * 오늘 체결 수. 클라이언트가 그대로 받아 잔량을 계산한다.
+ *   "productNo:depth"       빵 전체
+ *   "productNo:depth:unit"  그 옵션만 — 물량은 옵션마다 따로 연다(0015). 빵 전체만 주면
+ *                           화면이 '5개'는 끝났는데 '1개'가 남은 빵을 옵션별로 말하지 못한다
+ */
 export async function loadFilledCounts(at: Date = new Date()): Promise<Record<string, number>> {
   const day = seoulDateString(at);
   const db = supabase();
   if (!db) return memoryCounts(day);
 
-  const base = db.from('fills').select('product_no, depth').eq('day', day);
+  const base = db.from('fills').select(hasUnit === false ? 'product_no, depth' : 'product_no, depth, unit').eq('day', day);
   /* 반납된 줄은 빼고 센다 — 그 자리는 다시 팔 수 있다 */
   const { data, error } = await (hasExpiry === false ? base : base.neq('settled', 'expired'));
 
   if (error) {
-    /* 0012 전이면 settled 열이 없다. 기한 없이 예전처럼 전부 센다 */
+    /* 0013 전이면 unit 열이, 0012 전이면 settled 열이 없다. 하나씩 빼고 예전처럼 센다 */
+    if (missingColumn(error.code) && hasUnit !== false) { hasUnit = false; return loadFilledCounts(at); }
     if (missingColumn(error.code) && hasExpiry !== false) { hasExpiry = false; return loadFilledCounts(at); }
     return memoryCounts(day);
   }
@@ -142,9 +148,10 @@ export async function loadFilledCounts(at: Date = new Date()): Promise<Record<st
   hasExpiry ??= true;
 
   const counts: Record<string, number> = {};
-  for (const row of data as { product_no: number; depth: number | string }[]) {
+  for (const row of data as unknown as { product_no: number; depth: number | string; unit?: string | null }[]) {
     const key = `${row.product_no}:${Number(row.depth).toFixed(3)}`;
     counts[key] = (counts[key] ?? 0) + 1;
+    if (row.unit) counts[`${key}:${row.unit}`] = (counts[`${key}:${row.unit}`] ?? 0) + 1;
   }
   return counts;
 }
@@ -265,14 +272,15 @@ export async function boughtInWindow(visitor: string, from: string, to: string):
   return (count ?? 0) > 0;
 }
 
-/** 메모리에 쌓인 오늘 체결 수를 화면이 쓰는 "상품:폭" 형태로 */
+/** 메모리에 쌓인 오늘 체결 수를 화면이 쓰는 "상품:폭"(+ ":옵션") 형태로 */
 function memoryCounts(day: string): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const [key, n] of memory) {
     if (!key.startsWith(`${day}:`)) continue;
-    const [, productNo, depth] = key.split(':');
+    const [, productNo, depth, unit] = key.split(':');
     const group = `${productNo}:${depth}`;
     counts[group] = (counts[group] ?? 0) + n;
+    if (unit) counts[`${group}:${unit}`] = (counts[`${group}:${unit}`] ?? 0) + n;
   }
   return counts;
 }
@@ -359,7 +367,8 @@ async function takenSlots(productNo: number, depth: number, day: string, unit: s
 
 /** 메모리로 한 자리 잡는다. 수량이 남아 있으면 체결이다 */
 function fillInMemory(productNo: number, depth: number, quantity: number, day: string, unit: string | null = null, visitor: string | null = null): FillResult {
-  const visitorKey = `${day}:${visitor}:${productNo}`;
+  /* 한 사람 한 자리는 옵션마다다(0019) — DB 인덱스와 같은 단위로 센다 */
+  const visitorKey = `${day}:${visitor}:${productNo}:${unit ?? ''}`;
   if (visitor && memoryReservations.has(visitorKey)) {
     return { filled: false, remaining: 0, slot: null, stored: false, expiresAt: null, id: null, already: true };
   }
@@ -389,8 +398,9 @@ function fillInMemory(productNo: number, depth: number, quantity: number, day: s
  * 자리는 **옵션마다** 따로 센다(0015). 자사몰 재고가 품목 단위라, 상품 전체로
  * 세면 서른 명이 모두 '5개'를 골라도 통과한다.
  *
- * 같은 사람이 같은 날 같은 빵을 두 번 잡지는 못한다(0015). 화면은 버튼을 잠그지만
- * 서버에 방어가 없어, 같은 요청을 두 번 보내면 자리 둘을 먹고 있었다.
+ * 같은 사람이 같은 날 같은 옵션을 두 번 잡지는 못한다(0015, 0019부터 옵션 단위).
+ * 화면은 버튼을 잠그지만 서버에 방어가 없어, 같은 요청을 두 번 보내면 자리 둘을 먹고
+ * 있었다. 휘낭시에 코코넛과 피칸처럼 옵션이 다르면 각각 한 자리씩 잡을 수 있다.
  *
  * @param quantity 이 칸의 오늘 배정 수량 — 서버가 계산한 값만 넣는다
  */
@@ -451,8 +461,10 @@ export async function tryFill(
     /* 표가 아직 없다 — 마이그레이션 전이다. 품절이라 거짓말하지 않고 메모리로 받는다 */
     if (missingTable(error.code)) return fillInMemory(productNo, depth, quantity, day, unit, visitor);
     if (error.code !== '23505') throw new Error(`체결 저장 실패: ${error.message}`);
-    /* 한 사람 한 자리(0015)에 걸린 것이면 다시 세도 소용없다 — 이미 잡고 있다.
-       다시 세면 매번 새 slot을 만들어 두 번 튕기고 "물량 끝"이라 거짓말한다 */
+    /* 한 사람 한 자리에 걸린 것이면 다시 세도 소용없다 — 이미 잡고 있다.
+       다시 세면 매번 새 slot을 만들어 두 번 튕기고 "물량 끝"이라 거짓말한다.
+       0019 전 DB에는 빵 단위 인덱스(fills_one_per_visitor)가, 뒤에는 옵션 단위
+       (fills_one_per_visitor_unit)가 있다 — 이름 앞부분이 같아 둘 다 여기서 잡힌다 */
     if (/fills_one_per_visitor/.test(`${error.message} ${error.details ?? ''}`)) {
       return { filled: false, remaining: free.length - next, slot: null, stored: true, expiresAt: null, id: null, already: true };
     }

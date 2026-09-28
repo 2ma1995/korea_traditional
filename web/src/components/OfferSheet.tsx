@@ -44,10 +44,15 @@ interface Props {
   changePct: number;
   rate: number;
   estimate: boolean;
+  /** 고른 옵션의 오늘 남은 자리(옵션이 없으면 빵 전체) */
   remaining: number;
+  /** 고른 옵션의 예약. 옵션마다 한 자리라(0019) 옵션을 바꾸면 그 옵션의 예약이 온다 */
   bid: Bid | undefined;
-  /** 관심(알림)에 담아둔 개수 */
+  /** 고른 옵션을 관심에 담아둔 관심도 */
   watching: number;
+  /** 옵션마다 표시 — 관심에 담은 옵션, 오늘 예약한 옵션 */
+  watchedUnits: string[];
+  bookedUnits: string[];
   canBuy: boolean;
   lockNote: string;
   /**
@@ -60,7 +65,7 @@ interface Props {
   /** 시트를 닫고 NEXT 섹션으로 데려간다 */
   onNext: () => void;
   onBuy: () => void;
-  /** 스테퍼 — 목표 수량으로 맞춘다 */
+  /** 고른 옵션의 관심도를 그 값으로 맞춘다(0이면 관심 해제) */
   onQty: (qty: number) => void;
   /** 고른 자사몰 옵션의 품목코드. 선택지가 없는 상품이면 null */
   unit: string | null;
@@ -71,7 +76,7 @@ interface Props {
 const won = (n: number) => n.toLocaleString('ko-KR');
 const shopUrl = shopProductUrl;
 
-export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, canBuy, lockNote, canBid, unit, onNext, onBuy, onQty, onUnit, onClose }: Props) {
+export default function OfferSheet({ offer, mood, changePct, rate, estimate, remaining, bid, watching, watchedUnits, bookedUnits, canBuy, lockNote, canBid, unit, onNext, onBuy, onQty, onUnit, onClose }: Props) {
   /* 고른 단위가 곧 결제 금액이다. 선택지가 없는 상품은 기본가 그대로 */
   const picked = offer.units.find(u => u.code === unit) ?? offer.units[0] ?? null;
   const booked = bid?.status === 'filled';
@@ -80,14 +85,15 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
     ? priceAt(offer.product.price, discount).price + priceAt((picked?.listPrice ?? offer.product.price) - offer.product.price, discount).price
     : picked?.price ?? offer.price;
   const unitList = picked?.listPrice ?? offer.product.price;
-  /* 예약은 한 자리다 — 개수만큼 반복하지 않는다(0015: 한 사람당 한 자리).
-     그래서 값도 고른 옵션 하나의 값이다. 아래 스테퍼의 개수는 포트폴리오 비중일 뿐,
+  /* 예약은 옵션마다 한 자리다 — 개수만큼 반복하지 않는다(0019: 한 사람 한 옵션 한 자리).
+     그래서 값도 고른 옵션 하나의 값이다. 포트폴리오의 관심도는 비중일 뿐,
      결제 금액과 상관이 없다 — 화면에도 그렇게 적는다 */
   const payPrice = unitPrice;
   const payList = unitList;
   /* 실제로 살 수 있는 수. 옵션마다 자리를 따로 세므로(0015) 고른 옵션 기준이다 —
-     자사몰 재고와 오늘 연 자리 중 작은 쪽을 offers가 이미 계산해 둔다 */
-  const stockLeft = picked ? picked.allotment : remaining;
+     그 옵션의 오늘 물량에서 이미 나간 자리를 뺀 값을 Market이 넘겨준다.
+     전에는 물량(allotment)을 그대로 써서 다 나가도 '남음 30'이라고 했다 */
+  const stockLeft = remaining;
   const sheet = useRef<HTMLDivElement>(null);
   const [copyError, setCopyError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -187,10 +193,15 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
             <legend>어떤 걸로 하시겠어요?</legend>
             {offer.units.map(u => (
               <label key={u.code} className={styles.unit} data-picked={u.code === picked?.code} data-out={!u.sellable}>
+                {/* 한 옵션을 예약한 뒤에도 다른 옵션으로 옮겨 또 예약할 수 있다(0019) —
+                    예약 중일 때만 잠근다. 예약한 옵션은 품절돼도 결제 안내를 봐야 해서 열어 둔다 */}
                 <input type="radio" name={`unit-${offer.product.productNo}`} value={u.code}
-                  checked={u.code === picked?.code} disabled={!u.sellable || bid?.status === 'busy' || bid?.status === 'filled'}
+                  checked={u.code === picked?.code} disabled={(!u.sellable && !bookedUnits.includes(u.code)) || bid?.status === 'busy'}
                   onChange={() => onUnit(u.code)} />
-                <span className={styles.unitName}>{u.label}</span>
+                <span className={styles.unitName}>{u.label}
+                  {watchedUnits.includes(u.code) && <small className={styles.unitMark}> ♥</small>}
+                  {bookedUnits.includes(u.code) && <small className={styles.unitMark}> · 예약함</small>}
+                </span>
                 <span className={styles.unitPrice}>
                   {u.sellable ? <><b>{won(u.price)}원</b>{u.listPrice > u.price && <del>{won(u.listPrice)}원</del>}</> : '품절'}
                 </span>
@@ -263,7 +274,8 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
         <div className={styles.sheetActions}>
           <button type="button" className={styles.ghost} aria-pressed={watching > 0}
             onClick={() => onQty(watching > 0 ? 0 : 1)}>
-            {watching > 0 ? '♥ 관심 해제' : '♡ 관심 담기'}
+            {/* 옵션이 있으면 고른 옵션만 담는다 — 코코넛·피칸을 따로 담을 수 있다 */}
+            {watching > 0 ? (picked ? '♥ 이 옵션 관심 해제' : '♥ 관심 해제') : (picked ? '♡ 이 옵션 관심 담기' : '♡ 관심 담기')}
           </button>
           {booked ? (
             <a className={styles.primary} href={shopUrl(offer.product.productNo)} target="_blank" rel="noopener noreferrer">

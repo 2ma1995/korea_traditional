@@ -89,9 +89,12 @@ export async function POST(request: Request) {
   if (!Number.isFinite(depth) || depth <= 0 || depth >= 1) return bad('할인 폭이 올바르지 않습니다.');
   const now = new Date();
   const visitor = await visitorId();
+  /* 한 사람 한 자리는 옵션마다다(0019) — 휘낭시에 코코넛을 잡아둔 사람이 피칸을 누르면
+     코코넛 예약을 열어줄 게 아니라 피칸 자리를 새로 잡아야 한다 */
+  const sameSeat = (row: MyReservation) => row.productNo === productNo && (row.unit ?? null) === unit;
   // 기존 예약은 휴장·품절·시세 변경 뒤에도 결제 안내를 다시 열 수 있다.
   try {
-    const existing = (await loadMyReservations(visitor, now)).find(row => row.productNo === productNo);
+    const existing = (await loadMyReservations(visitor, now)).find(sameSeat);
     if (existing) return resume(existing);
   } catch (cause) {
     return bad(cause instanceof Error ? cause.message : '예약 확인에 실패했습니다.', 503);
@@ -141,10 +144,11 @@ export async function POST(request: Request) {
     /* 이미 잡고 있다(0015). 물량이 끝난 것과는 다른 일이라 다르게 말해야 한다 —
        "오늘 물량이 끝났습니다"라고 하면 손님이 자기 자리를 못 찾고 되돌아간다 */
     if (result.already) {
-      const existing = (await loadMyReservations(visitor, now)).find(row => row.productNo === productNo);
+      const existing = (await loadMyReservations(visitor, now)).find(sameSeat);
       if (existing) return resume(existing);
+      /* 같은 옵션이 아닌데 막혔다 — 0019를 아직 안 돌린 DB의 빵 단위 규칙이다 */
       return NextResponse.json(
-        { ok: false as const, already: true as const, error: '오늘 이 빵은 이미 예약하셨어요. 예약한 자리에서 결제해 주세요.' },
+        { ok: false as const, already: true as const, error: '오늘 이 빵은 이미 다른 옵션으로 예약하셨어요. 예약한 자리에서 결제해 주세요.' },
         { status: 409, headers: NO_STORE },
       );
     }

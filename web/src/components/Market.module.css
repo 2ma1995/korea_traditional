@@ -163,7 +163,7 @@
 .topPick h3 b { color: var(--down); }
 .topPick p { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .pfList { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.pfRow { display: grid; grid-template-columns: 44px 1fr 120px auto; gap: 12px; align-items: center; padding: 8px 4px; }
+.pfRow { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 8px 4px; }
 .pfRow .thumb { width: 44px; height: 44px; border-radius: var(--r-card); }
 /* 이름 칸(1fr)이 grid 기본 min-width:auto라 긴 이름이 행을 밀어내 오른쪽 수량 조절이 잘렸다 */
 .pfName { min-width: 0; }
@@ -174,9 +174,22 @@
 .pfShare b { position: absolute; right: 8px; top: 0; line-height: 18px; font-size: 12px; font-variant-numeric: tabular-nums; }
 /* 비중 막대는 이름 칸 아래에 둔다 — 줄 격자는 예약 버튼 자리로 쓰고 있다 */
 .pfName .pfShare { margin-top: 6px; max-width: 160px; color: var(--ink); }
-.pfCtl { display: inline-flex; align-items: center; gap: 8px; }
+.pfCtl { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
 .pfCtl button { font: inherit; width: 26px; height: 26px; border: 0; border-radius: 8px; background: var(--background); cursor: pointer; }
 .pfCtl b { min-width: 14px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+.pfQtyLabel { font-size: 11px; color: var(--muted); margin-right: -4px; }
+
+/* 관심빵의 오늘 상태 — 줄마다 하나, 위에는 합계. 색은 할 일의 급한 정도다 */
+.pfTag { display: inline-block; font-size: 11.5px; font-weight: 700; line-height: 1.4; padding: 2px 8px;
+  border-radius: var(--r-pill); border: 1px solid currentColor; color: var(--muted); word-break: keep-all; }
+.pfName .pfTag { display: inline-block; font-size: 11.5px; margin-top: 4px; color: var(--muted); }
+.pfTag[data-tone='sale'], .pfName .pfTag[data-tone='sale'] { color: var(--down); }
+.pfTag[data-tone='end'], .pfName .pfTag[data-tone='end'],
+.pfTag[data-tone='pick'], .pfName .pfTag[data-tone='pick'] { color: var(--up); }
+.pfTag[data-tone='booked'], .pfName .pfTag[data-tone='booked'] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+.pfTag[data-tone='out'], .pfName .pfTag[data-tone='out'] { border-style: dashed; }
+.pfSummary { display: flex; flex-wrap: wrap; gap: 6px; }
+.topPick .pfSummary { margin-top: 8px; }
 
 /* ── 바텀시트 ─────────────────────────── */
 .overlay { position: fixed; inset: 0; background: #22352c99; display: grid; place-items: end center; z-index: 60; }
@@ -258,6 +271,7 @@
 .unit[data-out='true'] { cursor: not-allowed; opacity: .5; }
 .unit input { width: 18px; height: 18px; accent-color: var(--dancheong); }
 .unitName { font-size: 14px; line-height: 1.5; word-break: keep-all; }
+.unitMark { font-size: 12px; font-weight: 700; color: var(--up); }
 .unitPrice { display: grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .unitPrice b { font-size: 15px; font-weight: 700; color: var(--ink); }
 .unitPrice del { font-size: 12px; color: var(--muted); }
