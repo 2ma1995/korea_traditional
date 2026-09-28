@@ -31,6 +31,8 @@ export interface Slice {
   /** 오늘 살 수 있는가 — 할인 중이고 그 옵션을 팔고 있다 */
   today: boolean;
   price?: number;
+  /** 오늘 살 수 없을 때 말풍선에 쓸 까닭 — 휴장 · 품절 · 할인 밖 */
+  note: string;
 }
 
 const R = 44, C = 2 * Math.PI * R;
@@ -57,7 +59,7 @@ export default function Donut({ slices, onPick }: { slices: Slice[]; onPick?: (p
           <div className={styles.tip} role="tooltip">
             <b>{active.emoji} {active.name}</b>
             <span>내 관심 비중 {active.share}%</span>
-            <span>{active.today ? `오늘 할인${active.price ? ` · ${won(active.price)}원` : ''}${onPick ? ' · 눌러서 구매' : ''}` : '오늘은 할인 밖 · 품절'}</span>
+            <span>{active.today ? `오늘 할인${active.price ? ` · ${won(active.price)}원` : ''}${onPick ? ' · 눌러서 구매' : ''}` : active.note}</span>
           </div>
         )}
       </div>

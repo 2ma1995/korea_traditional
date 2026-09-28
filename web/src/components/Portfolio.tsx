@@ -18,6 +18,8 @@ interface Props {
   /** 지금 예약할 수 있는가 — 휴장일·개장 전에는 할인이 보여도 못 잡는다 */
   canBuy: boolean;
   closedNote: string;
+  /** 휴장일이면 그날 이름·다음 장 — 정가 줄의 문구가 '할인 대상 아님'이 아니라 '휴장'이 된다 */
+  holidayNote: string | null;
   onPick: (productNo: number, unit: string | null) => void;
   /** 옵션 없이 담아둔 옛 관심을 옵션으로 옮긴다 */
   onMove: (from: string, to: string) => void;
@@ -62,7 +64,7 @@ const lowFor = (allotment: number) => Math.max(3, Math.ceil(allotment * 0.2));
  * 자리를 잡고(0020), 버튼의 개수·금액도 바로 따라간다. 이미 잡은 만큼은 빼고 모자란 만큼만 더 잡는다.
  * 비중(%)과 도넛은 이 개수로 계산한다.
  */
-export default function Portfolio({ offers, entries, bids, left, canBuy, closedNote, onPick, onMove, onBuyAll, bulk }: Props) {
+export default function Portfolio({ offers, entries, bids, left, canBuy, closedNote, holidayNote, onPick, onMove, onBuyAll, bulk }: Props) {
   const { setQty } = usePortfolio();
 
   const rows: Row[] = entries.map(entry => {
@@ -89,7 +91,7 @@ export default function Portfolio({ offers, entries, bids, left, canBuy, closedN
     if (offer.units.length > 0 && !entry.unit) return row('pick', '옵션을 골라 담아 주세요');
     if (entry.unit && !unit) return row('out', '자사몰에서 내려간 옵션이에요');
     if (!offer.product.inStock || (unit && !unit.sellable)) return row('out', '품절');
-    if (offer.saved <= 0) return row('plain', '오늘 할인 대상 아님 · 정가');
+    if (offer.saved <= 0) return row('plain', holidayNote ?? '오늘 할인 대상 아님 · 정가');
 
     const pct = listPrice > 0 ? Math.round((1 - price / listPrice) * 100) : 0;
     const remaining = left(offer, entry.unit);

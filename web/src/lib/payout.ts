@@ -92,6 +92,15 @@ export function payWeekDate(at: Date): Date {
   return saturday.getTime() <= at.getTime() ? at : new Date(at.getTime() - 7 * 24 * 3600 * 1000);
 }
 
+/** 이 아이디의 이번 지급 주 배당 기록 — 휴장일 화면이 '지급 예정 / 지급됨'을 가른다. 없으면 null(아직 안 누름) */
+export async function payoutFor(member: string | null, at: Date = new Date()): Promise<{ status: string; amount: number } | null> {
+  const db = supabase();
+  if (!db || !member) return null;
+  const { from } = weekWindow(payWeekDate(at));
+  const { data } = await db.from('dividend_payouts').select('status, amount').eq('week_from', from).eq('member', member).maybeSingle();
+  return data ? { status: data.status as string, amount: data.amount as number } : null;
+}
+
 export async function previewPayout(at: Date = new Date()): Promise<PayoutPreview> {
   const weekDate = payWeekDate(at);
   const { from, to } = weekWindow(weekDate);

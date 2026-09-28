@@ -1,21 +1,21 @@
 import Market from '@/components/Market';
 import MarketIntro from '@/components/MarketIntro';
 import { PRODUCTS } from '@/data/products';
-import { weeklyScoreFor } from '@/lib/dividend';
-import { loadFilled, loadSoldCounts, loadWeekReport } from '@/lib/fills';
+import { weekWindow, weeklyScoreFor } from '@/lib/dividend';
+import { loadFilled, loadSoldCounts, loadWeekReport, reservationsInWindow } from '@/lib/fills';
 import { fetchKospiHistory, getMarketSnapshot, seoulDateString } from '@/lib/market';
-import { buildToday } from '@/lib/offers';
+import { buildToday, priceAt } from '@/lib/offers';
 import { isWeekend, OPEN_AT } from '@/lib/orderbook';
 import { loadTiers } from '@/lib/settings';
 import { bidState } from '@/lib/bidRight';
-import { loadAllotments, loadIpoEnabled } from '@/lib/appSettings';
+import { loadAllotments, loadDividendPolicy, loadIpoEnabled } from '@/lib/appSettings';
 import { currentRound, loadIpoCounts } from '@/lib/ipo';
 import { loadSkuSignals } from '@/lib/skuSignals';
 import { currentVisitorId } from '@/lib/visitor';
 import { recordVisit } from '@/lib/visits';
 import { applyStock, fetchStock, withSold } from '@/lib/stock';
 import { payoutMode } from '@/lib/cafe24';
-import { activeCoupon, linkedMember, walletBalance } from '@/lib/payout';
+import { activeCoupon, linkedMember, payoutFor, walletBalance } from '@/lib/payout';
 
 /**
  * 빵장 — 서버는 오늘의 재료를 모아 넘기기만 한다.
@@ -65,6 +65,27 @@ export default async function BreadMarketPage() {
       }
     : null;
 
+  /* 휴장일 결산 — 이번 주 내 빵장. 예약 수와 아낀 금액(정가 − 예약한 폭의 값, 옵션 추가금 포함),
+     이번 주 배당이 지급됐는지, 등급별 금액. 결제 확인은 주문 연동 전이라 예약 기준이다 */
+  const thisWeek = weekWindow(now);
+  const [myFills, payout, policy] = holiday
+    ? await Promise.all([reservationsInWindow(visitor, thisWeek.from, thisWeek.to), payoutFor(member, now), loadDividendPolicy()])
+    : [[], null, null];
+  const myWeek = holiday
+    ? {
+        count: myFills.length,
+        saved: myFills.reduce((sum, row) => {
+          const product = products.find(p => p.productNo === row.productNo);
+          if (!product) return sum;
+          const add = row.unit ? product.options?.find(o => o.code === row.unit)?.add ?? 0 : 0;
+          return sum + priceAt(product.price, row.depth).saved + priceAt(add, row.depth).saved;
+        }, 0),
+        weekend: isWeekend(now),
+        payout,
+        tiers: policy?.tiers ?? null,
+      }
+    : null;
+
   /* 이번 공모 회차 — 관리자가 만든 회차 중 오늘 열려 있는 것. 없으면 null이고
      화면이 공모 섹션을 통째로 감춘다(lib/ipo). 절기 자동 편성은 2026-09-21에 걷어냈다. */
   const [round, mine, ipoOn] = await Promise.all([currentRound(now), bidState(now), loadIpoEnabled()]);
@@ -94,6 +115,7 @@ export default async function BreadMarketPage() {
         week={week}
         wallet={wallet}
         score={score}
+        myWeek={myWeek}
         round={round}
         ipo={{ ...ipoCounts, ...mine }}
         ipoOn={ipoOn.value && round !== null}

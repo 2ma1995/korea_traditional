@@ -22,6 +22,7 @@ import { byProduct, keyOf, qtyOf, sortHoldings, splitKey, usePortfolio, useStabl
 import { useKospiLive, type Point } from '@/lib/useKospiLive';
 import styles from './Market.module.css';
 import DividendLink from '@/components/DividendLink';
+import { shopListUrl } from '@/lib/shop';
 
 /**
  * 빵장 — 스크롤하며 답하는 질문 넷.
@@ -52,6 +53,12 @@ interface Props {
   score: WeeklyScore | null;
   /** 배당 지급 방식 · 연결한 자사몰 아이디 · 배당금 잔액. 휴장일이 아니거나 꺼져 있으면 null */
   wallet: { mode: 'wallet' | 'mileage'; member: string | null; balance: number; coupon: { amount: number; until: string } | null } | null;
+  /** 휴장일에만 온다. 이번 주 내 빵장(예약 수·아낀 금액), 주말인가, 이번 주 배당 지급 기록, 등급별 금액 */
+  myWeek: {
+    count: number; saved: number; weekend: boolean;
+    payout: { status: string; amount: number } | null;
+    tiers: [number, number, number] | null;
+  } | null;
 }
 
 type Sort = 'popular' | 'watched' | 'all';
@@ -89,7 +96,7 @@ function RollingPrice({ from, to, delay }: { from: number; to: number; delay: nu
   return <Flip value={won(v)} />;
 }
 
-export default function Market({ today, points, kospi, tiers, round, ipo: initialIpo, ipoOn, week, score, wallet }: Props) {
+export default function Market({ today, points, kospi, tiers, round, ipo: initialIpo, ipoOn, week, score, wallet, myWeek }: Props) {
   const k = useKospiLive({ value: kospi.value, changePct: kospi.changePct, marketOpen: kospi.marketOpen, live: kospi.live, points });
   const [filled, setFilled] = useState<Record<string, number>>({});
   /* 오늘 예약 — "번호:품목코드" 키. 옵션마다 한 자리라(0019) 빵 번호만으로는 못 가른다 */
@@ -136,12 +143,16 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   /* 표시 가격은 실시간 폭으로. 실제 예약은 서버 확정 폭(today.rate)으로 간다 */
   /* 장중 '지금 기준 예상'도 빵마다 갈린다 — 서버가 계산한 SKU 보정을 실시간 폭 위에 얹는다.
      o.rate(서버 확정 폭)는 그대로 둔다. 예약과 잔량 조회가 그 값을 키로 쓴다 */
-  const offers: TodayOffer[] = today.offers.map(o => ({
-    ...o,
-    ...priceAt(o.product.price, withSkuBonus(rate, o.demandBonus, o.inventoryBonus)),
-    units: o.units.map(u => ({ ...u, price: priceAt(o.product.price, withSkuBonus(rate, o.demandBonus, o.inventoryBonus)).price
-      + priceAt(u.listPrice - o.product.price, withSkuBonus(rate, o.demandBonus, o.inventoryBonus)).price })),
-  }));
+  /* 휴장일엔 폭이 0이다 — 정가로 판다. 여기서 한 번 0으로 두면 정렬·뱃지·포트폴리오·도넛이
+     전부 '정가'로 읽는다. 전엔 직전 거래일 폭이 남아 휴장일에도 '할인'·'라인 밖 · 할인'이 떴다 */
+  const offers: TodayOffer[] = today.offers.map(o => {
+    const r = holiday ? 0 : withSkuBonus(rate, o.demandBonus, o.inventoryBonus);
+    return {
+      ...o,
+      ...priceAt(o.product.price, r),
+      units: o.units.map(u => ({ ...u, price: priceAt(o.product.price, r).price + priceAt(u.listPrice - o.product.price, r).price })),
+    };
+  });
 
   const base = points.length < 2 ? 0 : DRAW_MS + 150;
   const reveal = (step: number) => ({ ['--d' as string]: `${base + step * 90}ms` });
@@ -369,8 +380,9 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       name: e.unit ? `${nameOf(e.no)} · ${unitLabel(e.no, e.unit)}` : nameOf(e.no),
       emoji: EMOJI[e.no] ?? '🍞', share: Math.round((e.qty / pfTotal) * 100),
       /* 오늘 살 수 있는 조각만 진하게 — 할인 중이고 그 옵션을 팔고 있다 */
-      today: Boolean(o) && (!e.unit || Boolean(u?.sellable)),
+      today: Boolean(o && o.saved > 0) && (!e.unit || Boolean(u?.sellable)),
       price: u?.price ?? o?.price,
+      note: closed ? `${closed.closedFor} · 정가` : !o || (e.unit && !u?.sellable) ? '오늘은 품절' : o.saved > 0 ? '오늘 할인' : '오늘은 할인 밖 · 정가',
     };
   });
   const hits = breads.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o));
@@ -395,6 +407,157 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+  /* ── 휴장일 결산 ──
+     주말(토·일)은 DIVIDEND DAY — 이번 주 점수·배당이 주인공이다. 평일 휴장일(추석 등)은 배당이 없어
+     휴장 안내와 쓸 수 있는 배당금 쿠폰, 다음 장 준비만 보여준다(배당은 토요일에 결산한다).
+     숫자는 전부 실제로 셀 수 있는 것만 쓴다 — 장바구니·알림 반응은 측정할 방법이 없어 '2단계'로 둔다.
+     구매는 결제 확인(주문 연동) 전이라 예약 기준이다 */
+  const weekendDay = myWeek?.weekend ?? false;
+  const tierName = (points: number) => ['', 'BASIC', 'PLUS', 'PRIME'][points] ?? '';
+  const paid = myWeek?.payout?.status === 'paid';
+  const newest = [...entries].sort((a, b) => b.at - a.at)[0];
+  const dividendTiers = myWeek?.tiers ?? [300, 500, 800];
+  const holidaySection = holiday ? (
+    <section id="week" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label={weekendDay ? '주말 배당' : '휴장일 안내'}>
+      <div className={styles.dayBanner}>
+        <span className={styles.closedPill}>MARKET CLOSED</span>
+        <h2>{weekendDay ? 'DIVIDEND DAY' : `오늘은 ${closed?.closedFor ?? ''} 휴장`}</h2>
+        <p>{weekendDay ? '이번 주 빵장 활동을 결산했어요' : '코스피가 쉬는 날은 빵장도 쉽니다'}</p>
+        <small>{weekendDay ? '평일에 쌓은 활동이 주말 배당으로 돌아옵니다.' : '빵은 정가로 판매하고, 모아둔 배당금 쿠폰은 오늘도 쓸 수 있어요. 배당 결산은 토요일이에요.'}</small>
+      </div>
+
+      <span className={styles.eyebrow}>MY BREAD WEEKLY REPORT</span>
+      <h3 className={styles.reportTitle}>이번 주 나의 빵장</h3>
+      <ul className={styles.reportStats}>
+        <li><small>빵장 예약</small><b>{myWeek?.count ?? 0}회</b></li>
+        <li><small>관심 등록</small><b>{breads.length}종</b></li>
+        <li><small>최근 담은 빵</small><b>{newest ? nameOf(newest.no) : '—'}</b></li>
+        <li><small>평일 빵장 절약액</small><b>{won(myWeek?.saved ?? 0)}원</b></li>
+      </ul>
+      <p className={styles.fine}>예약·절약액은 예약 기준이에요. 결제 확인은 자사몰 주문 연동 뒤에 반영돼요.</p>
+
+      {score && (
+        <div className={styles.pointRow}>
+          <div><small>주간 활동점수</small><b>{score.score} POINT</b></div>
+          <span className={styles.pointBar} aria-hidden="true"><i style={{ width: `${Math.round((score.score / 3) * 100)}%` }} /></span>
+          <span className={styles.tierChip} data-none={score.score === 0}>
+            {score.score ? `★ 이번 주 ${tierName(score.score)} · ${paid ? '지급됨' : '지급 예정'}` : '이번 주 배당 없음'}
+          </span>
+        </div>
+      )}
+
+      {(wallet || score) && (
+        <div className={styles.divCard}>
+          {/* 누적 잔액은 아래 DividendLink가 보여준다(쿠폰으로 나간 금액까지 합쳐서) — 여기선 이번 주 몫만 */}
+          {score && (
+            <div className={styles.divNums} data-none={score.amount === 0}>
+              <span className={styles.eyebrow}>{score.score ? `${tierName(score.score)} · WEEKEND DIVIDEND` : 'WEEKEND DIVIDEND'}</span>
+              <small>이번 주 배당</small>
+              <strong>{score.amount > 0 ? `+${won(score.amount)}P` : '0P'}</strong>
+              <em>{score.amount > 0
+                ? (paid ? `${wallet?.mode === 'mileage' ? '자사몰 적립금' : '배당금 통장'}에 들어왔어요` : '토요일 결산 뒤 들어와요')
+                : '활동 하나만 채워도 다음 주 배당이 생겨요'}</em>
+            </div>
+          )}
+          {wallet?.mode === 'wallet' ? (
+            <ul className={styles.ruleChips} aria-label="배당금 사용 조건">
+              <li><b>휴장일 쿠폰</b><small>주말·공휴일 00:05 자동</small></li>
+              <li><b>최대 15%</b><small>결제금액 기준</small></li>
+              <li><b>잔액 전액 1장</b><small>최소 주문 = 금액 ÷ 15%</small></li>
+              <li><b>다음 장 15:00까지</b><small>안 쓰면 잔액으로</small></li>
+            </ul>
+          ) : wallet?.mode === 'mileage' ? (
+            <p className={styles.fine}>배당금은 자사몰 적립금으로 들어가요. 사용 조건은 자사몰 적립금 정책을 따라요.</p>
+          ) : (
+            <p className={styles.fine}>배당 지급을 준비하고 있어요.</p>
+          )}
+          {wallet?.mode === 'wallet' && <p className={styles.fine}>평일 빵장 할인과는 쓰는 시간이 겹치지 않아요.</p>}
+          {wallet && <DividendLink initial={wallet.member} mode={wallet.mode} balance={wallet.balance} coupon={wallet.coupon} />}
+          <a className={`${styles.primary} ${styles.divCta}`} href={shopListUrl} target="_blank" rel="noopener noreferrer">배당금으로 빵 둘러보기 ↗</a>
+        </div>
+      )}
+
+      {score && (
+        <>
+          <h3 className={styles.weekSub}>이번 주 배당 점수</h3>
+          <ul className={styles.scoreList}>
+            <li data-on={score.watched}>
+              <i aria-hidden="true">{score.watched ? '✓' : '·'}</i>
+              <b>관심빵 담기</b>
+              <small>{score.watched ? '이번 주에 담았어요' : '아직 담은 빵이 없어요'}</small>
+              <em>{score.watched ? '+1' : '0'}</em>
+            </li>
+            <li data-on={score.bought}>
+              <i aria-hidden="true">{score.bought ? '✓' : '·'}</i>
+              <b>빵장에서 구매</b>
+              <small>{score.bought ? '이번 주에 예약했어요' : '이번 주 예약이 없어요'}</small>
+              <em>{score.bought ? '+1' : '0'}</em>
+            </li>
+            <li data-on={score.attended}>
+              <i aria-hidden="true">{score.attended ? '✓' : '·'}</i>
+              <b>거래일 출석</b>
+              <small>{score.visitDays}일 방문 · {score.visitNeeded}일부터 인정{score.visitNeeded < 3 ? ' (휴장 주)' : ''}</small>
+              <em>{score.attended ? '+1' : '0'}</em>
+            </li>
+            <li data-off="true">
+              <i aria-hidden="true">·</i>
+              <b>장바구니 담기</b>
+              <small>2단계 — 자사몰 장바구니 연동 뒤</small>
+              <em>—</em>
+            </li>
+            <li data-off="true">
+              <i aria-hidden="true">·</i>
+              <b>가격 알림 반응</b>
+              <small>2단계 — 알림 반응 기록 뒤</small>
+              <em>—</em>
+            </li>
+          </ul>
+          <p className={styles.scoreTotal}>★ 총 {score.score} POINT → {score.score ? `${tierName(score.score)} · +${won(score.amount)}P` : '이번 주 배당 없음'}</p>
+        </>
+      )}
+
+      <h3 className={styles.weekSub}>이번 주 빵장은 이랬어요</h3>
+      {week && week.fills > 0 ? (
+        <ul className={styles.weekStats}>
+          <li><b>{week.tradedDays}일</b><small>이번 주 거래일</small></li>
+          <li><b>{Math.round(week.avgDepth * 100)}%</b><small>평균 할인 폭</small></li>
+          <li><b>{week.fills}건</b><small>예약된 빵</small></li>
+          {week.deepest && (
+            <li><b>{Math.round(week.deepest.depth * 100)}%</b><small>가장 깊었던 날 · {week.deepest.day.slice(5).replace('-', '/')}</small></li>
+          )}
+        </ul>
+      ) : (
+        <p className={styles.empty}>이번 주에는 체결된 예약이 없었어요.</p>
+      )}
+
+      <h3 className={styles.weekSub}>자주 묻는 질문</h3>
+      <div className={styles.faq}>
+        <details>
+          <summary>등급은 어떻게 정해지나요?</summary>
+          <p>평일 활동 세 가지 — 관심빵 담기 · 빵장에서 구매 · 거래일 출석 — 를 주 1회씩 셉니다. 1점 BASIC {won(dividendTiers[0])}P · 2점 PLUS {won(dividendTiers[1])}P · 3점 PRIME {won(dividendTiers[2])}P예요. 출석은 그 주 거래일 3일부터(휴장일이 낀 주는 거래일 − 1일부터) 인정돼요.</p>
+        </details>
+        <details>
+          <summary>배당금은 언제 쓸 수 있나요?</summary>
+          <p>토요일에 이번 주 배당을 결산해 배당금 통장에 넣고, 휴장일(주말·공휴일) 00:05에 잔액만큼 할인 쿠폰이 자사몰 쿠폰함에 들어가요. 다음 거래일 15:00까지 쓸 수 있고, 안 쓰면 잔액으로 돌아와 다음 휴장일에 다시 들어가요. 그 달 안에 쓰지 않은 배당금은 월말에 소멸돼요. 처음 한 번 자사몰 아이디를 연결해야 받을 수 있어요.</p>
+        </details>
+        <details>
+          <summary>한 번에 얼마나 쓸 수 있나요?</summary>
+          <p>쿠폰 한 장에 잔액 전액이 들어가고, 결제금액의 15%까지 할인돼요. 그래서 쿠폰 금액의 약 6.7배 이상 주문해야 쓸 수 있어요 — 800P면 5,340원, 1,900P면 12,670원부터예요.</p>
+        </details>
+        <details>
+          <summary>평일 할인과 같이 쓸 수 있나요?</summary>
+          <p>쓰는 시간이 달라 겹치지 않아요. 배당금 쿠폰은 휴장일부터 다음 거래일 15:00까지, 빵장 할인은 거래일 {OPEN_AT}부터 자정까지예요.</p>
+        </details>
+      </div>
+
+      <div className={styles.nextMarket}>
+        <span className={styles.closedPill}>NEXT MARKET</span>
+        <b>{closed?.nextOpen ?? '다음 거래일'} · 09:00 코스피 LIVE · {OPEN_AT} 빵장 개장</b>
+        <small>아래에서 관심빵을 담아두면 {OPEN_AT}에 할인 소식을 알려드려요.</small>
+      </div>
+    </section>
+  ) : null;
+
   return (
     <div className={styles.page} data-side={mood.side}>
       <header className={styles.masthead}>
@@ -407,81 +570,10 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         <a href={holiday ? '#week' : '#today'}>{holiday ? '이번 주 빵장' : '오늘의 할인빵'} <span aria-hidden="true">↘</span></a>
         <a href="#foryou">내 포트폴리오 <span aria-hidden="true">↘</span></a>
       </nav>
+      {/* ══ 휴장일 — 가격 대신 이번 주 결산. 주말엔 배당이 주인공이라 히어로보다 먼저 ══ */}
+      {holidaySection}
       {/* ══ MARKET ══ */}
       <KospiLive k={k} mood={mood} rate={rate} phase={phase} closed={closed} openAt={openAt} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} base={live.base} bonus={live.bonus} />
-
-      {/* ══ 휴장일 — 가격 대신 이번 주 결산. 국장이 쉬면 폭도 쉰다 ══ */}
-      {holiday && (
-        <section id="week" className={`${styles.card} ${styles.reveal}`} style={reveal(0)} aria-label="이번 주 빵장">
-          <div className={styles.eyebrowRow}>
-            <span className={styles.eyebrow}>◍ MARKET CLOSED</span>
-            <span className={styles.theme}>휴장일에는 정가</span>
-          </div>
-          <h2 className={styles.weekLead}>국장이 쉬는 동안,<br />이번 주 나의 빵장.</h2>
-
-          {/* 주인공은 배당금이 아니라 결산이다. 배당을 앞에 세우면 쿠폰 페이지가 된다 */}
-          {score && (
-            <>
-              <ul className={styles.scoreList}>
-                <li data-on={score.watched}>
-                  <i aria-hidden="true">{score.watched ? '✓' : '·'}</i>
-                  <b>관심빵 담기</b>
-                  <small>{score.watched ? '이번 주에 담았어요' : '아직 담은 빵이 없어요'}</small>
-                  <em>{score.watched ? '+1' : '0'}</em>
-                </li>
-                <li data-on={score.bought}>
-                  <i aria-hidden="true">{score.bought ? '✓' : '·'}</i>
-                  <b>빵장에서 구매</b>
-                  <small>{score.bought ? '이번 주에 샀어요' : '이번 주 구매가 없어요'}</small>
-                  <em>{score.bought ? '+1' : '0'}</em>
-                </li>
-                <li data-on={score.attended}>
-                  <i aria-hidden="true">{score.attended ? '✓' : '·'}</i>
-                  <b>거래일 출석</b>
-                  <small>{score.visitDays}일 방문 · {score.visitNeeded}일부터 인정{score.visitNeeded < 3 ? ' (휴장 주)' : ''}</small>
-                  <em>{score.attended ? '+1' : '0'}</em>
-                </li>
-              </ul>
-
-              <div className={styles.dividend} data-none={score.amount === 0}>
-                <span className={styles.eyebrow}>WEEKEND DIVIDEND</span>
-                {score.amount > 0 ? (
-                  <>
-                    <strong>{won(score.amount)}P</strong>
-                    <p>주간 활동점수 <b>{score.score}점</b> · {wallet ? <>토요일에 <b>{wallet.mode === 'wallet' ? '배당금 통장' : '자사몰 적립금'}</b>으로 들어가요</> : '배당 지급을 준비하고 있어요'}</p>
-                  </>
-                ) : (
-                  <>
-                    <strong>0P</strong>
-                    <p>이번 주에는 활동이 없었어요. 하나만 채워도 다음 주 배당이 생깁니다</p>
-                  </>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* 점수 카드는 주말에만 뜨지만 통장은 휴장일이면 늘 보여준다 — 추석 목·금에도 쓸 수 있어야 한다 */}
-          {wallet && <DividendLink initial={wallet.member} mode={wallet.mode} balance={wallet.balance} coupon={wallet.coupon} />}
-
-          <h3 className={styles.weekSub}>이번 주 빵장은 이랬어요</h3>
-          {week && week.fills > 0 ? (
-            <ul className={styles.weekStats}>
-              <li><b>{week.tradedDays}일</b><small>이번 주 거래일</small></li>
-              <li><b>{Math.round(week.avgDepth * 100)}%</b><small>평균 할인 폭</small></li>
-              <li><b>{week.fills}건</b><small>예약된 빵</small></li>
-              {week.deepest && (
-                <li><b>{Math.round(week.deepest.depth * 100)}%</b><small>가장 깊었던 날 · {week.deepest.day.slice(5).replace('-', '/')}</small></li>
-              )}
-            </ul>
-          ) : (
-            <p className={styles.empty}>이번 주에는 체결된 예약이 없었어요. <b>다음 거래일 {OPEN_AT}</b>에 새 장이 열립니다.</p>
-          )}
-          <p className={styles.hint}>
-            빵장은 <b>주식시장이 열리는 날</b>만 엽니다. 휴장일에는 할인 대신 정가로 판매하고,
-            아래에서 <b>관심빵</b>을 담아두면 다음 장이 열릴 때 알려드려요.
-          </p>
-        </section>
-      )}
 
       {/* ══ 오늘의 결론 — 들어온 사람이 가장 먼저 알아야 할 한 줄.
              근거(구간·하락장 보정)는 위 히어로의 '할인 기준 보기'에 접어 두고,
@@ -526,7 +618,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
                 <button type="button" className={styles.topCard} data-sold-out={!o.product.inStock} style={{ ['--ph' as string]: `${step * 5}s` }} onClick={() => openFromList(no)}>
                   {medal && <span className={styles.medal}>{medal}</span>}
                   {/* 라인 빵은 배지가 없다. 채워 넣은 할인 빵과 정가 빵은 뜻이 달라 이름도 다르게 */}
-                  {groupOf(o) > 0 && <span className={styles.offLine}>{['', '라인 밖 · 할인', '정가', '품절'][groupOf(o)]}</span>}
+                  {groupOf(o) > 0 && !(holiday && groupOf(o) === 2) && <span className={styles.offLine}>{['', '라인 밖 · 할인', '정가', '품절'][groupOf(o)]}</span>}
                   <span className={styles.topPhoto}><ProductPhoto productNo={no} name={o.product.name} /></span>
                   <b>{o.product.name}</b>
                   <span className={styles.topPrice}>
@@ -624,7 +716,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           <>
             <header className={styles.cardHead}><h2>내 빵 포트폴리오</h2></header>
             <Portfolio offers={shelf} entries={entries} bids={bids} left={unitLeft}
-              canBuy={canBuy} closedNote={lockNote}
+              canBuy={canBuy} closedNote={lockNote} holidayNote={closed ? `${closed.closedFor} · 정가 · 다음 장 ${closed.nextOpen} ${OPEN_AT}` : null}
               onPick={openSeat} onMove={moveKey} bulk={bulk} onBuyAll={buyAll} />
             <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen} aria-controls="portfolio-details">취향 비중 {pfOpen ? '접기 ▴' : '보기 ▾'}</button>
             {pfOpen && <div id="portfolio-details"><Donut slices={slices} onPick={openSeat} /></div>}

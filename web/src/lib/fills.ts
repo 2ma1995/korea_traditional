@@ -274,6 +274,27 @@ export async function boughtInWindow(visitor: string, from: string, to: string):
   return (count ?? 0) > 0;
 }
 
+/**
+ * [from, to) 구간에 이 사람이 잡은 예약 — 휴장일 결산의 "빵장 예약 n회 · 절약액".
+ * 반납된 줄(기한 안에 결제하지 않은 것)은 뺀다. 결제 확인은 주문 연동 전이라 예약 기준이다.
+ */
+export async function reservationsInWindow(visitor: string | null, from: string, to: string): Promise<{ productNo: number; unit: string | null; depth: number }[]> {
+  if (!visitor) return [];
+  const db = supabase();
+  if (!db) {
+    return [...memoryReservations].filter(([key]) => {
+      const [day, who] = key.split(':');
+      return who === visitor && day >= from && day < to;
+    }).map(([, row]) => ({ productNo: row.productNo, unit: row.unit, depth: row.depth }));
+  }
+  const base = db.from('fills').select(hasUnit === false ? 'product_no, depth' : 'product_no, depth, unit')
+    .eq('visitor', visitor).gte('day', from).lt('day', to);
+  const { data, error } = await (hasExpiry === false ? base : base.neq('settled', 'expired'));
+  if (error) return [];
+  return ((data ?? []) as unknown as { product_no: number; depth: number | string; unit?: string | null }[])
+    .map(row => ({ productNo: row.product_no, unit: row.unit ?? null, depth: Number(row.depth) }));
+}
+
 /** 메모리에 쌓인 오늘 체결 수를 화면이 쓰는 "상품:폭"(+ ":옵션") 형태로 */
 function memoryCounts(day: string): Record<string, number> {
   const counts: Record<string, number> = {};
