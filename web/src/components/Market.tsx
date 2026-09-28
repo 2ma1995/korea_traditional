@@ -308,22 +308,40 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
     };
   });
 
-  /* 탭마다 묻는 게 다르다.
-       인기순  오늘 많이 나간 순      — 남들이 뭘 샀나
-       관심순  내가 담아둔 순         — 내 것부터
-       전체    오늘 할인 큰 순        — 목록이지 순위가 아니다
+  /* 세 탭 모두 막지의 모든 빵을 보여주고, 두 단계로 줄 세운다.
 
-     어느 탭이든 두 가지가 먼저다. 살 수 없는 빵(품절)은 맨 뒤로, 오늘 할인 대상이
-     아닌 빵(라인 밖)은 그 앞으로. 살 수 있는 것이 위에 오지 않으면 진열이 아니다. */
-  const byTab = (a: TodayOffer, b: TodayOffer) => {
-    if (sort === 'watched') return qtyOf(portfolio, b.product.productNo) - qtyOf(portfolio, a.product.productNo) || b.saved - a.saved;
-    if (sort === 'popular') return filledOf(b) - filledOf(a) || b.saved - a.saved;
-    return b.saved - a.saved || a.product.price - b.product.price;
-  };
-  const sorted = (sort === 'all' ? [...shelf] : [...offers]).sort((a, b) =>
-    Number(b.product.inStock) - Number(a.product.inStock)
-    || Number(b.saved > 0) - Number(a.saved > 0)
-    || byTab(a, b));
+     1단계 — 어느 탭이든 같다. 오늘 살 이유가 큰 것부터.
+       ① 오늘 라인 할인   오늘 시장이 고른 빵(상승=식사형 · 하락=디저트)
+       ② 채워 넣은 할인   라인 빵이 모자라 라인 밖에서 채운 빵 — 할인은 되지만 오늘의 주인공이 아니다
+       ③ 정가            오늘 할인 대상이 아니다
+       ④ 품절
+
+     2단계 — 같은 묶음 안에서 탭마다 묻는 게 다르다.
+       전체    할인율(%) 큰 순   — 금액으로 세면 비싼 빵이 늘 위라 사실상 '비싼 순'이었다
+       관심순  내가 담은 개수 순  — 내 것부터
+       인기순  오늘 예약 수 순    — 남들이 뭘 샀나
+     같으면 할인율, 그다음 정가 낮은 순.
+
+     전에는 관심순·인기순이 오늘 할인 빵만 보여줘서, 정가인 날 담아둔 빵이 관심순에서 사라졌다 */
+  const groupOf = (o: TodayOffer) => (!o.product.inStock ? 3 : o.saved <= 0 ? 2 : o.onLine ? 0 : 1);
+  const rateOf = (o: TodayOffer) => (o.product.price > 0 ? o.saved / o.product.price : 0);
+  const keyOfTab = (o: TodayOffer) =>
+    sort === 'watched' ? qtyOf(portfolio, o.product.productNo) : sort === 'popular' ? filledOf(o) : rateOf(o);
+  const sorted = [...shelf].sort((a, b) =>
+    groupOf(a) - groupOf(b)
+    || keyOfTab(b) - keyOfTab(a)
+    || rateOf(b) - rateOf(a)
+    || a.product.price - b.product.price);
+  /* 메달은 그 탭의 진짜 1~3위에 붙인다 — 묶음 순서로 자른 자리에 붙이면, 정가라 아래로 간
+     '가장 많이 담은 빵'은 못 받고 1개 담은 할인 빵이 🥇을 받는다. 0이면 메달이 없다 */
+  const medalOf = new Map(
+    sort === 'all' ? [] : [...shelf]
+      .map(o => ({ no: o.product.productNo, n: sort === 'watched' ? qtyOf(portfolio, o.product.productNo) : filledOf(o) }))
+      .filter(x => x.n > 0)
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 3)
+      .map((x, place) => [x.no, MEDAL[place]] as const),
+  );
   const ranking = offers.map(o => ({ o, n: filledOf(o) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 3);
   const selectedOffer = shelf.find(o => o.product.productNo === selected) ?? null;
 
@@ -501,14 +519,14 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
             const no = o.product.productNo, remaining = remainingOf(o), n = qtyOf(portfolio, no);
             /* 메달은 순위가 있는 탭에서만. 전체는 목록이라 1·2·3등이 없다.
                그리고 셀 것이 0이면 메달을 붙이지 않는다 — 아무도 안 산 날의 🥇은 거짓말이다 */
-            const ranked = sort === 'popular' ? filledOf(o) > 0 : sort === 'watched' ? n > 0 : false;
+            const medal = medalOf.get(no);
             const step = stepOf.get(no) ?? i;      // 등장·사진·가격 굴림에 쓰는 고정 순서
-            const rank = i;      // 지금 정렬에서 몇 번째로 보이는가
             return (
               <li key={no} className={`${styles.reveal} ${styles.cell}`} style={reveal(1 + step)}>
                 <button type="button" className={styles.topCard} data-sold-out={!o.product.inStock} style={{ ['--ph' as string]: `${step * 5}s` }} onClick={() => openFromList(no)}>
-                  {ranked && rank < 3 && <span className={styles.medal}>{MEDAL[rank]}</span>}
-                  {!o.onLine && <span className={styles.offLine}>{o.product.inStock ? '오늘 라인 밖' : '품절'}</span>}
+                  {medal && <span className={styles.medal}>{medal}</span>}
+                  {/* 라인 빵은 배지가 없다. 채워 넣은 할인 빵과 정가 빵은 뜻이 달라 이름도 다르게 */}
+                  {groupOf(o) > 0 && <span className={styles.offLine}>{['', '라인 밖 · 할인', '정가', '품절'][groupOf(o)]}</span>}
                   <span className={styles.topPhoto}><ProductPhoto productNo={no} name={o.product.name} /></span>
                   <b>{o.product.name}</b>
                   <span className={styles.topPrice}>
