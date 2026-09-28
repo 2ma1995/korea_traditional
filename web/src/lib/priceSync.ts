@@ -2,9 +2,10 @@ import { MAX_DISCOUNT_RATE } from '@/data/indicators';
 import { PRODUCTS, type Product } from '@/data/products';
 import { getProduct, getVariants, setProductPrice, setVariantAmount } from '@/lib/cafe24';
 import { getMarketSnapshot, seoulDateString } from '@/lib/market';
-import { rateFor } from '@/lib/offers';
+import { buildToday } from '@/lib/offers';
 import { marketHours } from '@/lib/orderbook';
 import { loadProductLinks, loadTiers } from '@/lib/settings';
+import { loadSkuSignals } from '@/lib/skuSignals';
 import { applyStock, fetchStock } from '@/lib/stock';
 import { discountDelivery } from '@/lib/discountDelivery';
 import { supabase } from '@/lib/supabase';
@@ -89,12 +90,22 @@ export interface SyncReport {
   note: string | null;
 }
 
-/** 오늘 어떤 빵에 얼마를 걸어야 하는가 — 화면과 같은 규칙으로 계산한다 */
+/**
+ * 오늘 어떤 빵에 얼마를 걸어야 하는가 — 화면(buildToday)을 그대로 쓴다.
+ *
+ * 전에는 구간 폭 하나를 재고 있는 전 상품에 걸었다. 화면은 오늘 라인 빵만, 빵마다
+ * 수요·재고 보정을 얹은 폭으로 파는데 자사몰엔 라인 밖 빵까지 같은 폭이 걸려
+ * "화면 가격 ≠ 자사몰 가격"이 됐다. 관리자 화면도 buildToday로 그린다.
+ */
 async function todayPlan(at: Date) {
-  const [market, tiers, stock] = await Promise.all([getMarketSnapshot(at), loadTiers(), fetchStock()]);
-  const { rate } = rateFor(market.kospi.changePct, tiers);
-  const products = applyStock(PRODUCTS, stock).filter(product => product.inStock);
-  return { rate: Math.min(rate, MAX_DISCOUNT_RATE), changePct: market.kospi.changePct, products };
+  const [market, tiers, stock, signals] = await Promise.all([getMarketSnapshot(at), loadTiers(), fetchStock(), loadSkuSignals(at)]);
+  const today = buildToday(market, tiers, undefined, at, applyStock(PRODUCTS, stock), signals);
+  return {
+    rate: Math.min(today.rate, MAX_DISCOUNT_RATE),
+    changePct: market.kospi.changePct,
+    live: market.kospi.live,
+    rows: today.offers.map(o => ({ product: o.product, rate: Math.min(o.rate, MAX_DISCOUNT_RATE) })),
+  };
 }
 
 /**
@@ -105,21 +116,30 @@ async function todayPlan(at: Date) {
  */
 export async function publishToday(at: Date = new Date()): Promise<SyncReport> {
   const date = seoulDateString(at);
-  const { rate, changePct, products } = await todayPlan(at);
+  const { rate, changePct, live, rows } = await todayPlan(at);
   const report: SyncReport = {
     action: 'publish', date, dryRun: !enabled(), rate, changePct,
     applied: [], skipped: [], note: null,
   };
 
-  if (!enabled()) {
-    report.note = '스위치가 꺼져 있어 계산만 했습니다 (PRICE_SYNC_ENABLED / PRICE_SYNC=on). 기업 승인 전에는 켜지 않습니다.';
-    report.applied = await planOnly(products, rate);
+  /* 네이버·Yahoo가 둘 다 죽으면 코스피는 날짜로 뽑은 샘플이다. 그 값으로 실제
+     판매가를 바꾸면 안 된다 — 계산도 적지 않는다(샘플 폭이라 참고할 값이 아니다).
+     dryRun으로 두면 크론이 할인 알림도 보내지 않는다 */
+  if (!live) {
+    report.dryRun = true;
+    report.note = '코스피 시세를 받지 못해(샘플 값) 판매가를 바꾸지 않았습니다. 시세가 돌아오면 관리자 화면에서 반영하세요.';
     return report;
   }
 
-  const result = await applyPrices(date, products.map(product => ({ product, rate })), {
+  if (!enabled()) {
+    report.note = '스위치가 꺼져 있어 계산만 했습니다 (PRICE_SYNC_ENABLED / PRICE_SYNC=on). 기업 승인 전에는 켜지 않습니다.';
+    report.applied = planOnly(rows);
+    return report;
+  }
+
+  const result = await applyPrices(date, rows, {
     rate, changePct,
-    headline: `자동 반영 · 전 상품 ${Math.round(rate * 100)}%`,
+    headline: `자동 반영 · ${rows.length}종 · 기본 ${Math.round(rate * 100)}%`,
     reason: `KOSPI ${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%`,
     approvedBy: 'cron',
   });
@@ -190,8 +210,8 @@ export async function restoreToday(at: Date = new Date()): Promise<SyncReport> {
 }
 
 /** 스위치가 꺼져 있을 때 — 바꾸지 않고 "무엇을 바꿀 것인가"만 만든다 */
-async function planOnly(products: Product[], rate: number): Promise<SyncItem[]> {
-  return products.map(product => ({
+function planOnly(rows: { product: Product; rate: number }[]): SyncItem[] {
+  return rows.map(({ product, rate }) => ({
     productNo: product.productNo,
     name: product.name,
     cafe24ProductNo: product.productNo,

@@ -126,6 +126,8 @@ export async function POST(request: Request) {
   if (!(stock.map[productNo] ?? product.inStock)) return held.length ? resume(held) : bad('품절 상품입니다.', 409);
 
   const [market, tiers, signals] = await Promise.all([getMarketSnapshot(now), loadTiers(), loadSkuSignals(now)]);
+  /* 시세를 못 받으면 코스피가 샘플 값이다 — 그 폭으로 예약을 받으면 실제 할인이 운에 걸린다 */
+  if (!market.kospi.live) return held.length ? resume(held) : bad('코스피 시세를 받지 못해 오늘 할인을 확정할 수 없어요. 잠시 뒤 다시 눌러 주세요.', 503);
   /* 오늘 폭 하나만 받는다. 호가 사다리는 접었다 — 폭이 다르면 오늘 것이 아니다.
      하락장 보정까지 포함한 최종 폭이어야 한다. 화면은 rateFor로 그리는데 여기서
      구간 기본값만 비교하면, 내린 날 화면 가격으로 누른 예약이 전부 튕긴다. */

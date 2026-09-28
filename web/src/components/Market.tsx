@@ -130,8 +130,9 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const rate = live.rate;
   const test = today.hours.reason === 'test';
   const phase: Phase = liveOn ? 'live' : today.hours.open ? 'open' : today.hours.reason === 'before' ? 'locked' : 'closed';
-  const canBuy = today.hours.open && (phase !== 'live' || test);
-  const lockNote = today.hours.reason === 'holiday' ? '다음 거래일에 열려요' : phase === 'live' ? `${OPEN_AT} 확정과 함께 열려요` : phase === 'locked' ? `🔒 ${OPEN_AT} 공개` : phase === 'closed' ? `다음 거래일 ${OPEN_AT}에 열려요` : '휴장';
+  /* 시세를 못 받은 날(샘플 값)엔 예약을 받지 않는다 — 서버(api/fill)도 같은 이유로 거절한다 */
+  const canBuy = today.hours.open && today.kospiLive && (phase !== 'live' || test);
+  const lockNote = today.hours.open && !today.kospiLive ? '코스피 시세 확인 중 · 잠시 뒤 새로고침' : today.hours.reason === 'holiday' ? '다음 거래일에 열려요' : phase === 'live' ? `${OPEN_AT} 확정과 함께 열려요` : phase === 'locked' ? `🔒 ${OPEN_AT} 공개` : phase === 'closed' ? `다음 거래일 ${OPEN_AT}에 열려요` : '휴장';
   const openAt = OPEN_AT;
   /* 휴장일 — 주말·공휴일이다. 가격이 움직이지 않으니 화면이 할 말이 달라진다 */
   const holiday = today.hours.reason === 'holiday';
