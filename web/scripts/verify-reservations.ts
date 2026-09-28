@@ -15,8 +15,11 @@ async function main() {
   // 다른 옵션은 따로 한 자리다(0019) — 휘낭시에 코코넛·피칸을 둘 다 잡을 수 있다
   const other = await tryFill(32, 0.07, 30, at, 'alice', 'OPTION1');
   assert.equal(other.filled, true);
+  // 같은 옵션을 여러 개 — 담은 개수만큼 번호를 올려 잡는다(0020). 같은 번호는 두 번 안 된다
+  assert.equal((await tryFill(32, 0.07, 30, at, 'alice', 'OPTION2', null, 2)).filled, true);
+  assert.equal((await tryFill(32, 0.07, 30, at, 'alice', 'OPTION2', null, 2)).already, true);
   const mine = await loadMyReservations('alice', at);
-  assert.deepEqual(mine.map(m => m.unit).sort(), ['OPTION1', 'OPTION2']);
+  assert.deepEqual(mine.map(m => m.unit).sort(), ['OPTION1', 'OPTION2', 'OPTION2']);
   const option2 = mine.find(m => m.unit === 'OPTION2')!;
   assert.equal(option2.depth, 0.07);
   assert.equal(option2.slot, first.slot);
@@ -24,11 +27,11 @@ async function main() {
   assert.deepEqual(await loadMyReservations(null, at), []);
   assert.deepEqual(await loadMyReservations('alice', new Date('2026-09-24T17:00:00+09:00')), []);
   // 빵 전체와 옵션별로 함께 센다 — 화면이 옵션마다 '물량 끝'을 말하려면 옵션별 수가 필요하다
-  assert.equal((await loadFilledCounts(at))['32:0.070'], 2);
-  assert.equal((await loadFilledCounts(at))['32:0.070:OPTION2'], 1);
-  assert.equal((await tryFill(32, 0.07, 30, at, 'bob', 'OPTION2')).filled, true);
   assert.equal((await loadFilledCounts(at))['32:0.070'], 3);
   assert.equal((await loadFilledCounts(at))['32:0.070:OPTION2'], 2);
+  assert.equal((await tryFill(32, 0.07, 30, at, 'bob', 'OPTION2')).filled, true);
+  assert.equal((await loadFilledCounts(at))['32:0.070'], 4);
+  assert.equal((await loadFilledCounts(at))['32:0.070:OPTION2'], 3);
   assert.equal((await loadFilledCounts(at))['32:0.070:OPTION1'], 1);
   // Price-mode reservations have no coupon: unknown payment must not restore stock.
   process.env.SUPABASE_URL = 'http://reservation-test.invalid';

@@ -4,6 +4,7 @@ import ProductPhoto from '@/components/ProductPhoto';
 import type { OfferUnit, TodayOffer } from '@/lib/offers';
 import type { Bid } from '@/components/OfferSheet';
 import { byProduct, keyOf, usePortfolio, type HoldingEntry } from '@/lib/portfolioStore';
+import { SEATS_PER_OPTION } from '@/lib/orderbook';
 import styles from './Market.module.css';
 
 interface Props {
@@ -20,7 +21,7 @@ interface Props {
   onPick: (productNo: number, unit: string | null) => void;
   /** 옵션 없이 담아둔 옛 관심을 옵션으로 옮긴다 */
   onMove: (from: string, to: string) => void;
-  onBuyAll: (items: { offer: TodayOffer; unit: string | null }[]) => void;
+  onBuyAll: (items: { offer: TodayOffer; unit: string | null; count: number }[]) => void;
   bulk: { busy: boolean; done: number; missed: number; error?: string } | null;
 }
 
@@ -33,8 +34,8 @@ interface Row {
   price: number;
   tone: Tone;
   status: string;
-  /** 오늘 한 번에 예약할 수 있는 줄인가 */
-  bookable: boolean;
+  /** 한 번에 예약하기로 오늘 더 잡을 개수 — 담은 개수에서 이미 잡은 만큼 뺀다. 0이면 대상 아님 */
+  need: number;
 }
 
 const won = (n: number) => n.toLocaleString('ko-KR');
@@ -57,8 +58,9 @@ const lowFor = (allotment: number) => Math.max(3, Math.ceil(allotment * 0.2));
  * 로그인이 없는 우리 서비스는 그 세션을 모른다 — 체험몰에서 담기를 쏴봤지만
  * isLogin:F로 거절당했다(2026-09-23). 그래서 "예약은 한 번에, 결제는 빵마다"다.
  *
- * 관심도(− n +)는 **살 개수가 아니라 비중**이다. 예약은 옵션마다 한 자리라(0019)
- * 관심도를 올려도 예약 개수와 금액은 그대로다 — 그래서 이름표와 버튼에 무엇을 세는지 적는다.
+ * − n + 는 **살 개수**다(한 옵션 최대 SEATS_PER_OPTION). 한 번에 예약하기는 그 개수만큼
+ * 자리를 잡고(0020), 버튼의 개수·금액도 바로 따라간다. 이미 잡은 만큼은 빼고 모자란 만큼만 더 잡는다.
+ * 비중(%)과 도넛은 이 개수로 계산한다.
  */
 export default function Portfolio({ offers, entries, bids, left, canBuy, closedNote, onPick, onMove, onBuyAll, bulk }: Props) {
   const { setQty } = usePortfolio();
@@ -71,11 +73,16 @@ export default function Portfolio({ offers, entries, bids, left, canBuy, closedN
     const price = unit?.price ?? offer?.price ?? 0;
     const listPrice = unit?.listPrice ?? offer?.product.price ?? 0;
     const bid = bids[entry.key];
-    const row = (tone: Tone, status: string, bookable = false): Row => ({ entry, offer, unit, name, price, tone, status, bookable });
+    const row = (tone: Tone, status: string, need = 0): Row => ({ entry, offer, unit, name, price, tone, status, need });
+    const held = bid?.status === 'filled' ? bid.count ?? 1 : 0;
+    const want = Math.min(entry.qty, SEATS_PER_OPTION);
+    /* 지금 더 잡을 수 있는 상태인가 — 할인 중이고, 장이 열렸고, 팔고 있고, 자리가 남았다 */
+    const open = Boolean(offer && offer.saved > 0 && canBuy && offer.product.inStock && (!unit || unit.sellable) && left(offer, entry.unit) > 0);
 
-    if (bid?.status === 'filled') {
-      if (bid.settled === 'paid') return row('booked', '예약 · 결제 확인됨');
-      return row('booked', bid.expiresAt ? `예약함 · ${hhmm(bid.expiresAt)}까지 결제` : '예약함 · 결제 이어가기');
+    if (held > 0) {
+      const pay = bid!.settled === 'paid' ? '결제 확인됨' : bid!.expiresAt ? `${hhmm(bid!.expiresAt)}까지 결제` : '결제 이어가기';
+      if (want > held && open && bid!.settled !== 'paid') return row('booked', `예약 ${held}개 · ${want - held}개 더 잡을 수 있어요 · ${pay}`, want - held);
+      return row('booked', `예약 ${held}개 · ${pay}`);
     }
     if (!offer) return row('out', '판매 정보를 찾지 못했어요');
     /* 옵션이 있는 빵을 옛날에 옵션 없이 담았다 — 무엇을 원하는지 먼저 골라야 한다 */
@@ -90,7 +97,7 @@ export default function Portfolio({ offers, entries, bids, left, canBuy, closedN
     if (!canBuy) return row('wait', `오늘 ${pct}% · ${closedNote}`);
     const allotment = unit?.allotment ?? offer.allotment;
     const low = remaining <= lowFor(allotment) ? ` · 남음 ${remaining}` : '';
-    return row('sale', `오늘 ${pct}% 할인 · ${won(price)}원${low}`, true);
+    return row('sale', `오늘 ${pct}% 할인 · ${won(price)}원${want > 1 ? ` × ${want}` : ''}${low}`, want);
   });
 
   const breads = byProduct(entries);
@@ -105,8 +112,10 @@ export default function Portfolio({ offers, entries, bids, left, canBuy, closedN
     ['sale', '오늘 할인'], ['wait', '할인 예정'], ['booked', '예약함'], ['end', '물량 끝'], ['out', '품절'],
   ] as [Tone, string][]).map(([tone, label]) => ({ tone, label, n: count(tone) })).filter(s => s.n > 0);
 
-  const bookable = rows.filter(r => r.bookable);
-  const bookableTotal = bookable.reduce((sum, r) => sum + r.price, 0);
+  const bookable = rows.filter(r => r.need > 0);
+  /* 버튼은 개수와 금액을 담은 수 그대로 말한다 — 모닝롤 3개면 3개, 그 값의 세 배 */
+  const bookableCount = bookable.reduce((sum, r) => sum + r.need, 0);
+  const bookableTotal = bookable.reduce((sum, r) => sum + r.price * r.need, 0);
   const reserved = rows.find(r => r.tone === 'booked');
   const next = reserved ?? rows.find(r => r.tone === 'sale' || r.tone === 'wait') ?? rows[0];
 
@@ -154,11 +163,12 @@ export default function Portfolio({ offers, entries, bids, left, canBuy, closedN
               aria-label={`${row.name} ${row.tone === 'booked' ? '결제 안내' : '자세히'}`}>
               {row.tone === 'booked' ? '결제 안내' : '자세히'}
             </button>
-            {/* 관심도 — 비중일 뿐 예약 개수가 아니다. 1에서 −를 누르면 관심 해제 */}
-            <small className={styles.pfQtyLabel} aria-hidden="true">관심도</small>
-            <button type="button" onClick={() => setQty(entry.key, entry.qty - 1)} aria-label={entry.qty > 1 ? `${row.name} 관심도 낮추기` : `${row.name} 관심 해제`}>−</button>
-            <b aria-label={`${row.name} 관심도`}>{entry.qty}</b>
-            <button type="button" onClick={() => setQty(entry.key, entry.qty + 1)} aria-label={`${row.name} 관심도 높이기`}>+</button>
+            {/* 살 개수 — 한 번에 예약하기가 이만큼 잡는다. 1에서 −를 누르면 관심 해제 */}
+            <small className={styles.pfQtyLabel} aria-hidden="true">개수</small>
+            <button type="button" onClick={() => setQty(entry.key, entry.qty - 1)} aria-label={entry.qty > 1 ? `${row.name} 한 개 줄이기` : `${row.name} 관심 해제`}>−</button>
+            <b aria-label={`${row.name} 개수`}>{entry.qty}</b>
+            <button type="button" disabled={entry.qty >= SEATS_PER_OPTION} onClick={() => setQty(entry.key, entry.qty + 1)}
+              aria-label={entry.qty >= SEATS_PER_OPTION ? `${row.name} 최대 ${SEATS_PER_OPTION}개` : `${row.name} 한 개 늘리기`}>+</button>
           </span>
         </li>;
       })}
@@ -166,8 +176,8 @@ export default function Portfolio({ offers, entries, bids, left, canBuy, closedN
     <div className={styles.buyAll}>
       {bookable.length > 0 ? (
         <button type="button" className={styles.primary} disabled={bulk?.busy}
-          onClick={() => onBuyAll(bookable.map(r => ({ offer: r.offer!, unit: r.entry.unit })))}>
-          {bulk?.busy ? '예약 중…' : `할인 중인 ${bookable.length}개 한 번에 예약 · ${won(bookableTotal)}원`}
+          onClick={() => onBuyAll(bookable.map(r => ({ offer: r.offer!, unit: r.entry.unit, count: Math.min(r.entry.qty, SEATS_PER_OPTION) })))}>
+          {bulk?.busy ? '예약 중…' : `할인 중인 ${bookableCount}개 한 번에 예약 · ${won(bookableTotal)}원`}
         </button>
       ) : next && (
         <button type="button" className={styles.primary} onClick={() => onPick(next.entry.no, next.entry.unit)}>
@@ -176,15 +186,16 @@ export default function Portfolio({ offers, entries, bids, left, canBuy, closedN
       )}
       {bulk && !bulk.busy && (bulk.done > 0 || bulk.missed > 0) && (
         <p className={styles.buyAllNote}>
-          {bulk.done > 0 && <><b>{bulk.done}개 예약됐습니다.</b> 빵을 눌러 결제 안내를 확인하세요. </>}
+          {bulk.done > 0 && <><b>{bulk.done}가지 예약됐습니다.</b> 빵을 눌러 결제 안내를 확인하세요. </>}
           {/* 실패 이유를 서버가 말한 그대로 쓴다. 예전에는 무엇이 막았든
               "물량이 끝났습니다"라고만 해서, 장이 닫힌 것도 품절로 보였다 */}
-          {bulk.missed > 0 && <>{bulk.missed}개는 예약하지 못했습니다 — {bulk.error ?? '오늘 물량이 끝났습니다.'}</>}
+          {bulk.missed > 0 && <>{bulk.missed}가지는 예약하지 못했습니다 — {bulk.error ?? '오늘 물량이 끝났습니다.'}</>}
+          {bulk.missed === 0 && bulk.error && <>{bulk.error}</>}
         </p>
       )}
       <p className={styles.buyAllNote}>
-        옵션마다 <b>1개씩</b> 예약해요. 관심도(− n +)는 예약 개수가 아니라 비중이라 금액이 바뀌지 않아요.
-        예약은 한 번에 되지만 <b>결제는 빵마다 막지몰에서</b> 하셔야 합니다.
+        담은 <b>개수만큼</b> 예약해요(한 옵션 최대 {SEATS_PER_OPTION}개). 예약은 한 번에 되지만
+        <b>결제는 빵마다 막지몰에서</b> 하셔야 합니다 — 자사몰에서 같은 옵션·개수로 담아 주세요.
       </p>
     </div>
     <p className={styles.hint}>관심 목록은 이 브라우저에 저장됩니다. 알림은 아래 알림 설정에서 별도로 켜 주세요.</p>

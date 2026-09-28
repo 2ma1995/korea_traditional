@@ -1,5 +1,5 @@
 -- ============================================================================
--- 지금 실행할 SQL — 0001 ~ 0019 한 장 (새 창고든 쓰던 창고든 이것 하나만 돌린다)
+-- 지금 실행할 SQL — 0001 ~ 0020 한 장 (새 창고든 쓰던 창고든 이것 하나만 돌린다)
 --
 --   어디서   Supabase 대시보드 → SQL Editor → 붙여넣고 Run
 --   무엇을   예약(fills) · 공모 청약(ipo_bids) · 관심 담기(watches)
@@ -8,7 +8,7 @@
 --            예약 결제 기한(fills.expires_at · settled) · 웹 푸시(push_subscriptions)
 --            한 예약 한 청약(ipo_bids.fill_id) · 한 IP 자리 한도(fills.ip_hash)
 --            배당금(dividend_links · dividend_payouts · dividend_redemptions)
---   범위     0001 ~ 0019, 0003·0004 제외 (migrations/ 폴더와 같다 — 새 마이그레이션을 만들면 여기도 붙인다)
+--   범위     0001 ~ 0020, 0003·0004 제외 (migrations/ 폴더와 같다 — 새 마이그레이션을 만들면 여기도 붙인다)
 --   왜       없으면 전부 **서버 메모리에만** 저장된다. 서버가 재시작되면 사라진다.
 --            화면은 정상 동작하고 "이번 서버 세션의 메모리에만 기록됩니다"라고 밝힌다.
 --
@@ -570,6 +570,28 @@ create unique index if not exists fills_one_per_visitor_unit
   where visitor is not null and settled is distinct from 'expired';
 comment on index fills_one_per_visitor_unit is '같은 날 같은 옵션은 한 사람당 한 자리. 반납된 예약은 비켜 간다 — 0019';
 
+-- ── 0020 · 한 사람이 한 옵션을 여러 개 ─────────────────────────────────────
+--
+-- 포트폴리오의 − n + 는 살 개수다. 모닝롤 3개를 담았으면 3자리를 잡아야
+-- "3개 예약"이 거짓말이 아니다. 그런데 0019는 한 사람 한 옵션 한 자리였다.
+--
+-- 자리(slot)·IP(ip_seq)와 같은 방식으로 막는다. 한 사람이 한 옵션에 쥔 자리에
+-- 1..N 번호(visitor_seq)를 매기고 unique를 건다. N은 서버가 정한다(orderbook.SEATS_PER_OPTION, 5).
+-- 화면은 "목표 개수까지"만 채워 달라고 보내므로, 같은 요청을 두 번 보내도 번호가 겹쳐
+-- 더 잡히지 않는다 — 0015 ②의 멱등성이 그대로 남는다.
+-- 한 IP 한 빵 N자리(0017)도 그대로라, 한 사람이 한 빵을 쓸어 담지는 못한다.
+--
+-- 옛 줄은 visitor_seq가 null이다 — coalesce로 1번으로 본다. 반납된 줄은 비켜 간다.
+-- 코드는 이 마이그레이션 전에도 돌아간다. 열이 없으면 번호 없이 넣고, 옛 인덱스에 걸려
+-- 한 옵션 한 자리로 남는다(화면이 "n개 중 1개만 예약됐어요"라고 밝힌다).
+
+alter table fills add column if not exists visitor_seq smallint;
+drop index if exists fills_one_per_visitor_unit;
+create unique index if not exists fills_visitor_seq
+  on fills (day, product_no, coalesce(unit, ''), visitor, coalesce(visitor_seq, 1))
+  where visitor is not null and settled is distinct from 'expired';
+comment on index fills_visitor_seq is '한 사람이 한 옵션에 쥔 자리 번호 1..N. 반납된 예약은 비켜 간다 — 0020';
+
 -- ── 권한 · RLS ──────────────────────────────────────────────────────────────
 -- RLS는 정책 없이 켜 둔다. anon 키로는 아무것도 안 보이고 service_role만 통과한다.
 -- 서버만 이 표들을 읽고 쓴다(lib/supabase.ts).
@@ -645,7 +667,8 @@ select * from (
     ('fills',    'unit',    'fills.unit',       '0013', '자사몰 품목 — lib/inventory.ts'),
     ('fills',    'expires_at', 'fills.expires_at', '0012', '결제 기한 — lib/settle.ts'),
     ('ipo_bids', 'fill_id', 'ipo_bids.fill_id', '0016', '한 예약 한 청약 — lib/ipo.ts'),
-    ('fills',    'ip_hash', 'fills.ip_hash',    '0017', 'IP 자리 한도 — api/fill')
+    ('fills',    'ip_hash', 'fills.ip_hash',    '0017', 'IP 자리 한도 — api/fill'),
+    ('fills',    'visitor_seq', 'fills.visitor_seq', '0020', '한 사람 한 옵션 N자리 — api/fill')
   ) as want(tbl, col, label, made_by, used_by)
   left join information_schema.columns col
     on  col.table_schema = 'public'
@@ -663,7 +686,7 @@ select * from (
     want.made_by,
     want.used_by
   from (values
-    ('fills_one_per_visitor_unit', '0019', '옵션마다 한 사람 한 자리 — lib/fills.ts')
+    ('fills_visitor_seq', '0020', '한 사람이 한 옵션에 쥔 자리 번호 — lib/fills.ts')
   ) as want(name, made_by, used_by)
   left join pg_indexes i
     on  i.schemaname = 'public'

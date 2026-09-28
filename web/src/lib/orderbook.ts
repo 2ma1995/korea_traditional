@@ -38,6 +38,12 @@ export const OPEN_AT = `${String(OPEN_HOUR).padStart(2, '0')}:${String(OPEN_MINU
 export const ALWAYS_OPEN = false;
 
 /**
+ * 한 사람이 한 옵션에 오늘 잡을 수 있는 자리 수 — 포트폴리오의 − n + 상한이기도 하다.
+ * 한 IP 한 빵 5자리(FILL_PER_IP, 0017)와 같은 수라, 한 사람이 한 빵을 쓸어 담지 못한다(0020).
+ */
+export const SEATS_PER_OPTION = 5;
+
+/**
  * 실제로 상시 개장인가.
  *
  * 위 상수를 true로 바꿔 테스트하다 그대로 커밋되면 배포본이 24시간 열린다 —

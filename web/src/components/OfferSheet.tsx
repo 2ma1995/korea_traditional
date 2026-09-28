@@ -17,6 +17,10 @@ import styles from './Market.module.css';
  */
 export interface Bid {
   status: 'busy' | 'filled' | 'missed';
+  /** 이 옵션에 잡은 자리 수(0020). 없으면 1 */
+  count?: number;
+  /** 원한 만큼 못 잡았을 때 서버가 말한 이유 */
+  short?: string | null;
   unit?: string | null;
   depth?: number;
   settled?: 'open' | 'paid';
@@ -48,7 +52,7 @@ interface Props {
   remaining: number;
   /** 고른 옵션의 예약. 옵션마다 한 자리라(0019) 옵션을 바꾸면 그 옵션의 예약이 온다 */
   bid: Bid | undefined;
-  /** 고른 옵션을 관심에 담아둔 관심도 */
+  /** 고른 옵션을 포트폴리오에 담아둔 개수 — 예약하기는 이 개수만큼 잡는다(최소 1) */
   watching: number;
   /** 옵션마다 표시 — 관심에 담은 옵션, 오늘 예약한 옵션 */
   watchedUnits: string[];
@@ -90,6 +94,9 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
      결제 금액과 상관이 없다 — 화면에도 그렇게 적는다 */
   const payPrice = unitPrice;
   const payList = unitList;
+  /* 예약하기는 포트폴리오에 담은 개수만큼 잡는다(0020). 이미 잡은 만큼은 빼고 모자란 만큼만 */
+  const held = booked ? bid.count ?? 1 : 0;
+  const wantCount = Math.max(1, watching);
   /* 실제로 살 수 있는 수. 옵션마다 자리를 따로 세므로(0015) 고른 옵션 기준이다 —
      그 옵션의 오늘 물량에서 이미 나간 자리를 뺀 값을 Market이 넘겨준다.
      전에는 물량(allotment)을 그대로 써서 다 나가도 '남음 30'이라고 했다 */
@@ -213,7 +220,8 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
         {booked && (
           <>
             <p className={styles.sheetNote}>
-              <b>{bid.settled === 'paid' ? '결제 확인된 예약입니다.' : '예약 완료 · 결제 완료와는 달라요.'}</b>{picked && <> · {picked.label}</>}
+              <b>{bid.settled === 'paid' ? '결제 확인된 예약입니다.' : '예약 완료 · 결제 완료와는 달라요.'}</b>{picked && <> · {picked.label}</>}{held > 1 && <> · {held}개</>}
+              {bid.short && <><br />{bid.short}</>}
               {bid.stored === false && <><br />⚠️ 저장소가 연결되지 않아 이번 서버 세션의 메모리에만 기록됩니다.</>}
             </p>
 
@@ -228,7 +236,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
               <div className={styles.couponBox}>
                 <span className={styles.couponLabel}>자사몰에서 최종 결제 금액을 확인해 주세요</span>
                 <span className={styles.couponFine}>
-                  예약 안내 금액은 <b>{won(payPrice)}원</b>{picked && <> ({picked.label})</>}입니다.
+                  예약 안내 금액은 <b>{won(payPrice * held)}원</b>{picked && <> ({picked.label}{held > 1 ? ` × ${held}` : ''})</>}입니다.
                   자사몰에서 같은 옵션을 선택하고 최종 금액을 확인해 주세요.
                 </span>
                 {clock}
@@ -286,7 +294,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
           ) : <button type="button" className={styles.primary}
             disabled={!canBuy || stockLeft <= 0 || (picked !== null && !picked.sellable) || bid?.status === 'busy'} onClick={onBuy}>
             {bid?.status === 'busy' ? '예약 중…' : !canBuy ? lockNote : stockLeft <= 0 ? '오늘 물량 끝'
-              : `${won(payPrice)}원에 예약하기`}
+              : wantCount > 1 ? `${wantCount}개 · ${won(payPrice * wantCount)}원에 예약하기` : `${won(payPrice)}원에 예약하기`}
           </button>}
         </div>
         <p className={styles.sheetFine}>구매 수량과 최종 금액은 막지몰에서 확인해 주세요.<br />창을 닫아도 내 포트폴리오에서 구매를 이어갈 수 있어요.</p>

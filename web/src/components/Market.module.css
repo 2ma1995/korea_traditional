@@ -178,6 +178,7 @@
 .pfCtl button { font: inherit; width: 26px; height: 26px; border: 0; border-radius: 8px; background: var(--background); cursor: pointer; }
 .pfCtl b { min-width: 14px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
 .pfQtyLabel { font-size: 11px; color: var(--muted); margin-right: -4px; }
+.pfCtl button:disabled { opacity: .4; cursor: not-allowed; }
 
 /* 관심빵의 오늘 상태 — 줄마다 하나, 위에는 합계. 색은 할 일의 급한 정도다 */
 .pfTag { display: inline-block; font-size: 11.5px; font-weight: 700; line-height: 1.4; padding: 2px 8px;

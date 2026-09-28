@@ -167,11 +167,24 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           if (json.filled) setFilled(json.filled);
           if (Array.isArray(json.reservations)) setBids(previous => {
             const next = { ...previous };
+            /* 한 옵션에 여러 자리를 쥘 수 있다(0020) — 옵션마다 한 묶음으로 합친다.
+               가장 먼저 잡은 자리, 가장 이른 결제 기한, 전부 결제됐을 때만 'paid' */
+            const bySeat = new Map<string, (Bid & { productNo: number })[]>();
             for (const bid of json.reservations as (Bid & { productNo: number })[]) {
               const seat = keyOf(bid.productNo, bid.unit ?? null);
-              if (!pending.current.has(seat) && (next[seat]?.status !== 'filled' || bid.settled === 'paid')) {
-                next[seat] = bid;
-              }
+              bySeat.set(seat, [...(bySeat.get(seat) ?? []), bid]);
+            }
+            for (const [seat, rows] of bySeat) {
+              if (pending.current.has(seat)) continue;
+              const first = [...rows].sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0))[0];
+              const merged: Bid = {
+                ...first, count: rows.length,
+                expiresAt: rows.map(r => r.expiresAt).filter((at): at is string => Boolean(at)).sort()[0] ?? null,
+                settled: rows.every(r => r.settled === 'paid') ? 'paid' : 'open',
+                short: next[seat]?.short,
+              };
+              const had = next[seat];
+              if (had?.status !== 'filled' || merged.settled === 'paid' || (had.count ?? 1) !== merged.count) next[seat] = merged;
             }
             return next;
           });
@@ -203,11 +216,12 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
    * 라고 말했다 — 손님에게 거짓말이고, 우리도 원인을 못 봤다.
    * lib/fills.ts가 "저장소 없음"을 "품절"이라고 말하던 것과 같은 실수다.
    */
-  async function buy(offer: TodayOffer, unit: string | null = unitOf(offer)): Promise<{ ok: boolean; error?: string }> {
+  async function buy(offer: TodayOffer, unit: string | null = unitOf(offer), count = 1): Promise<{ ok: boolean; error?: string }> {
     const no = offer.product.productNo;
-    /* 자리는 옵션마다 하나다(0019) — 같은 빵이라도 옵션이 다르면 따로 잡는다 */
+    /* 자리는 옵션마다 센다(0019) — 같은 빵이라도 옵션이 다르면 따로 잡는다.
+       count는 이 옵션을 몇 개 원하는가 — 서버가 이미 쥔 만큼은 빼고 모자란 만큼만 채운다(0020) */
     const seat = keyOf(no, unit);
-    if (bids[seat]?.status === 'filled') { openSeat(no, unit); return { ok: true }; }
+    if (bids[seat]?.status === 'filled' && (bids[seat].count ?? 1) >= count) { openSeat(no, unit); return { ok: true }; }
     if (pending.current.has(seat)) return { ok: false };
     pending.current.add(seat);
     setBids(prev => ({ ...prev, [seat]: { status: 'busy', slot: null } }));
@@ -215,14 +229,14 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       /* 자사몰 재고는 품목 단위로 관리된다 — 어느 옵션을 잡았는지 같이 보내야
          "5개"를 예약해놓고 "1개" 재고를 깎는 일이 안 생긴다(lib/inventory) */
       const res = await fetch('/api/fill', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productNo: no, depth: offer.rate, unit }) });
+        body: JSON.stringify({ productNo: no, depth: offer.rate, unit, count }) });
       const json = await res.json();
       if (!json?.ok) {
         const error = String(json?.error ?? '예약에 실패했습니다.');
         setBids(prev => ({ ...prev, [seat]: { status: 'missed', slot: null, error } }));
         return { ok: false, error };
       }
-      setBids(prev => ({ ...prev, [seat]: { status: json.filled ? 'filled' : 'missed', slot: json.slot ?? null, stored: json.stored, coupon: json.coupon ?? null, expiresAt: json.expiresAt ?? null, delivery: json.delivery, unit: json.unit ?? unit, depth: json.depth ?? offer.rate, settled: json.settled } }));
+      setBids(prev => ({ ...prev, [seat]: { status: json.filled ? 'filled' : 'missed', count: json.count ?? 1, short: json.short ?? null, slot: json.slot ?? null, stored: json.stored, coupon: json.coupon ?? null, expiresAt: json.expiresAt ?? null, delivery: json.delivery, unit: json.unit ?? unit, depth: json.depth ?? offer.rate, settled: json.settled } }));
       /* 서버가 준 수량은 고른 옵션의 것이다 — 옵션 칸에 적는다. 빵 전체 수는 다음 조회가 맞춘다 */
       if (typeof json.quantity === 'number' && typeof json.remaining === 'number') {
         const group = key(no, offer.rate);
@@ -231,8 +245,9 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       /* 구매가 체결되면 서버가 공모 청약권을 발급한다(lib/bidRight).
          아직 오늘 청약하지 않았다면 NEXT의 버튼이 지금 열린다 */
       if (json.filled) setIpo(prev => (prev.bidFor ? prev : { ...prev, canBid: true }));
-      /* filled=false는 진짜 물량이 끝난 경우다 — 서버가 ok로 답했으니 */
-      return { ok: Boolean(json.filled) };
+      /* filled=false는 진짜 물량이 끝난 경우다 — 서버가 ok로 답했으니.
+         일부만 잡혔으면 잡힌 것은 살리고 이유를 같이 돌려준다 */
+      return { ok: Boolean(json.filled), error: json.short ?? undefined };
     } catch {
       const error = '서버에 닿지 못했습니다. 잠시 뒤 다시 시도해 주세요.';
       setBids(prev => ({ ...prev, [seat]: { status: 'missed', slot: null, error } }));
@@ -253,12 +268,13 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
    * 하나가 막혀도 멈추지 않는다. 품절은 빵마다 따로 오는 일이라, 첫 실패에서 멈추면
    * 뒤의 멀쩡한 빵까지 못 잡는다.
    */
-  async function buyAll(list: { offer: TodayOffer; unit: string | null }[]) {
+  async function buyAll(list: { offer: TodayOffer; unit: string | null; count: number }[]) {
     setBulk({ busy: true, done: 0, missed: 0 });
     let done = 0, missed = 0, error: string | undefined;
-    for (const { offer, unit } of list) {
-      const result = await buy(offer, unit);
-      if (result.ok) { done += 1; continue; }
+    for (const { offer, unit, count } of list) {
+      const result = await buy(offer, unit, count);
+      /* 일부만 잡혔어도 잡힌 줄은 성공으로 세고, 이유는 남긴다 */
+      if (result.ok) { done += 1; error ??= result.error; continue; }
       missed += 1;
       /* 첫 실패 이유만 남긴다 — 여러 개가 같은 이유로 막히는 게 보통이다 */
       error ??= result.error;
@@ -628,7 +644,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
           canBid={ipoOn && ipo.canBid && !ipo.bidFor}
           unit={sheetUnit}
           onNext={() => { setSelected(null); scrollTo('next'); }}
-          onBuy={() => buy(selectedOffer, sheetUnit)} onQty={next => watchSeat(selectedOffer, sheetUnit, next)}
+          onBuy={() => buy(selectedOffer, sheetUnit, Math.max(1, portfolio[sheetSeat]?.qty ?? 1))} onQty={next => watchSeat(selectedOffer, sheetUnit, next)}
           onUnit={code => setUnits(prev => ({ ...prev, [selectedOffer.product.productNo]: code }))}
           onClose={closeSheet} />
       )}

@@ -51,6 +51,8 @@ let hasExpiry: boolean | null = null;
 let hasUnit: boolean | null = null;
 /* 0017(fills.ip_hash) 전인 DB면 false — IP 한도 없이 예전처럼 넣는다 */
 let hasIp: boolean | null = null;
+/* 0020(fills.visitor_seq) 전인 DB면 false — 번호 없이 넣고, 한 사람 한 옵션 한 자리로 남는다 */
+let hasSeq: boolean | null = null;
 /**
  * 결제 기한 — 예약하고 이만큼 안에 결제하지 않으면 자리를 반납한다.
  *
@@ -74,7 +76,7 @@ export interface FillResult {
   remaining: number;
   /** 체결됐다면 몇 번째였나 */
   slot: number | null;
-  /** 이 사람이 오늘 이 옵션을 이미 잡고 있다 — 새 자리를 주지 않는다(0015 → 0019에서 옵션 단위) */
+  /** 이 사람이 오늘 이 옵션의 그 번호 자리를 이미 잡고 있다 — 새 자리를 주지 않는다(0015 · 0019 · 0020) */
   already?: boolean;
   /** 저장소에 남았는가. false면 이번 서버 세션 메모리에만 있다 */
   stored: boolean;
@@ -366,9 +368,9 @@ async function takenSlots(productNo: number, depth: number, day: string, unit: s
 }
 
 /** 메모리로 한 자리 잡는다. 수량이 남아 있으면 체결이다 */
-function fillInMemory(productNo: number, depth: number, quantity: number, day: string, unit: string | null = null, visitor: string | null = null): FillResult {
-  /* 한 사람 한 자리는 옵션마다다(0019) — DB 인덱스와 같은 단위로 센다 */
-  const visitorKey = `${day}:${visitor}:${productNo}:${unit ?? ''}`;
+function fillInMemory(productNo: number, depth: number, quantity: number, day: string, unit: string | null = null, visitor: string | null = null, seq = 1): FillResult {
+  /* 한 사람이 한 옵션에 쥔 자리는 번호로 센다(0020) — DB 인덱스와 같은 단위다 */
+  const visitorKey = `${day}:${visitor}:${productNo}:${unit ?? ''}:${seq}`;
   if (visitor && memoryReservations.has(visitorKey)) {
     return { filled: false, remaining: 0, slot: null, stored: false, expiresAt: null, id: null, already: true };
   }
@@ -398,9 +400,9 @@ function fillInMemory(productNo: number, depth: number, quantity: number, day: s
  * 자리는 **옵션마다** 따로 센다(0015). 자사몰 재고가 품목 단위라, 상품 전체로
  * 세면 서른 명이 모두 '5개'를 골라도 통과한다.
  *
- * 같은 사람이 같은 날 같은 옵션을 두 번 잡지는 못한다(0015, 0019부터 옵션 단위).
- * 화면은 버튼을 잠그지만 서버에 방어가 없어, 같은 요청을 두 번 보내면 자리 둘을 먹고
- * 있었다. 휘낭시에 코코넛과 피칸처럼 옵션이 다르면 각각 한 자리씩 잡을 수 있다.
+ * 한 사람이 한 옵션에 쥔 자리에는 1..N 번호(seq)가 붙는다(0020). 같은 번호는 두 번 못
+ * 잡으므로, 화면이 "목표 개수까지"만 채워 달라고 보내면 같은 요청을 두 번 보내도 더 잡히지
+ * 않는다. 옵션이 다르면(휘낭시에 코코넛·피칸) 번호도 따로 센다(0019).
  *
  * @param quantity 이 칸의 오늘 배정 수량 — 서버가 계산한 값만 넣는다
  */
@@ -419,10 +421,12 @@ export async function tryFill(
      생겨서, 쿠키 없이 서른 번 부르면 서른 자리가 결제 없이 다 찼다. 자리처럼
      (day, product_no, ip_hash, ip_seq) unique로 막아 동시에 쏴도 못 넘는다(0017) */
   ip: { hash: string; limit: number } | null = null,
+  /* 이 사람이 이 옵션에 잡는 몇 번째 자리인가(1부터). 호출부가 목표 개수까지만 올린다(0020) */
+  seq = 1,
 ): Promise<FillResult> {
   const db = supabase();
   const day = seoulDateString(at);
-  if (!db) return fillInMemory(productNo, depth, quantity, day, unit, visitor);
+  if (!db) return fillInMemory(productNo, depth, quantity, day, unit, visitor, seq);
   let ipSeq = 1;
 
   /* 처음 한 번만 세고, 부딪히면 다음 자리로 한 칸씩 올라간다.
@@ -444,6 +448,7 @@ export async function tryFill(
     /* 0012 전이면 열이 없다 — 기한 없이 예전처럼 넣는다 */
     if (hasExpiry !== false) row.expires_at = expires.toISOString();
     if (ip && hasIp !== false) { row.ip_hash = ip.hash; row.ip_seq = ipSeq; }
+    if (visitor && hasSeq !== false) row.visitor_seq = seq;
 
     const { data, error } = await db.from('fills').insert(row).select('id').single();
 
@@ -455,17 +460,26 @@ export async function tryFill(
         id: (data as { id: number } | null)?.id ?? null,
       };
     }
-    if (missingColumn(error.code) && hasUnit !== false && unit) { hasUnit = false; continue; }
-    if (missingColumn(error.code) && hasExpiry !== false) { hasExpiry = false; continue; }
-    if (missingColumn(error.code) && ip && hasIp !== false) { hasIp = false; continue; }
+    /* 없는 열은 오류 문구에서 이름으로 찾는다. 이름을 안 보고 순서대로 빼면, 0020만 빠진 DB에서
+       visitor_seq 하나 때문에 옵션·기한·IP 열까지 줄줄이 빼고 넣는다 — 옵션도 기한도 없는 예약이 된다 */
+    const missing = missingColumn(error.code) ? `${error.message} ${error.details ?? ''}` : '';
+    if (/visitor_seq/.test(missing) && hasSeq !== false) { hasSeq = false; continue; }
+    if (/ip_hash|ip_seq/.test(missing) && ip && hasIp !== false) { hasIp = false; continue; }
+    if (/expires_at/.test(missing) && hasExpiry !== false) { hasExpiry = false; continue; }
+    if (/\bunit\b/.test(missing) && hasUnit !== false && unit) { hasUnit = false; continue; }
+    /* 이름을 못 읽은 경우만 예전처럼 순서대로 뺀다 */
+    if (missing && hasUnit !== false && unit) { hasUnit = false; continue; }
+    if (missing && hasExpiry !== false) { hasExpiry = false; continue; }
+    if (missing && ip && hasIp !== false) { hasIp = false; continue; }
+    if (missing && visitor && hasSeq !== false) { hasSeq = false; continue; }
     /* 표가 아직 없다 — 마이그레이션 전이다. 품절이라 거짓말하지 않고 메모리로 받는다 */
-    if (missingTable(error.code)) return fillInMemory(productNo, depth, quantity, day, unit, visitor);
+    if (missingTable(error.code)) return fillInMemory(productNo, depth, quantity, day, unit, visitor, seq);
     if (error.code !== '23505') throw new Error(`체결 저장 실패: ${error.message}`);
     /* 한 사람 한 자리에 걸린 것이면 다시 세도 소용없다 — 이미 잡고 있다.
        다시 세면 매번 새 slot을 만들어 두 번 튕기고 "물량 끝"이라 거짓말한다.
-       0019 전 DB에는 빵 단위 인덱스(fills_one_per_visitor)가, 뒤에는 옵션 단위
-       (fills_one_per_visitor_unit)가 있다 — 이름 앞부분이 같아 둘 다 여기서 잡힌다 */
-    if (/fills_one_per_visitor/.test(`${error.message} ${error.details ?? ''}`)) {
+       DB에 따라 빵 단위(fills_one_per_visitor, 0015) · 옵션 단위(…_unit, 0019) ·
+       자리 번호(fills_visitor_seq, 0020) 중 하나가 걸린다 — 어느 것이든 같은 뜻이다 */
+    if (/fills_one_per_visitor|fills_visitor_seq/.test(`${error.message} ${error.details ?? ''}`)) {
       return { filled: false, remaining: free.length - next, slot: null, stored: true, expiresAt: null, id: null, already: true };
     }
     /* 이 IP가 쓴 번호다 — 다음 번호로. 한도를 넘으면 자리가 남아도 안 준다 */

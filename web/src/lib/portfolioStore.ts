@@ -17,7 +17,8 @@ import { seoulDateString } from '@/lib/market';
  * 이미 담아둔 사람의 목록이 사라지면 안 된다. 옵션이 있는 빵의 옛 키는 포트폴리오에서
  * 옵션을 고르면 그 옵션 키로 옮긴다(moveKey).
  *
- * qty는 **살 개수가 아니라 관심도**다. 도넛 비중과 "비중 1위"에만 쓰인다.
+ * qty는 **살 개수**다(한 옵션 최대 orderbook.SEATS_PER_OPTION). 한 번에 예약하기가 이만큼 자리를
+ * 잡고(0020), 도넛 비중과 "비중 1위"도 이 개수로 센다.
  *
  * 목록 자체는 브라우저에만 남는다. 서버로 가는 것은 "누가 무엇을 담았는지"가
  * 아니라 **담겼다는 사실 한 건**뿐이다(reportWatch) — 수요 보정(+3%p)의 분모가
@@ -129,8 +130,8 @@ export function usePortfolio() {
   const raw = useSyncExternalStore(subscribe, read, readOnServer);
   const portfolio = useMemo(() => parse(raw), [raw]);
   /**
-   * 관심도를 그 값으로 맞춘다(키 하나 = 빵 하나 또는 옵션 하나). 0이면 뺀다.
-   * at은 그대로 둔다 — 관심도만 바뀔 때 표시 순서가 흔들리지 않게.
+   * 개수를 그 값으로 맞춘다(키 하나 = 빵 하나 또는 옵션 하나). 0이면 뺀다.
+   * at은 그대로 둔다 — 개수만 바뀔 때 표시 순서가 흔들리지 않게.
    */
   const setQty = (key: string, qty: number) => {
     const next = { ...portfolio };
