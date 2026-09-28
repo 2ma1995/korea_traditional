@@ -183,7 +183,8 @@
 /* 관심빵의 오늘 상태 — 줄마다 하나, 위에는 합계. 색은 할 일의 급한 정도다 */
 .pfTag { display: inline-block; font-size: 11.5px; font-weight: 700; line-height: 1.4; padding: 2px 8px;
   border-radius: var(--r-pill); border: 1px solid currentColor; color: var(--muted); word-break: keep-all; }
-.pfName .pfTag { display: inline-block; font-size: 11.5px; margin-top: 4px; color: var(--muted); }
+/* 빵 이름 아래 줄에 둔다 — 이름 버튼이 인라인이라 짧은 이름 옆에 붙어 있었다 */
+.pfName .pfTag { display: block; width: fit-content; max-width: 100%; font-size: 11.5px; margin-top: 4px; color: var(--muted); }
 .pfTag[data-tone='sale'], .pfName .pfTag[data-tone='sale'] { color: var(--down); }
 .pfTag[data-tone='end'], .pfName .pfTag[data-tone='end'],
 .pfTag[data-tone='pick'], .pfName .pfTag[data-tone='pick'] { color: var(--up); }
@@ -682,7 +683,7 @@ p.callout { cursor: default; }
 .legendPick, .pfNameBtn { font: inherit; background: none; border: 0; padding: 0; text-align: left; color: var(--ink); cursor: pointer; }
 .legendPick em, .pfNameBtn em { font-style: normal; color: #b8b5a6; }
 .legendPick:hover, .pfNameBtn:hover { color: var(--dancheong); }
-.pfNameBtn { min-width: 0; max-width: 100%; }
+.pfNameBtn { display: block; min-width: 0; max-width: 100%; }
 .pfNameBtn b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 종목 / 기간 라벨 + 버튼 줄 */
@@ -800,6 +801,7 @@ p.callout { cursor: default; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 12px; }
   .topCard { padding: 8px; }
   .watch { top: 10px; right: 10px; }
+  .offLine { top: 46px; right: 10px; }
   .topPrice strong { font-size: 18px; }
   .sort { width: 100%; }
   .sort button { flex: 1; }
@@ -850,9 +852,10 @@ p.callout { cursor: default; }
 .weekSub { font-size: 13px; font-weight: 700; color: var(--muted); margin-top: 26px; letter-spacing: -.01em; }
 
 
-/* 최소 진열을 맞추려고 라인 밖에서 채워 넣은 빵 — 왜 여기 있는지 밝힌다 */
+/* 최소 진열을 맞추려고 라인 밖에서 채워 넣은 빵 — 왜 여기 있는지 밝힌다.
+   하트 바로 밑에 둔다(하트 top 8 + 30 + 간격 6). 옆에 두면 이름이 긴 배지가 하트를 밀어낸다 */
 .offLine {
-  position: absolute; top: 10px; right: 44px; z-index: 2;
+  position: absolute; top: 44px; right: 8px; z-index: 2;
   font-size: 10px; font-weight: 700; letter-spacing: -.01em;
   color: var(--muted); background: color-mix(in srgb, var(--paper) 88%, transparent);
   border-radius: 999px; padding: 3px 8px; white-space: nowrap;
