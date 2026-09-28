@@ -105,7 +105,6 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const [selected, setSelected] = useState<number | null>(null);
   const closeSheet = useCallback(() => setSelected(null), []);
   const openFromList = (no: number) => setSelected(no);
-  const openFromPortfolio = openFromList;
   /* 빵의 특정 옵션으로 시트를 연다 — 포트폴리오·예약 목록은 옵션 줄이다 */
   const openSeat = (no: number, unit: string | null) => {
     if (unit) setUnits(prev => ({ ...prev, [no]: unit }));
@@ -342,9 +341,19 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
      soldOut에도 없어서 관심빵이 '#25'로 떨어졌다 — 담아둔 빵의 이름은 오늘
      팔든 안 팔든 알아야 한다 */
   const nameOf = (no: number) => today.all.find(p => p.productNo === no)?.name ?? `#${no}`;
-  const slices: Slice[] = breads.map(e => {
+  const unitLabel = (no: number, code: string) => today.all.find(p => p.productNo === no)?.options?.find(o => o.code === code)?.label ?? code;
+  /* 도넛은 포트폴리오 목록과 같은 단위로 — 옵션마다 한 조각, 비중은 담은 개수로 */
+  const slices: Slice[] = entries.map(e => {
     const o = offers.find(x => x.product.productNo === e.no);
-    return { no: e.no, name: nameOf(e.no), emoji: EMOJI[e.no] ?? '🍞', share: Math.round((e.qty / pfTotal) * 100), today: Boolean(o), price: o?.price };
+    const u = e.unit ? o?.units.find(x => x.code === e.unit) : undefined;
+    return {
+      key: e.key, no: e.no, unit: e.unit,
+      name: e.unit ? `${nameOf(e.no)} · ${unitLabel(e.no, e.unit)}` : nameOf(e.no),
+      emoji: EMOJI[e.no] ?? '🍞', share: Math.round((e.qty / pfTotal) * 100),
+      /* 오늘 살 수 있는 조각만 진하게 — 할인 중이고 그 옵션을 팔고 있다 */
+      today: Boolean(o) && (!e.unit || Boolean(u?.sellable)),
+      price: u?.price ?? o?.price,
+    };
   });
   const hits = breads.map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o));
   /* 차트 툴팁에 보여줄 빵들 — 내 관심빵(오늘 빵장에 있는 것, 비중 순, 최대 3).
@@ -354,7 +363,6 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const watched = byProduct(sortHoldings(portfolio)).sort((a, b) => b.qty - a.qty || b.at - a.at).map(e => offers.find(o => o.product.productNo === e.no)).filter((o): o is TodayOffer => Boolean(o)).slice(0, 3);
   const chartBreads = watched.map(o => ({ no: o.product.productNo, name: o.product.name, emoji: EMOJI[o.product.productNo] ?? '🍞', listPrice: o.product.price }));
   const tierLabel = live.tier.label;
-  const unitLabel = (no: number, code: string) => today.all.find(p => p.productNo === no)?.options?.find(o => o.code === code)?.label ?? code;
 
   /* 시트는 고른 옵션 하나를 본다 — 예약·관심 모두 그 옵션의 것이다 */
   const sheetUnit = selectedOffer ? unitOf(selectedOffer) : null;
@@ -601,7 +609,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
               canBuy={canBuy} closedNote={lockNote}
               onPick={openSeat} onMove={moveKey} bulk={bulk} onBuyAll={buyAll} />
             <button type="button" className={styles.expand} onClick={() => setPfOpen(v => !v)} aria-expanded={pfOpen} aria-controls="portfolio-details">취향 비중 {pfOpen ? '접기 ▴' : '보기 ▾'}</button>
-            {pfOpen && <div id="portfolio-details"><Donut slices={slices} onPick={openFromPortfolio} /></div>}
+            {pfOpen && <div id="portfolio-details"><Donut slices={slices} onPick={openSeat} /></div>}
             {/* 알림은 담아둔 빵이 있는 자리에서만 권한다 — 페이지 열자마자 묻는 창은
                 대부분 거절당하고, 한 번 거절하면 브라우저가 다시 묻지 않는다 */}
             <PushToggle />

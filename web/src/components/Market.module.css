@@ -434,7 +434,10 @@ p.callout { cursor: default; }
 
 /* ══ MY — 도넛 · 빈 상태 · 생성 중 · 적중 카드 ═══════════════ */
 .sub { font-size: 13px; color: var(--muted); margin: -4px 0 12px; }
-.donutWrap { display: grid; grid-template-columns: 200px 1fr; gap: 20px; align-items: center; }
+.donutWrap { position: relative; display: grid; grid-template-columns: 200px 1fr; gap: 20px; align-items: center; }
+/* 말풍선 자리. 좁은 화면에선 칸을 차지하지 않고 도넛(200px) 바로 아래에 뜬다 */
+.tipSlot { position: absolute; left: 0; top: calc(50% + 108px); width: 200px; z-index: 3; pointer-events: none; }
+.tipSlot .tip { position: static; transform: none; }
 /* z-index가 있어야 한다. 아래 .pop이 animation(transform)으로 쌓임 맥락을 만들어
    z-index:0으로 잡히는데, 도넛이 z-index:auto면 DOM 순서상 .pop이 위에 그려져
    도넛 밖으로 내려온 말풍선의 아랫부분을 덮었다 */
@@ -484,6 +487,8 @@ p.callout { cursor: default; }
   .topCard b { font-size: 12.5px; }
   .medal { font-size: 15px; top: 6px; left: 8px; }
   .donutWrap { grid-template-columns: 1fr; justify-items: center; }
+  /* 한 줄 배치에선 도넛이 맨 위라 반높이 기준이 안 맞는다 — 도넛(200px) 바로 아래 가운데 */
+  .tipSlot { top: 208px; left: 50%; transform: translateX(-50%); }
   .legend { width: 100%; }
   .building { grid-template-columns: 1fr; justify-items: center; text-align: center; }
   .hitCard dl { grid-template-columns: 1fr 1fr; }
@@ -741,6 +746,11 @@ p.callout { cursor: default; }
 .portfolioCard .emptyBox { text-align: center; }
 .portfolioCard .emptyBtns { max-width: 360px; margin-inline: auto; }
 .portfolioCard .donutWrap { max-width: 720px; margin-inline: auto; gap: 40px; }
+/* 넓은 화면 — 말풍선을 도넛 왼쪽 빈칸에 둔다. 칸을 따로 잡아 두어 넘치거나 범례를 가리지 않는다 */
+@media (min-width: 901px) {
+  .portfolioCard .donutWrap { grid-template-columns: 180px 200px 1fr; max-width: 940px; }
+  .portfolioCard .tipSlot { position: static; width: auto; justify-self: end; }
+}
 .portfolioCard .expand { margin-block: 24px; min-height: 48px; }
 .portfolioCard .pfRow { grid-template-columns: 44px minmax(0, 1fr) auto; padding-block: 16px; border-bottom: 1px solid var(--line); }
 .portfolioCard .pfCtl button { width: 44px; height: 44px; }
