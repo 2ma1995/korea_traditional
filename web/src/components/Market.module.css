@@ -801,7 +801,6 @@ p.callout { cursor: default; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 12px; }
   .topCard { padding: 8px; }
   .watch { top: 10px; right: 10px; }
-  .offLine { top: 46px; right: 10px; }
   .topPrice strong { font-size: 18px; }
   .sort { width: 100%; }
   .sort button { flex: 1; }
@@ -853,13 +852,16 @@ p.callout { cursor: default; }
 
 
 /* 최소 진열을 맞추려고 라인 밖에서 채워 넣은 빵 — 왜 여기 있는지 밝힌다.
-   하트 바로 밑에 둔다(하트 top 8 + 30 + 간격 6). 옆에 두면 이름이 긴 배지가 하트를 밀어낸다 */
+   하트 바로 밑에 둔다. 하트는 위의 카드 규칙에서 44px · top 16 · right 16이다(모바일 top·right 10) —
+   그 값이 바뀌면 여기도 같이 바꾼다: top = 하트 top + 44 + 간격 6 */
 .offLine {
-  position: absolute; top: 44px; right: 8px; z-index: 2;
+  position: absolute; top: 66px; right: 16px; z-index: 2;
   font-size: 10px; font-weight: 700; letter-spacing: -.01em;
   color: var(--muted); background: color-mix(in srgb, var(--paper) 88%, transparent);
   border-radius: 999px; padding: 3px 8px; white-space: nowrap;
 }
+/* 이 규칙보다 앞에 있는 모바일 블록에 두면 위의 기본값에 덮인다 — 여기 둔다 */
+@media (max-width: 600px) { .offLine { top: 60px; right: 10px; } }
 
 
 /* ── 오늘의 결론 ─────────────────────────────────────────
