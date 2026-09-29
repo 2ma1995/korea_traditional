@@ -26,12 +26,12 @@
      역할이 색을 정한다 — 도장색은 브랜드·CTA에만, 상승/하락은 금융 의미가 있는
      데이터에만 쓴다. 한 화면에서 강한 강조색이 둘 이상 주도하면 안 된다.
 
-     2026-09-29 주색을 막지 브랜드색으로 바꿨다 — 막지몰 스킨의 --main-color #4286C7.
-     초록 계열은 휘도를 그대로 두고 색상만 남색·파랑으로 돌려서 대비가 바뀌지 않았다.
-       --brand     #4286C7  막지몰과 같은 값. 글자가 올라가지 않는 곳(막대·점·도넛)에만
-       --dancheong #2E6AA6  같은 색상의 한 톤 진한 값. 버튼·탭·강조 글자 — 흰 글자 5.45:1.
-                            #4286C7 위 흰 글자는 3.71:1이라 AA(4.5:1)에 못 미친다
-       --night     #1A3350  히어로·푸터 같은 어두운 판. 먹초록과 휘도가 거의 같다(미색 글자 11.2:1)
+     2026-09-29 주색을 막지 브랜드색 #5384C0으로 바꿨다(기업 확인값).
+     초록 계열은 휘도를 그대로 두고 색상만 파랑·남색으로 돌려서 대비가 바뀌지 않았다.
+       --brand = --dancheong  #5384C0  버튼·탭·강조·막대·도넛 — 브랜드색 그대로.
+                              ⚠️ 흰 글자 3.87:1 · 크림 바탕 위 파란 글자 3.43:1 — AA(4.5:1) 미달.
+                              굵은 큰 글자(3:1)만 통과한다. 브랜드색을 그대로 쓰라는 결정이다
+       --night     #1B314B  히어로·푸터·배당 배너. 브랜드색과 같은 색상·채도를 어둡게(미색 글자 11.7:1)
 
      대비 실측(배경 #F5F1E7 기준) — 지시서가 요구한 WCAG AA:
        먹색 11.94:1 · 주색 4.99:1 · 도장색 5.47:1 · 상승 5.49:1 · 하락 6.57:1  전부 통과
@@ -44,9 +44,9 @@
   --background: #F5F1E7;
   --foreground: #23303C;
   --ink: #23303C;
-  --night: #1A3350;
-  --brand: #4286C7;
-  --dancheong: #2E6AA6;
+  --night: #1B314B;
+  --brand: #5384C0;
+  --dancheong: #5384C0;
   --hong: #A44232;
   --ssuk: #707D89;
   --paper: #FFFCF4;
@@ -133,7 +133,7 @@ em { color: var(--hong); font-style: normal; }
 .button span { font-size: 20px; line-height: 1; }
 .button:hover { transform: translateY(-2px); }
 .button-primary { background: var(--dancheong); color: #fffdf4; }
-.button-primary:hover { background: #255a8e; }
+.button-primary:hover { background: #4672a8; }
 .button-outline { border-color: var(--dancheong); }
 .button-outline:hover { background: #e7ebf0; }
 .text-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 28px; font-size: 12px; padding-block: 12px; border-bottom: 1px solid var(--ink); }
