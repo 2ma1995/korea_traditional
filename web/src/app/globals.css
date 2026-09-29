@@ -481,7 +481,6 @@ summary::-webkit-details-marker { display: none; }
   .site-footer { padding: 32px 20px; }
   .footer-top { flex-wrap: wrap; gap: 20px; }
   .footer-bottom { align-items: start; font-size: 12px; }
-  .footer-bottom span:last-child { display: none; }
   .inner-page { padding-top: 36px; padding-bottom: 44px; }
   .page-heading { gap: 16px; padding-bottom: 32px; flex-wrap: wrap; }
   .page-heading h1 { font-size: 36px; margin-top: 12px; }

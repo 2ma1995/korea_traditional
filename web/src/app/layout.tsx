@@ -41,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         <footer className="site-footer">
           <div className="footer-top"><Link href="/" className="wordmark">막지<small>MAKJI</small></Link><a href={SHOP_BASE} target="_blank" rel="noopener noreferrer">막지 공식몰 ↗</a></div>
-          <div className="footer-bottom"><span>© {new Date().getFullYear()} MAKJI. All rights reserved.</span><span>한국의 계절을 한 입에 담다.</span></div>
+          <div className="footer-bottom"><span>© {new Date().getFullYear()} MAKJI. All rights reserved.</span></div>
         </footer>
       </body>
     </html>
