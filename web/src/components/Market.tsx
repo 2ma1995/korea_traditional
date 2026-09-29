@@ -5,7 +5,7 @@ import Donut, { type Slice } from '@/components/Donut';
 import Flip from '@/components/Flip';
 import InfoTab from '@/components/InfoTab';
 import IpoTab, { type IpoView } from '@/components/IpoTab';
-import KospiLive, { DRAW_MS, type Phase } from '@/components/KospiLive';
+import KospiLive, { DRAW_MS, kstDay, type Phase } from '@/components/KospiLive';
 import type { KospiView } from '@/components/KospiQuote';
 import OfferSheet, { type Bid } from '@/components/OfferSheet';
 import Portfolio from '@/components/Portfolio';
@@ -554,7 +554,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       <div className={styles.nextMarket}>
         <span className={styles.closedPill}>NEXT MARKET</span>
         <b>{closed?.nextOpen ?? '다음 거래일'} · 09:00 코스피 LIVE · {OPEN_AT} 빵장 개장</b>
-        <small>아래에서 관심빵을 담아두면 {OPEN_AT}에 할인 소식을 알려드려요.</small>
+        {/* 주식 카드를 숨겨도 앵커는 남긴다 — 휴장일 기준은 직전 거래일 종가다 */}
+        <small>{closed?.at ? kstDay(closed.at) : '직전 거래일'} 종가 KOSPI {k.value.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {k.changePct >= 0 ? '▲' : '▼'}{Math.abs(k.changePct).toFixed(2)}% · 아래에서 관심빵을 담아두면 {OPEN_AT}에 할인 소식을 알려드려요.</small>
       </div>
     </section>
   ) : null;
@@ -574,7 +575,9 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       {/* ══ 휴장일 — 가격 대신 이번 주 결산. 주말엔 배당이 주인공이라 히어로보다 먼저 ══ */}
       {holidaySection}
       {/* ══ MARKET ══ */}
-      <KospiLive k={k} mood={mood} rate={rate} phase={phase} closed={closed} openAt={openAt} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} base={live.base} bonus={live.bonus} />
+      {/* 휴장일엔 주식 카드를 숨긴다 — 움직이지 않는 차트가 배당 결산과 빵 목록 사이를 막는다.
+          직전 종가·다음 장은 위 결산의 NEXT MARKET이 말한다 */}
+      {!holiday && <KospiLive k={k} mood={mood} rate={rate} phase={phase} closed={closed} openAt={openAt} tiers={tiers} breads={chartBreads} noWatch={watched.length === 0} tierLabel={tierLabel} base={live.base} bonus={live.bonus} />}
 
       {/* ══ 오늘의 결론 — 들어온 사람이 가장 먼저 알아야 할 한 줄.
              근거(구간·하락장 보정)는 위 히어로의 '할인 기준 보기'에 접어 두고,

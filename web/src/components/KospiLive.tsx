@@ -45,7 +45,7 @@ interface Props {
 export const DRAW_MS = 1600;
 const fmt = (n: number) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /** 시세가 찍힌 KST 날짜 — "9/23(수)". timeZone을 박아 서버·브라우저가 같은 글자를 낸다 */
-const kstDay = (ms: number) => {
+export const kstDay = (ms: number) => {
   const parts = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', weekday: 'short' }).formatToParts(new Date(ms));
   const get = (type: string) => parts.find(part => part.type === type)?.value ?? '';
   return `${get('month')}/${get('day')}(${get('weekday')})`;
