@@ -127,6 +127,8 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
     </span>
   );
   const pct = Math.round(discount * 100);
+  /* 15:30 전이고 아직 예약 전이면 정가가 지금 가격이다(estimate). 예약한 뒤엔 예약한 폭을 보여준다 */
+  const preList = estimate && !booked && offer.saved > 0;
   const up = changePct >= 0;
 
   useEffect(() => {
@@ -162,13 +164,25 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
           <div>
             {offer.badges.length > 0 && <p className={styles.sheetBadges}>{offer.badges.join(' · ')}</p>}
             <h3>{offer.product.name}</h3>
-            <p className={styles.sheetPrice}>
-              <strong>{won(payPrice)}원</strong>
-              {payPrice < payList && <><del>{won(payList)}원</del><span>−{won(payList - payPrice)}원 ({pct}%)</span></>}
-            </p>
-            {estimate && <p className={styles.estimate}>지금 기준 예상 · 15:30 종가로 확정</p>}
+            {/* 15:30 전엔 자사몰이 아직 정가다 — 지금 내는 값(정가)을 크게 */}
+            {preList ? (
+              <p className={styles.sheetPrice}><strong>{won(payList)}원</strong><small>지금은 정가</small></p>
+            ) : (
+              <p className={styles.sheetPrice}>
+                <strong>{won(payPrice)}원</strong>
+                {payPrice < payList && <><del>{won(payList)}원</del><span>−{won(payList - payPrice)}원 ({pct}%)</span></>}
+              </p>
+            )}
           </div>
         </div>
+
+        {preList && (
+          <div className={styles.preClose} role="note">
+            <b>오늘 15:30부터 할인가로 살 수 있어요</b>
+            <span>15:30 코스피 마감과 함께 할인이 확정되고, 그때 자사몰 가격이 할인가로 바뀝니다. 지금 자사몰에서 사면 정가예요.</span>
+            {pct > 0 && <strong>지금 기준 예상 {won(payPrice)}원 · −{won(payList - payPrice)}원 ({pct}%)</strong>}
+          </div>
+        )}
 
         <dl className={styles.why}>
           <dt>왜 이 가격이에요?</dt>
@@ -177,7 +191,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
             <i>→</i>
             <span data-side={mood.side}>{mood.title}</span>
             <i>→</i>
-            <span>{pct > 0 ? `이 빵 ${pct}% 할인` : '오늘은 정가 판매'}</span>
+            <span>{pct > 0 ? (preList ? `15:30 예상 ${pct}% 할인` : `이 빵 ${pct}% 할인`) : '오늘은 정가 판매'}</span>
           </dd>
         </dl>
 
@@ -210,7 +224,9 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
                   {bookedUnits.includes(u.code) && <small className={styles.unitMark}> · 예약함</small>}
                 </span>
                 <span className={styles.unitPrice}>
-                  {u.sellable ? <><b>{won(u.price)}원</b>{u.listPrice > u.price && <del>{won(u.listPrice)}원</del>}</> : '품절'}
+                  {!u.sellable ? '품절' : preList
+                    ? <><b>{won(u.listPrice)}원</b>{u.listPrice > u.price && <small>15:30 예상 {won(u.price)}원</small>}</>
+                    : <><b>{won(u.price)}원</b>{u.listPrice > u.price && <del>{won(u.listPrice)}원</del>}</>}
                 </span>
               </label>
             ))}
@@ -294,6 +310,7 @@ export default function OfferSheet({ offer, mood, changePct, rate, estimate, rem
           ) : <button type="button" className={styles.primary}
             disabled={!canBuy || stockLeft <= 0 || (picked !== null && !picked.sellable) || bid?.status === 'busy'} onClick={onBuy}>
             {bid?.status === 'busy' ? '예약 중…' : !canBuy ? lockNote : stockLeft <= 0 ? '오늘 물량 끝'
+              : preList ? `${wantCount > 1 ? `${wantCount}개 ` : ''}예약하기 · 15:30부터 할인가`
               : wantCount > 1 ? `${wantCount}개 · ${won(payPrice * wantCount)}원에 예약하기` : `${won(payPrice)}원에 예약하기`}
           </button>}
         </div>

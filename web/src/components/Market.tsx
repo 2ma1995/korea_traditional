@@ -130,6 +130,9 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   const phase: Phase = liveOn ? 'live' : today.hours.open ? 'open' : today.hours.reason === 'before' ? 'locked' : 'closed';
   /* 시세를 못 받은 날(샘플 값)엔 예약을 받지 않는다 — 서버(api/fill)도 같은 이유로 거절한다 */
   const canBuy = today.hours.open && today.kospiLive && (phase !== 'live' || test);
+  /* 15:30 전 — 자사몰 판매가는 15:30 크론이 내린다. 그 전엔 정가가 실제로 내는 값이라
+     정가를 크게, 할인가는 '15:30 예상'으로 작게 보여준다. 크게 보여주면 자사몰에 가서 헷갈린다 */
+  const preClose = today.hours.reason !== 'holiday' && (phase === 'live' || phase === 'locked');
   const lockNote = today.hours.open && !today.kospiLive ? '코스피 시세 확인 중 · 잠시 뒤 새로고침' : today.hours.reason === 'holiday' ? '다음 거래일에 열려요' : phase === 'live' ? `${OPEN_AT} 확정과 함께 열려요` : phase === 'locked' ? `🔒 ${OPEN_AT} 공개` : phase === 'closed' ? `다음 거래일 ${OPEN_AT}에 열려요` : '휴장';
   const openAt = OPEN_AT;
   /* 휴장일 — 주말·공휴일이다. 가격이 움직이지 않으니 화면이 할 말이 달라진다 */
@@ -624,7 +627,12 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
                   <span className={styles.topPhoto}><ProductPhoto productNo={no} name={o.product.name} /></span>
                   <b>{o.product.name}</b>
                   <span className={styles.topPrice}>
-                    {o.saved > 0 && !holiday ? (
+                    {o.saved > 0 && !holiday && preClose ? (
+                      <>
+                        <strong>{won(o.product.price)}원</strong>
+                        <em>15:30 예상 {won(o.price)}원 (−{Math.round((o.saved / o.product.price) * 100)}%)</em>
+                      </>
+                    ) : o.saved > 0 && !holiday ? (
                       <>
                         <strong><RollingPrice from={o.product.price} to={o.price} delay={base + (1 + step) * 90 + 500} />원</strong>
                         <del>{won(o.product.price)}원</del>
@@ -643,7 +651,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
                       {o.saved > 0 ? (
                         <>
                           <span className={styles.topMeter} aria-hidden="true"><i style={{ width: `${Math.round((remaining / o.allotment) * 100)}%` }} data-low={remaining <= o.allotment * 0.2} /></span>
-                          <small>{remaining > 0 ? `남음 ${remaining} / ${o.allotment}` : '오늘 물량 끝'}{phase === 'live' ? ' · 지금 기준 예상' : ''}</small>
+                          <small>{remaining > 0 ? `남음 ${remaining} / ${o.allotment}` : '오늘 물량 끝'}</small>
                         </>
                       ) : (
                         <small>{o.product.inStock ? '오늘은 정가로 판매해요' : '지금은 품절이에요'}</small>
@@ -750,7 +758,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       )}
 
       {selectedOffer && (
-        <OfferSheet key={selectedOffer.product.productNo} offer={selectedOffer} mood={mood} changePct={k.changePct} rate={selectedOffer.saved > 0 && !holiday ? withSkuBonus(rate, selectedOffer.demandBonus, selectedOffer.inventoryBonus) : 0} estimate={phase === 'live'}
+        <OfferSheet key={selectedOffer.product.productNo} offer={selectedOffer} mood={mood} changePct={k.changePct} rate={selectedOffer.saved > 0 && !holiday ? withSkuBonus(rate, selectedOffer.demandBonus, selectedOffer.inventoryBonus) : 0} estimate={preClose}
           remaining={unitLeft(selectedOffer, sheetUnit)} bid={bids[sheetSeat]} watching={portfolio[sheetSeat]?.qty ?? 0}
           watchedUnits={selectedOffer.units.filter(u => portfolio[keyOf(selectedOffer.product.productNo, u.code)]).map(u => u.code)}
           bookedUnits={selectedOffer.units.filter(u => bids[keyOf(selectedOffer.product.productNo, u.code)]?.status === 'filled').map(u => u.code)}

@@ -417,7 +417,13 @@ p.callout { cursor: default; }
 .topPrice { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .topPrice strong { color: var(--ink); font-size: 14px; font-weight: 700; margin-left: 4px; }
 .topCard small { font-size: 12px; color: var(--muted); }
-.estimate { font-size: 12px; color: var(--muted); margin-top: 8px; }
+/* 15:30 전 안내 — 가격 바로 아래 크게. 자사몰이 아직 정가라는 걸 여기서 먼저 말한다 */
+.sheetPrice small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.preClose { display: grid; gap: 6px; margin-top: 16px; padding: 14px 16px; border-radius: var(--r-card); background: var(--soft); border: 1px solid color-mix(in srgb, var(--brand) 35%, transparent); }
+.preClose b { font-size: 16px; font-weight: 800; color: var(--brand); }
+.preClose span { font-size: 13px; line-height: 1.7; color: var(--ink); word-break: keep-all; }
+.preClose strong { font-size: 14px; font-weight: 700; color: var(--mood); font-variant-numeric: tabular-nums; }
+.unitPrice small { font-size: 12px; font-weight: 600; color: var(--mood); }
 
 /* ══ MY — 도넛 · 빈 상태 · 생성 중 · 적중 카드 ═══════════════ */
 .sub { font-size: 13px; color: var(--muted); margin: -4px 0 12px; }
