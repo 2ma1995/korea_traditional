@@ -26,13 +26,24 @@ assert.equal(visitDaysNeeded('2026-09-21', '2026-09-26'), 2, '추석 주(거래�
 assert.equal(visitDaysNeeded('2026-10-05', '2026-10-10'), 2, '10/5 주(거래일 3일) → 2일');
 console.log('✅ 휴장 주 출석 기준');
 
-/* 배당금 쿠폰 마감 — 다음 거래일 15:30 직전, 달을 넘지 않게 */
+/* 배당금 쿠폰 마감 — 휴장이 끝나는 순간(다음 거래일 00:00), 달을 넘지 않게 */
 import { redeemWindowEnd } from '../src/lib/payout';
 const end = (iso: string) => new Date(redeemWindowEnd(new Date(iso))).toISOString();
-assert.equal(end('2026-09-24T12:00:00+09:00'), new Date('2026-09-28T15:00:00+09:00').toISOString(), '추석(목) → 9/28(월) 15:00');
-assert.equal(end('2026-09-26T12:00:00+09:00'), new Date('2026-09-28T15:00:00+09:00').toISOString(), '토요일 → 월요일 15:00');
+assert.equal(end('2026-09-24T12:00:00+09:00'), new Date('2026-09-28T00:00:00+09:00').toISOString(), '추석(목) → 9/28(월) 00:00');
+assert.equal(end('2026-09-26T12:00:00+09:00'), new Date('2026-09-28T00:00:00+09:00').toISOString(), '토요일 → 월요일 00:00');
 assert.equal(end('2026-10-31T12:00:00+09:00'), new Date('2026-10-31T23:00:00+09:00').toISOString(), '10/31(토) → 달 말에서 끊는다');
 console.log('✅ 배당금 쿠폰 마감');
+
+/* 쿠폰 조건 — 100P 단위, 1만 원 이상, 결제액의 15%까지(최소 주문 = max(1만, 금액 ÷ 15%)) */
+import { couponTerms } from '../src/lib/payout';
+assert.deepEqual(couponTerms(800), { amount: 800, minPrice: 10_000 }, '800P → 1만 원부터');
+assert.deepEqual(couponTerms(1_950), { amount: 1_900, minPrice: 12_670 }, '끝전 50P는 남기고, 15%를 지키려고 최소 주문이 오른다');
+assert.deepEqual(couponTerms(99), { amount: 0, minPrice: 10_000 }, '100P 미만은 쿠폰을 만들지 않는다');
+for (const balance of [100, 300, 1_500, 1_600, 4_000]) {
+  const { amount, minPrice } = couponTerms(balance);
+  assert.ok(amount / minPrice <= 0.15 + 1e-9, `${balance}P — 최소 주문에서도 15%를 넘지 않는다`);
+}
+console.log('✅ 배당금 쿠폰 조건');
 
 import { kstDateTime } from '../src/lib/payout';
 assert.equal(kstDateTime(new Date('2026-09-23T08:47:12.345Z')), '2026-09-23T17:00:00+09:00', '카페24는 정각만 받는다');

@@ -457,7 +457,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
               <small>이번 주 배당</small>
               <strong>{score.amount > 0 ? `+${won(score.amount)}P` : '0P'}</strong>
               <em>{score.amount > 0
-                ? (paid ? `${wallet?.mode === 'mileage' ? '자사몰 적립금' : '배당금 통장'}에 들어왔어요` : '토요일 결산 뒤 들어와요')
+                ? (paid ? `${wallet?.mode === 'mileage' ? '자사몰 적립금' : '배당금 통장'}에 들어왔어요` : '토요일 0시에 자동으로 들어와요')
                 : '활동 하나만 채워도 다음 주 배당이 생겨요'}</em>
             </div>
           )}
@@ -465,8 +465,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
             <ul className={styles.ruleChips} aria-label="배당금 사용 조건">
               <li><b>휴장일 쿠폰</b><small>주말·공휴일 00:05 자동</small></li>
               <li><b>최대 15%</b><small>결제금액 기준</small></li>
-              <li><b>잔액 전액 1장</b><small>최소 주문 = 금액 ÷ 15%</small></li>
-              <li><b>다음 장 15:00까지</b><small>안 쓰면 잔액으로</small></li>
+              <li><b>1만 원 이상 주문</b><small>100P 단위로 사용</small></li>
+              <li><b>주말·공휴일에만</b><small>안 쓰면 잔액으로</small></li>
             </ul>
           ) : wallet?.mode === 'mileage' ? (
             <p className={styles.fine}>배당금은 자사몰 적립금으로 들어가요. 사용 조건은 자사몰 적립금 정책을 따라요.</p>
@@ -540,15 +540,15 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         </details>
         <details>
           <summary>배당금은 언제 쓸 수 있나요?</summary>
-          <p>토요일에 이번 주 배당을 결산해 배당금 통장에 넣고, 휴장일(주말·공휴일) 00:05에 잔액만큼 할인 쿠폰이 자사몰 쿠폰함에 들어가요. 다음 거래일 15:00까지 쓸 수 있고, 안 쓰면 잔액으로 돌아와 다음 휴장일에 다시 들어가요. 그 달 안에 쓰지 않은 배당금은 월말에 소멸돼요. 처음 한 번 자사몰 아이디를 연결해야 받을 수 있어요.</p>
+          <p>토요일 0시에 이번 주 배당이 자동으로 결산돼 배당금 통장에 들어가고, 휴장일(주말·공휴일) 00:05에 잔액이 100P 단위 할인 쿠폰으로 자사몰 쿠폰함에 들어가요. 쿠폰은 그 휴장일에만 쓸 수 있고, 안 쓰면 잔액으로 돌아와 다음 휴장일에 다시 들어가요. 그 달 안에 쓰지 않은 배당금은 월말에 소멸돼요. 처음 한 번 자사몰 아이디를 연결해야 받을 수 있어요.</p>
         </details>
         <details>
           <summary>한 번에 얼마나 쓸 수 있나요?</summary>
-          <p>쿠폰 한 장에 잔액 전액이 들어가고, 결제금액의 15%까지 할인돼요. 그래서 쿠폰 금액의 약 6.7배 이상 주문해야 쓸 수 있어요 — 800P면 5,340원, 1,900P면 12,670원부터예요.</p>
+          <p>1만 원 이상 주문에서 결제금액의 15%까지, 100P 단위로 할인돼요. 쿠폰이 1,500P를 넘으면 15%를 지키려고 최소 주문도 올라가요 — 1,900P면 12,670원부터예요.</p>
         </details>
         <details>
           <summary>평일 할인과 같이 쓸 수 있나요?</summary>
-          <p>쓰는 시간이 달라 겹치지 않아요. 배당금 쿠폰은 휴장일부터 다음 거래일 15:00까지, 빵장 할인은 거래일 {OPEN_AT}부터 자정까지예요.</p>
+          <p>쓰는 날이 달라 겹치지 않아요. 배당금 쿠폰은 주말·공휴일에만, 빵장 할인은 거래일 {OPEN_AT}부터 자정까지예요.</p>
         </details>
       </div>
 

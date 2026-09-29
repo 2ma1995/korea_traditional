@@ -13,7 +13,7 @@ import styles from './Tabs.module.css';
  */
 
 const won = (n: number) => n.toLocaleString('ko-KR');
-const until = (iso: string) => new Date(iso).toLocaleString('ko-KR', {
+const until = (iso: string) => new Date(new Date(iso).getTime() - 60_000).toLocaleString('ko-KR', {
   timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
 });
 

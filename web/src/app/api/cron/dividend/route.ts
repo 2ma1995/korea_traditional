@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { denyCron } from '@/lib/cronAuth';
-import { syncCoupons } from '@/lib/payout';
+import { seoulDateString } from '@/lib/market';
+import { runPayout, syncCoupons } from '@/lib/payout';
 
 /**
  * 매일 00:05 KST — 배당금 쿠폰을 맞춘다(lib/payout.syncCoupons).
@@ -17,6 +18,14 @@ export const maxDuration = 60;
 export async function GET(request: Request) {
   const denied = denyCron(request);
   if (denied) return denied;
-  const report = await syncCoupons();
-  return NextResponse.json({ ok: true as const, ...report }, { headers: { 'Cache-Control': 'no-store' } });
+  const now = new Date();
+  /* 토요일 00:05 — 이번 주(월~금) 배당을 자동으로 결산한다. 쿠폰은 바로 아래 syncCoupons가 만든다 */
+  const saturday = new Date(`${seoulDateString(now)}T00:00:00Z`).getUTCDay() === 6;
+  const payout = saturday ? await runPayout(now, false) : null;
+  const report = await syncCoupons(now);
+  return NextResponse.json({
+    ok: true as const,
+    ...(payout ? { payout: { from: payout.from, to: payout.to, paid: payout.lines.filter(line => line.status === 'paid').length, total: payout.total, refused: payout.refused ?? null } } : {}),
+    ...report,
+  }, { headers: { 'Cache-Control': 'no-store' } });
 }

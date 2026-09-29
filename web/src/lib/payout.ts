@@ -1,5 +1,5 @@
 import { couponUsedBy, createAmountCoupon, deleteCoupon, givePoints, issueCouponTo, memberExists, payoutMode, recaptureCoupon } from '@/lib/cafe24';
-import { loadDividendPolicy, MAX_DIVIDEND_RATE } from '@/lib/appSettings';
+import { DIVIDEND_UNIT, loadDividendPolicy, MAX_DIVIDEND_RATE, MIN_DIVIDEND_ORDER } from '@/lib/appSettings';
 import { limiter } from '@/lib/attempts';
 import { seoulDateString } from '@/lib/market';
 import { KRX_HOLIDAYS, marketHours } from '@/lib/orderbook';
@@ -132,7 +132,13 @@ export async function previewPayout(at: Date = new Date()): Promise<PayoutPrevie
   return { from, to, lines, total: lines.reduce((sum, line) => sum + line.amount, 0), budget: policy.budget, done };
 }
 
-export async function runPayout(at: Date = new Date()): Promise<PayoutPreview & { refused?: string }> {
+/**
+ * 지급. 토요일 00:05 크론이 자동으로 한 번 돌고(api/cron/dividend), 관리자 버튼은 확인·재실행용이다.
+ * 한 아이디 한 주 한 번이라 두 번 돌아도 두 번 나가지 않는다.
+ * issueNow — 휴장일이면 지급하자마자 쿠폰을 합쳐 준다. 크론은 false로 부르고, 바로 뒤의
+ * syncCoupons(시간 예산이 있다)가 쿠폰을 만든다 — 사람이 많아도 60초 안에 끊기지 않게
+ */
+export async function runPayout(at: Date = new Date(), issueNow = true): Promise<PayoutPreview & { refused?: string }> {
   const preview = await previewPayout(at);
   const mode = payoutMode();
   if (!mode) return { ...preview, refused: '배당 지급이 꺼져 있습니다(DIVIDEND_PAYOUT=wallet 또는 mileage + 재인증).' };
@@ -164,7 +170,7 @@ export async function runPayout(at: Date = new Date()): Promise<PayoutPreview & 
     if (mode === 'wallet') {
       results.push({ ...line, status: 'paid' });
       /* 휴장일에 쌓였으면 크론을 기다리지 않고 쿠폰을 합쳐 다시 준다 */
-      if (inHoliday(new Date())) await refreshMember(line.member).catch(() => undefined);
+      if (issueNow && inHoliday(new Date())) await refreshMember(line.member).catch(() => undefined);
       continue;
     }
 
@@ -214,15 +220,15 @@ export async function walletBalance(member: string | null, at: Date = new Date()
 }
 
 /**
- * 쿠폰을 쓸 수 있는 마지막 시각 — 다음 거래일 15:00(장 시작 15:30 전 정각), 이번 달 말 23:00을 넘지 않게.
- * 배당은 휴장일에 정가로 살 때 쓰는 것이라, 평일 할인과 겹치지 않게 다음 장이 열리기 전에 닫는다.
+ * 쿠폰을 쓸 수 있는 마지막 시각 — 휴장이 끝나는 순간(다음 거래일 00:00), 이번 달 말 23:00을 넘지 않게.
+ * 배당은 주말·공휴일에만 쓴다(발표 10p). 다음 거래일 00:05 크론이 안 쓴 쿠폰을 바로 거둔다.
  */
 export function redeemWindowEnd(at: Date): string {
   const today = seoulDateString(at);
   const next = new Date(`${today}T00:00:00Z`);
   do next.setUTCDate(next.getUTCDate() + 1);
   while ([0, 6].includes(next.getUTCDay()) || KRX_HOLIDAYS.has(next.toISOString().slice(0, 10)));
-  const opens = `${next.toISOString().slice(0, 10)}T15:00:00+09:00`;
+  const opens = `${next.toISOString().slice(0, 10)}T00:00:00+09:00`;
   const [y, m] = today.split('-').map(Number);
   const lastDay = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
   const monthEnd = `${lastDay}T23:00:00+09:00`;
@@ -268,22 +274,27 @@ async function settleOut(member: string, at: Date, force: boolean): Promise<void
 }
 
 /**
- * 잔액 전부를 정액 할인 쿠폰 한 장으로 만들어 그 회원 쿠폰함에 넣는다.
+ * 잔액을 100P 단위로 내려 정액 할인 쿠폰 한 장으로 만들어 그 회원 쿠폰함에 넣는다(끝전은 통장에 남는다).
  *
- * 한 번 결제에 쓸 수 있는 배당은 결제액의 MAX_DIVIDEND_RATE까지다. 쿠폰의 최소 주문금액을
- * 금액 ÷ 비율로 걸어 카페24가 막게 한다(1,500원 쿠폰이면 10,000원 이상 주문).
+ * 쓰는 조건(발표 10p·14p) — 1만 원 이상 주문, 결제액의 MAX_DIVIDEND_RATE(15%)까지.
+ * 최소 주문금액을 max(1만 원, 금액 ÷ 15%)로 걸어 카페24가 막게 한다
+ * (800P면 1만 원, 1,900P면 12,670원 이상 주문).
  */
+export function couponTerms(balance: number): { amount: number; minPrice: number } {
+  const amount = Math.floor(balance / DIVIDEND_UNIT) * DIVIDEND_UNIT;
+  return { amount, minPrice: Math.max(MIN_DIVIDEND_ORDER, Math.ceil(amount / MAX_DIVIDEND_RATE / 10) * 10) };
+}
+
 async function issueBalance(member: string, at: Date): Promise<{ amount: number; minPrice: number; until: string } | { error: string; status: number }> {
   const db = supabase();
   if (!db) return { error: '저장소가 없어 쓸 수 없습니다.', status: 503 };
-  const amount = await walletBalance(member, at);
+  const { amount, minPrice } = couponTerms(await walletBalance(member, at));
   if (amount <= 0) return { error: '쓸 수 있는 배당금이 없어요.', status: 409 };
 
   /* 먼저 적는다 — 동시에 두 번 불려도 pending은 한 줄만 들어간다(0018 부분 unique) */
   const { data: row, error } = await db.from('dividend_redemptions').insert({ member, amount, status: 'pending' }).select('id').single();
   if (error) return { error: error.code === '23505' ? '쿠폰을 만드는 중이에요. 잠시 뒤 쿠폰함을 확인해 주세요.' : `기록 실패: ${error.message}`, status: 409 };
 
-  const minPrice = Math.ceil(amount / MAX_DIVIDEND_RATE / 10) * 10;
   const until = redeemWindowEnd(at);
   let couponNo: string | null = null;
   try {
@@ -314,7 +325,7 @@ const inHoliday = (at: Date) => ['holiday', 'test'].includes(marketHours(at).rea
 export async function refreshMember(member: string, at: Date = new Date()) {
   if (payoutMode() !== 'wallet') return null;
   if (!inHoliday(at)) { await settleOut(member, at, false); return null; }
-  if ((await walletBalance(member, at)) <= 0) return null;
+  if ((await walletBalance(member, at)) < DIVIDEND_UNIT) return null;
   await settleOut(member, at, true);
   return issueBalance(member, at);
 }
@@ -350,7 +361,7 @@ export async function syncCoupons(at: Date = new Date()) {
 
   const holiday = inHoliday(at);
   const todo = holiday
-    ? [...balance].filter(([, left]) => left > 0).map(([member]) => member)
+    ? [...balance].filter(([, left]) => left >= DIVIDEND_UNIT).map(([member]) => member)
     : [...new Set(((out ?? []) as { member: string; created_at: string }[])
         .filter(row => new Date(redeemWindowEnd(new Date(row.created_at))) <= at)
         .map(row => row.member))];

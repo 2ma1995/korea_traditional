@@ -95,6 +95,10 @@ export const saveIpoEnabled = (on: boolean) => saveSetting(IPO_KEY, on);
 
 /** 결제금액 대비 배당 사용 상한 — 코드 고정. 관리자가 뚫지 못한다 */
 export const MAX_DIVIDEND_RATE = 0.15;
+/** 배당금 쿠폰의 최소 주문금액. 금액 ÷ 15%가 더 크면(1,500P 초과) 그쪽이 최소다 — 15% 상한이 먼저다 */
+export const MIN_DIVIDEND_ORDER = 10_000;
+/** 배당금은 100P 단위로 쓴다. 끝전은 통장에 남는다 */
+export const DIVIDEND_UNIT = 100;
 
 /**
  * 오늘 풀 물량의 상한 — 관리자가 **빵마다, 필요하면 옵션마다** 정한다.
