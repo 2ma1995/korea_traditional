@@ -1,7 +1,8 @@
 import { loadDividendPolicy } from '@/lib/appSettings';
+import { ordersOf } from '@/lib/cafe24';
 import { boughtInWindow } from '@/lib/fills';
 import { seoulDateString } from '@/lib/market';
-import { KRX_HOLIDAYS } from '@/lib/orderbook';
+import { KRX_HOLIDAYS, OPEN_HOUR, OPEN_MINUTE } from '@/lib/orderbook';
 import { countVisits } from '@/lib/visits';
 import { watchedInWindow } from '@/lib/watches';
 
@@ -91,7 +92,41 @@ export function weekWindow(at: Date): { from: string; to: string } {
  *
  * 표식이 없으면(처음 온 사람) 0점이다 — 없는 활동을 만들어내지 않는다.
  */
-export async function weeklyScoreFor(visitor: string | null, at: Date = new Date()): Promise<WeeklyScore> {
+/** 빵장 시간(거래일 15:30~24:00 KST)에 넣은 주문인가 — 그 시간의 자사몰 가격이 빵장 할인가다 */
+export function inBreadMarket(orderDate: string): boolean {
+  const kst = new Date(new Date(orderDate).getTime() + 9 * 3600 * 1000);
+  const day = kst.toISOString().slice(0, 10), weekday = kst.getUTCDay();
+  const minutes = kst.getUTCHours() * 60 + kst.getUTCMinutes();
+  return weekday !== 0 && weekday !== 6 && !KRX_HOLIDAYS.has(day) && minutes >= OPEN_HOUR * 60 + OPEN_MINUTE;
+}
+
+/* 같은 주를 여러 번 묻지 않게 — 주말 화면을 열 때마다 카페24를 부르면 호출 한도가 금방 찬다 */
+const orderCache = new Map<string, { at: number; bought: boolean }>();
+const ORDER_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * 연결한 자사몰 아이디로 이번 주 빵장 시간에 주문했는가(취소 제외).
+ * 결제는 자사몰이 하므로 예약만으로는 산 걸 모른다 — 예약은 기한이 지나면 반납돼 점수가 사라졌다.
+ * 조회가 실패하면 false — 모르는데 점수를 주면 배당금이 나간다.
+ */
+export async function orderedInWindow(member: string, from: string, to: string): Promise<boolean> {
+  const key = `${member}:${from}`;
+  const hit = orderCache.get(key);
+  if (hit && Date.now() - hit.at < ORDER_TTL_MS) return hit.bought;
+  try {
+    const bought = (await ordersOf(member, from, to)).some(order => order.canceled !== 'T' && inBreadMarket(order.order_date));
+    orderCache.set(key, { at: Date.now(), bought });
+    return bought;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * member — 연결한 자사몰 아이디. 있으면 '빵장에서 구매'를 그 아이디의 빵장 시간 주문으로 센다.
+ * 없으면 결제가 확인된 빵장 예약만 센다(쿠폰 방식일 때).
+ */
+export async function weeklyScoreFor(visitor: string | null, at: Date = new Date(), member: string | null = null): Promise<WeeklyScore> {
   const { from, to } = weekWindow(at);
   const policy = await loadDividendPolicy();
   const visitNeeded = visitDaysNeeded(from, to);
@@ -103,7 +138,7 @@ export async function weeklyScoreFor(visitor: string | null, at: Date = new Date
 
   const [watched, bought, visitDays] = await Promise.all([
     watchedInWindow(visitor, from, to),
-    boughtInWindow(visitor, from, to),
+    member ? orderedInWindow(member, from, to).then(ordered => ordered || boughtInWindow(visitor, from, to)) : boughtInWindow(visitor, from, to),
     countVisits(visitor, from, to),
   ]);
 

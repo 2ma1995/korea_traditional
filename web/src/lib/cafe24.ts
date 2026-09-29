@@ -368,6 +368,23 @@ export async function setVariantAmount(
 /* ── 회원 · 적립금 ─────────────────────────────────────── */
 
 /** 이 아이디의 회원이 있는가. 배당을 엉뚱한 곳(오타 난 아이디)에 보내지 않으려고 연결할 때 본다 */
+/* ── 주문 ─────────────────────────────────────────────── */
+
+export interface Cafe24Order { order_id: string; member_id: string; order_date: string; paid?: string; canceled?: string }
+
+/**
+ * 이 회원의 [from, to) 주문(KST 날짜). 배당 점수의 '빵장에서 구매'를 실제 주문으로 센다.
+ * 주문 읽기 권한(mall.read_order, CAFE24_ORDER_SCOPE=on)이 있어야 한다.
+ * ponytail: 한 주 100건까지만 본다 — 한 사람이 한 주에 100번 넘게 주문하면 페이지로 읽는다.
+ */
+export async function ordersOf(memberId: string, from: string, to: string): Promise<Cafe24Order[]> {
+  const last = new Date(`${to}T00:00:00Z`);
+  last.setUTCDate(last.getUTCDate() - 1);                    // end_date는 그날을 포함한다
+  const query = new URLSearchParams({ member_id: memberId, start_date: from, end_date: last.toISOString().slice(0, 10), limit: '100' });
+  const data = await adminApi<{ orders?: Cafe24Order[] }>(`/api/v2/admin/orders?${query}`);
+  return (data.orders ?? []).filter(order => order.member_id === memberId);
+}
+
 export async function memberExists(memberId: string): Promise<boolean> {
   const query = new URLSearchParams({ member_id: memberId, fields: 'member_id' });
   const data = await adminApi<{ customers?: { member_id: string }[] }>(`/api/v2/admin/customers?${query}`);

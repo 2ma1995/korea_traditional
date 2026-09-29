@@ -492,7 +492,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
             <li data-on={score.bought}>
               <i aria-hidden="true">{score.bought ? '✓' : '·'}</i>
               <b>빵장에서 구매</b>
-              <small>{score.bought ? '이번 주에 예약했어요' : '이번 주 예약이 없어요'}</small>
+              <small>{score.bought ? '이번 주 빵장 시간에 자사몰에서 샀어요'
+                : wallet?.member ? `이번 주 빵장 시간(${OPEN_AT}~24:00) 주문이 없어요` : '자사몰 아이디를 연결하면 빵장 시간 주문을 세요'}</small>
               <em>{score.bought ? '+1' : '0'}</em>
             </li>
             <li data-on={score.attended}>
@@ -536,7 +537,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
       <div className={styles.faq}>
         <details>
           <summary>등급은 어떻게 정해지나요?</summary>
-          <p>평일 활동 세 가지 — 관심빵 담기 · 빵장에서 구매 · 거래일 출석 — 를 주 1회씩 셉니다. 1점 BASIC {won(dividendTiers[0])}P · 2점 PLUS {won(dividendTiers[1])}P · 3점 PRIME {won(dividendTiers[2])}P예요. 출석은 그 주 거래일 3일부터(휴장일이 낀 주는 거래일 − 1일부터) 인정돼요.</p>
+          <p>평일 활동 세 가지 — 관심빵 담기 · 빵장에서 구매 · 거래일 출석 — 를 주 1회씩 셉니다. 1점 BASIC {won(dividendTiers[0])}P · 2점 PLUS {won(dividendTiers[1])}P · 3점 PRIME {won(dividendTiers[2])}P예요. 구매는 연결한 자사몰 아이디로 거래일 {OPEN_AT}~24:00에 한 주문(취소 제외)을 세고, 출석은 그 주 거래일 3일부터(휴장일이 낀 주는 거래일 − 1일부터) 인정돼요.</p>
         </details>
         <details>
           <summary>배당금은 언제 쓸 수 있나요?</summary>

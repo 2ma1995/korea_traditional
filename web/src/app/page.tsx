@@ -49,13 +49,14 @@ export default async function BreadMarketPage() {
   const holiday = today.hours.reason === 'holiday';
   const weekAgo = new Date(now);
   weekAgo.setDate(weekAgo.getDate() - 7);
-  const [week, score, member] = holiday
+  /* 아이디를 먼저 안다 — 점수의 '빵장에서 구매'를 그 아이디의 자사몰 주문으로 센다 */
+  const member = holiday && payoutMode() ? await linkedMember(visitor) : null;
+  const [week, score] = holiday
     ? await Promise.all([
         loadWeekReport(seoulDateString(weekAgo), seoulDateString(now)),
-        isWeekend(now) ? weeklyScoreFor(visitor, now) : null,
-        payoutMode() ? linkedMember(visitor) : null,
+        isWeekend(now) ? weeklyScoreFor(visitor, now, member) : null,
       ])
-    : [null, null, null];
+    : [null, null];
   /* 배당금은 휴장일에 정가로 살 때 쓴다 — 평일 휴장일(추석)에도 통장은 보여준다 */
   const wallet = holiday && payoutMode()
     ? {

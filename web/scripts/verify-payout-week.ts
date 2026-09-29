@@ -45,6 +45,20 @@ for (const balance of [100, 300, 1_500, 1_600, 4_000]) {
 }
 console.log('✅ 배당금 쿠폰 조건');
 
+/* 빵장 시간 주문 — 거래일 15:30~24:00만 '빵장에서 구매'로 센다 */
+import { inBreadMarket } from '../src/lib/dividend';
+const cases2: [string, boolean, string][] = [
+  ['2026-09-29T15:29:00+09:00', false, '화 15:29 — 아직 정가'],
+  ['2026-09-29T15:30:00+09:00', true, '화 15:30 — 빵장 개장'],
+  ['2026-09-29T23:59:00+09:00', true, '화 23:59'],
+  ['2026-09-30T00:10:00+09:00', false, '수 00:10 — 자정 뒤는 정가'],
+  ['2026-09-29T07:00:00Z', true, 'UTC로 와도 KST 16:00으로 본다'],
+  ['2026-10-03T16:00:00+09:00', false, '토요일'],
+  ['2026-10-05T16:00:00+09:00', false, '개천절 대체공휴일(월)'],
+];
+for (const [iso, want, label] of cases2) assert.equal(inBreadMarket(iso), want, label);
+console.log('✅ 빵장 시간 주문');
+
 import { kstDateTime } from '../src/lib/payout';
 assert.equal(kstDateTime(new Date('2026-09-23T08:47:12.345Z')), '2026-09-23T17:00:00+09:00', '카페24는 정각만 받는다');
 console.log('✅ 쿠폰 기간 형식');

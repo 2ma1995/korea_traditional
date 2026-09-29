@@ -118,7 +118,7 @@ export async function previewPayout(at: Date = new Date()): Promise<PayoutPrevie
   /* ponytail: 연결한 사람마다 점수 쿼리 3번 — 수백 명까지는 버튼 한 번에 충분하다 */
   const best = new Map<string, PayoutLine>();
   for (const link of (links ?? []) as { visitor: string; member: string }[]) {
-    const score = await weeklyScoreFor(link.visitor, weekDate);
+    const score = await weeklyScoreFor(link.visitor, weekDate, link.member);
     if (score.amount <= 0) continue;
     const seen = best.get(link.member);
     if (!seen || score.amount > seen.amount) {
