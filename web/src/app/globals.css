@@ -232,7 +232,6 @@ summary::-webkit-details-marker { display: none; }
 /* §3.6 푸터 — 짙은 남색(--night), 본문보다 강하지 않게 높이를 줄인다 */
 .site-footer { background: #EFEAE3; color: var(--ink); padding: 32px max(24px, calc((100vw - 1180px) / 2)); margin-top: auto; }
 .footer-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 28px; }
-.footer-top p { font-family: var(--font-serif-kr), serif; font-size: 14px; color: var(--muted); }
 .footer-top > a:last-child { font-size: 12px; }
 .footer-bottom { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); padding-top: 20px; color: var(--muted); font-size: 12px; }
 .inner-page { padding-top: 64px; padding-bottom: 72px; }
@@ -481,7 +480,6 @@ summary::-webkit-details-marker { display: none; }
   .closing-note > p { font-size: 25px; }
   .site-footer { padding: 32px 20px; }
   .footer-top { flex-wrap: wrap; gap: 20px; }
-  .footer-top p { order: 3; width: 100%; font-size: 12px; }
   .footer-bottom { align-items: start; font-size: 12px; }
   .footer-bottom span:last-child { display: none; }
   .inner-page { padding-top: 36px; padding-bottom: 44px; }

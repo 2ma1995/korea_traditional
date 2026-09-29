@@ -289,13 +289,11 @@ a.primary { display: flex; align-items: center; justify-content: center; text-de
 @media (prefers-reduced-motion: reduce) { .sheet, .sparkDot, .sparkLine { animation: none; } .sparkLine { stroke-dashoffset: 0; } }
 
 /* ── 촤라락 — 그래프 뒤에 카드가 순서대로 올라온다 ─────────
-   --d 는 Market.tsx가 step마다 90ms씩 늘려 넣는다. forwards라 끝 상태에 머문다.
-   모듈을 펼칠 때 나오는 본문(.pop)은 기다리지 않고 바로 뜬다. */
+   --d 는 Market.tsx가 step마다 90ms씩 늘려 넣는다. forwards라 끝 상태에 머문다. */
 .reveal { opacity: 0; transform: translateY(18px); animation: reveal .55s cubic-bezier(.2, .8, .2, 1) forwards; animation-delay: var(--d, 0ms); }
 @keyframes reveal { to { opacity: 1; transform: none; } }
-.pop { animation: pop .25s ease-out both; }
 @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .reveal, .pop { animation: none; opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .reveal { animation: none; opacity: 1; transform: none; } }
 
 /* ── TODAY → FOR YOU → NEXT ─────────────────────────────── */
 .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .12em; color: var(--muted); }

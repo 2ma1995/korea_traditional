@@ -40,7 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SiteHeader />
         {children}
         <footer className="site-footer">
-          <div className="footer-top"><Link href="/" className="wordmark">막지<small>MAKJI</small></Link><p>계절이 건네는 맛, 막지가 담습니다.</p><a href={SHOP_BASE} target="_blank" rel="noopener noreferrer">막지 공식몰 ↗</a></div>
+          <div className="footer-top"><Link href="/" className="wordmark">막지<small>MAKJI</small></Link><a href={SHOP_BASE} target="_blank" rel="noopener noreferrer">막지 공식몰 ↗</a></div>
           <div className="footer-bottom"><span>© {new Date().getFullYear()} MAKJI. All rights reserved.</span><span>한국의 계절을 한 입에 담다.</span></div>
         </footer>
       </body>

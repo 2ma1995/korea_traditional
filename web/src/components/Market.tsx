@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Donut, { type Slice } from '@/components/Donut';
 import Flip from '@/components/Flip';
-import InfoTab from '@/components/InfoTab';
 import IpoTab, { type IpoView } from '@/components/IpoTab';
 import KospiLive, { DRAW_MS, kstDay, type Phase } from '@/components/KospiLive';
 import type { KospiView } from '@/components/KospiQuote';
@@ -119,7 +118,6 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   };
   const pending = useRef(new Set<string>());
   const [pfOpen, setPfOpen] = useState(false);
-  const [infoOpen, setInfoOpen] = useState(false);
   const { portfolio, setQty, toggleProduct, moveKey } = usePortfolio();
   const [ipo, setIpo] = useState(initialIpo);
 
@@ -744,17 +742,11 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
         </>
       )}
 
-      <p className={`${styles.fine} ${styles.reveal}`} style={reveal(8)}>
-        {today.kospiLive ? '' : '⚠️ 코스피 수집에 실패해 샘플 값입니다. '}
-        예약 한도는 상품·옵션별로 다르며, 남은 재고에 따라 달라집니다.
-        {test && <> <b>지금은 테스트로 24시간 열어두었습니다</b> — 원래는 {openAt}~24:00.</>}
-        {' '}<button type="button" className={styles.link} onClick={() => setInfoOpen(v => !v)} aria-expanded={infoOpen}>오늘 가격은 어떻게 정해지나 {infoOpen ? '▴' : '→'}</button>
-      </p>
-      {infoOpen && (
-        <section className={`${styles.card} ${styles.pop}`} aria-label="오늘 가격은 어떻게 정해지나">
-          <header className={styles.cardHead}><h2>오늘 가격은 어떻게 정해지나</h2></header>
-          <InfoTab today={today} />
-        </section>
+      {(!today.kospiLive || test) && (
+        <p className={`${styles.fine} ${styles.reveal}`} style={reveal(8)}>
+          {today.kospiLive ? '' : '⚠️ 코스피 수집에 실패해 샘플 값입니다. '}
+          {test && <><b>지금은 테스트로 24시간 열어두었습니다</b> — 원래는 {openAt}~24:00.</>}
+        </p>
       )}
 
       {selectedOffer && (
