@@ -80,7 +80,7 @@
   font-size: 15px; font-weight: 600; background: var(--down); color: #fbfbfc; border: 1px solid var(--down);
   font-variant-numeric: tabular-nums;
 }
-.buy[aria-disabled='true'] { pointer-events: none; background: #cbd2d8; border-color: #cbd2d8; }
+.buy[aria-disabled='true'] { pointer-events: none; background: #d7d0c9; border-color: #d7d0c9; }
 .buy small { font-size: 12px; font-weight: 400; opacity: .85; }
 
 /* ── 호가창 ─────────────────────────────── */
@@ -89,8 +89,8 @@
 .colHead { font-size: 12px; letter-spacing: .08em; color: var(--muted); height: 30px; }
 .colHead span:last-child { text-align: right; }
 .row { min-height: 54px; font-variant-numeric: tabular-nums; }
-.row[data-seat='true'] { background: #e6ecf2; box-shadow: inset 3px 0 0 var(--down); }
-.row[data-instant='true']:not([data-seat='true']) { background: #ecf0f3; }
+.row[data-seat='true'] { background: #f1eae4; box-shadow: inset 3px 0 0 var(--down); }
+.row[data-instant='true']:not([data-seat='true']) { background: #f3efeb; }
 .rPrice { font-family: var(--font-geist-mono), monospace; font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
 .rDepth { font-family: var(--font-geist-mono), monospace; font-size: 12px; color: var(--down); }
 .rQty { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -142,11 +142,11 @@
 .rules b { font-weight: 600; }
 .note { font-size: 12px; color: var(--muted); line-height: 1.9; margin-top: 16px; word-break: keep-all; }
 .note b { color: var(--ink); font-weight: 500; }
-.warn { font-size: 12px; line-height: 1.9; margin-top: 12px; padding: 12px 12px; border-radius: var(--r-card); background: #ebeef1; color: #6b4f1f; word-break: keep-all; }
+.warn { font-size: 12px; line-height: 1.9; margin-top: 12px; padding: 12px 12px; border-radius: var(--r-card); background: #f1edea; color: #6b4f1f; word-break: keep-all; }
 .shopLink { display: inline-flex; align-items: center; gap: 12px; margin-top: 20px; font-size: 13px; padding: 12px 20px; border-radius: var(--r-card); background: var(--soft); color: var(--ink); }
 
 /* ── 정산 시트 (증권의 계좌 연결 자리) ─────────── */
-.overlay { position: fixed; inset: 0; background: #27333e88; display: grid; place-items: end center; z-index: 50; }
+.overlay { position: fixed; inset: 0; background: #3a2f2588; display: grid; place-items: end center; z-index: 50; }
 .sheet { width: min(560px, 100%); background: var(--paper); border: 1px solid var(--line); padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 0px)); max-height: 92vh; overflow-y: auto; }
 .sheetHead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .sheetHead h3 { font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
@@ -161,7 +161,7 @@
 .field > span { font-size: 12px; letter-spacing: .06em; color: var(--muted); }
 .field select, .field input { font: inherit; font-size: 15px; color: var(--ink); border: 1px solid var(--line); background: var(--soft); padding: 12px 16px; min-height: 48px; width: 100%; font-variant-numeric: tabular-nums; }
 .submit { font: inherit; font-size: 14px; font-weight: 600; min-height: 50px; background: var(--dancheong); color: #fcfdfd; border: 1px solid var(--dancheong); cursor: pointer; }
-.submit:disabled { background: #cbd2d8; border-color: #cbd2d8; opacity: 1; }
+.submit:disabled { background: #d7d0c9; border-color: #d7d0c9; opacity: 1; }
 .sheetHint { font-size: 12px; color: var(--muted); line-height: 1.85; word-break: keep-all; }
 .sheetHint b { color: var(--ink); font-weight: 500; }
 .error { font-size: 12.5px; color: var(--hong); }
@@ -218,8 +218,8 @@
 /* 닫힌 칸 — 내 자리보다 깊다. 더 크게 움직인 날 열린다 */
 .row[data-state='closed'] { opacity: .38; }
 .row[data-state='closed'] .rPrice, .row[data-state='closed'] .rDepth { color: var(--muted); }
-.row[data-state='seat'] { background: #e6ecf2; box-shadow: inset 3px 0 0 var(--down); }
-.row[data-state='open'][data-instant='true'] { background: #ecf0f3; }
+.row[data-state='seat'] { background: #f1eae4; box-shadow: inset 3px 0 0 var(--down); }
+.row[data-state='open'][data-instant='true'] { background: #f3efeb; }
 a.bid { display: block; text-align: center; text-decoration: none; }
 a.bid[aria-disabled='true'] { pointer-events: none; border-color: var(--line); color: var(--muted); }
 
@@ -231,7 +231,7 @@ a.bid[aria-disabled='true'] { pointer-events: none; border-color: var(--line); c
 @media (prefers-reduced-motion: reduce) { .flashUp, .flashDown { animation: none; } }
 
 button.buy { font: inherit; cursor: pointer; }
-button.buy:disabled { background: #cbd2d8; border-color: #cbd2d8; opacity: 1; cursor: default; }
+button.buy:disabled { background: #d7d0c9; border-color: #d7d0c9; opacity: 1; cursor: default; }
 
 @media (max-width: 900px) {
   .pickGrid { grid-template-columns: repeat(2, 1fr); }

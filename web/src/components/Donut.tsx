@@ -36,8 +36,8 @@ export interface Slice {
 }
 
 const R = 44, C = 2 * Math.PI * R;
-/* 조각별 색 — 같은 파랑에 투명도만 다르면 구분이 안 된다. 브랜드 팔레트에서 여섯(첫 조각이 막지 파랑) */
-export const PALETTE = ['#5384c0', '#a34835', '#8d7955', '#23303c', '#9cc3e6', '#c98b5e'];
+/* 첫 조각은 브랜드색. 나머지는 서로 구분되는 따뜻한 보조색이다. */
+export const PALETTE = ['var(--brand)', '#8B3D35', '#827044', 'var(--ink)', '#C29862', '#A66C50'];
 const won = (n: number) => n.toLocaleString('ko-KR');
 
 export default function Donut({ slices, onPick }: { slices: Slice[]; onPick?: (productNo: number, unit: string | null) => void }) {

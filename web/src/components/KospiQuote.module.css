@@ -6,10 +6,10 @@
 .quoteHeader b { font-size: 12px; font-weight: 500; letter-spacing: .1em; color: var(--muted); }
 
 /* 장중이면 초록에 점이 뛰고, 마감이면 회색으로 가라앉는다 */
-.marketBadge { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 8px; border: 1px solid #c8d0d9; white-space: nowrap; }
-.marketBadge[data-tone='open'] { color: #4a5f73; background: #ecf0f5; }
-.marketBadge[data-tone='closed'] { color: #6a6f75; background: #ebeef1; border-color: #d1d6da; }
-.marketBadge[data-tone='sample'] { color: #866739; background: #ebeef1; border-color: #e0d1b8; }
+.marketBadge { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 8px; border: 1px solid #d7cec4; white-space: nowrap; }
+.marketBadge[data-tone='open'] { color: #6d5946; background: #f3efea; }
+.marketBadge[data-tone='closed'] { color: #736d68; background: #f1edea; border-color: #d9d4d0; }
+.marketBadge[data-tone='sample'] { color: #866739; background: #f1edea; border-color: #e0d1b8; }
 .pulse { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulse 1.8s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
 
@@ -21,10 +21,10 @@
 .indexChange { font-family: var(--font-geist-mono), monospace; font-size: 14px; margin-top: 8px; }
 .indexChange small { font-family: var(--font-geist-sans), sans-serif; font-size: 12px; color: var(--muted); margin-left: 12px; }
 
-.up { color: var(--hong); }
+.up { color: var(--up); }
 .down { color: #45618b; }
 .tickUp, .tickDown { animation: kospiTick .55s ease-out; }
-.tickUp { --tick-color: var(--hong); }
+.tickUp { --tick-color: var(--up); }
 .tickDown { --tick-color: #45618b; }
 @keyframes kospiTick { from { color: var(--tick-color); } to { color: var(--ink); } }
 @media (prefers-reduced-motion: reduce) { .tickUp, .tickDown { animation: none; } }

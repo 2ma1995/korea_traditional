@@ -46,7 +46,7 @@
   overflow: hidden;
   backface-visibility: hidden;
   will-change: transform;
-  box-shadow: 0 0 60px rgba(44, 57, 71, 0.28);
+  box-shadow: 0 0 60px rgba(66, 53, 41, 0.28);
 }
 
 /* 각 패널 안에서 문 이미지의 자기 쪽 절반만 보이게 한다 */

@@ -73,7 +73,7 @@
 .planItems b { font-weight: 600; }
 .planActions { display: flex; align-items: center; gap: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .state { font-size: 12px; letter-spacing: .02em; padding: 8px 12px; border: 1px solid var(--line); color: var(--muted); }
-.state[data-on='published'] { border-color: var(--dancheong); color: var(--dancheong); background: #e7ebf0; }
+.state[data-on='published'] { border-color: var(--dancheong); color: var(--dancheong); background: #eeeae5; }
 .note { font-size: 12px; color: var(--muted); line-height: 1.9; }
 
 /* ── 검수 목록 ── */
@@ -87,7 +87,7 @@
 .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .entry { display: flex; align-items: center; gap: 20px; border: 1px solid var(--line); background: var(--paper); padding: 16px 20px; }
 .entry[data-status='rejected'] { opacity: .55; }
-.thumb { width: 54px; height: 54px; flex-shrink: 0; display: grid; place-items: center; font-size: 25px; background: #e9eef2; border: 1px solid var(--line); }
+.thumb { width: 54px; height: 54px; flex-shrink: 0; display: grid; place-items: center; font-size: 25px; background: #f1ece8; border: 1px solid var(--line); }
 .body { flex: 1; min-width: 0; }
 .title { font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
 .meta { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.8; }
@@ -121,7 +121,7 @@
 }
 .field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--dancheong); outline-offset: 1px; }
 .submit { font: inherit; font-size: 13px; font-weight: 500; padding: 12px 24px; background: var(--dancheong); color: #fbfbfc; border: 1px solid var(--dancheong); }
-.submit:disabled { background: #cbd2d8; border-color: #cbd2d8; color: #7a8289; }
+.submit:disabled { background: #d7d0c9; border-color: #d7d0c9; color: #877f78; }
 .formNote { font-size: 12px; color: var(--muted); line-height: 1.9; margin-top: 12px; }
 
 @media (max-width: 900px) {
@@ -175,7 +175,7 @@
 .rowRemove:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
 .rowRemove:disabled { opacity: .4; cursor: not-allowed; }
 
-.shopPrice { font-size: 12px; color: var(--dancheong); background: #e7ebf0; padding: 3px 8px; }
+.shopPrice { font-size: 12px; color: var(--dancheong); background: #eeeae5; padding: 3px 8px; }
 
 
 /* ── 주말 배당 설정 ──────────────────────────────────────
