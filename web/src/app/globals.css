@@ -26,23 +26,32 @@
      역할이 색을 정한다 — 도장색은 브랜드·CTA에만, 상승/하락은 금융 의미가 있는
      데이터에만 쓴다. 한 화면에서 강한 강조색이 둘 이상 주도하면 안 된다.
 
-     대비 실측(배경 #F5F1E7 기준) — 지시서가 요구한 WCAG AA:
-       먹초록 11.93:1 · 도장색 5.47:1 · 상승 5.49:1 · 하락 6.57:1  전부 통과
-       쑥색 3.75:1 — 그래프·상태 표시 전용이라 비문자 기준 3:1 통과
+     2026-09-29 주색을 막지 브랜드색으로 바꿨다 — 막지몰 스킨의 --main-color #4286C7.
+     초록 계열은 휘도를 그대로 두고 색상만 남색·파랑으로 돌려서 대비가 바뀌지 않았다.
+       --brand     #4286C7  막지몰과 같은 값. 글자가 올라가지 않는 곳(막대·점·도넛)에만
+       --dancheong #2E6AA6  같은 색상의 한 톤 진한 값. 버튼·탭·강조 글자 — 흰 글자 5.45:1.
+                            #4286C7 위 흰 글자는 3.71:1이라 AA(4.5:1)에 못 미친다
+       --night     #1A3350  히어로·푸터 같은 어두운 판. 먹초록과 휘도가 거의 같다(미색 글자 11.2:1)
 
-     ⚠️ 보조 텍스트만 지시서 값(#77796F)이 3.92:1로 AA(4.5:1)에 미달했다.
+     대비 실측(배경 #F5F1E7 기준) — 지시서가 요구한 WCAG AA:
+       먹색 11.94:1 · 주색 4.99:1 · 도장색 5.47:1 · 상승 5.49:1 · 하락 6.57:1  전부 통과
+       쑥색 3.74:1 — 그래프·상태 표시 전용이라 비문자 기준 3:1 통과
+
+     ⚠️ 보조 텍스트만 지시서 값(#73797E)이 3.92:1로 AA(4.5:1)에 미달했다.
         지시서가 색표를 "권장"이라 적고 대비는 "확보한다"고 못박았으므로,
-        4.5:1을 넘기는 최소 조정값 #6C6E64(4.59:1)를 쓴다. 197곳에 걸린
+        4.5:1을 넘기는 조정값(지금은 남색 쪽으로 돌린 #686D73, 4.63:1)을 쓴다. 197곳에 걸린
         토큰이라 여기가 미달이면 화면 대부분이 미달이 된다. */
   --background: #F5F1E7;
-  --foreground: #1E3329;
-  --ink: #1E3329;
-  --dancheong: #1E3329;
+  --foreground: #23303C;
+  --ink: #23303C;
+  --night: #1A3350;
+  --brand: #4286C7;
+  --dancheong: #2E6AA6;
   --hong: #A44232;
-  --ssuk: #6F8069;
+  --ssuk: #707D89;
   --paper: #FFFCF4;
   --line: #D8D3C5;
-  --muted: #6C6E64;
+  --muted: #686D73;
   /* 한국 증시 관례 — 상승 빨강, 하락 파랑. 정가보다 내려간 가격은 파랑으로 읽힌다 */
   --up: #B04438;
   --down: #315F87;
@@ -113,7 +122,7 @@ button, summary { cursor: pointer; }
 button, a, summary { touch-action: manipulation; }
 button:disabled { cursor: not-allowed; opacity: .4; }
 :focus-visible { outline: 2px solid var(--hong); outline-offset: 5px; }
-::selection { background: #d9ddc9; color: var(--ink); }
+::selection { background: #d3dce4; color: var(--ink); }
 h1, h2, h3, p { margin: 0; }
 h1, h2 { font-family: var(--font-serif-kr), 'Batang', serif; font-weight: 500; letter-spacing: -.055em; }
 em { color: var(--hong); font-style: normal; }
@@ -124,14 +133,14 @@ em { color: var(--hong); font-style: normal; }
 .button span { font-size: 20px; line-height: 1; }
 .button:hover { transform: translateY(-2px); }
 .button-primary { background: var(--dancheong); color: #fffdf4; }
-.button-primary:hover { background: #1e382b; }
+.button-primary:hover { background: #255a8e; }
 .button-outline { border-color: var(--dancheong); }
-.button-outline:hover { background: #e9ecdf; }
+.button-outline:hover { background: #e7ebf0; }
 .text-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 28px; font-size: 12px; padding-block: 12px; border-bottom: 1px solid var(--ink); }
 .text-link:hover { color: var(--hong); border-color: var(--hong); }
 .skip-link { position: fixed; left: 16px; top: -100px; z-index: 100; background: var(--ink); color: white; padding: 12px 20px; }
 .skip-link:focus { top: 12px; }
-.announcement { background: #2b4236; color: #f0efdf; text-align: center; padding: 8px 16px; font-size: 12px; letter-spacing: .06em; }
+.announcement { background: #313f4c; color: #f0efdf; text-align: center; padding: 8px 16px; font-size: 12px; letter-spacing: .06em; }
 .announcement span { opacity: .75; margin-left: 16px; }
 /* §3.1 헤더 — 스크롤 시 상단 고정, 배경은 미색 반투명.
    backdrop-filter가 없는 브라우저에서도 글자가 읽히도록 바탕 자체를 92%로 깐다. */
@@ -141,7 +150,7 @@ em { color: var(--hong); font-style: normal; }
 .wordmark small { font-family: var(--font-geist-sans), sans-serif; font-size: 12px; font-weight: 500; letter-spacing: .16em; margin-left: 8px; }
 .brand-seal { border: 1px solid var(--hong); color: var(--hong); font-size: 12px; line-height: 1.1; padding: 3px 2px; letter-spacing: .05em; font-weight: 500; transform: rotate(-4deg); }
 .site-header nav { display: flex; align-items: center; gap: 36px; height: 72px; }
-.site-header nav a { font-size: 13px; height: 100%; display: flex; align-items: center; position: relative; color: #70766b; }
+.site-header nav a { font-size: 13px; height: 100%; display: flex; align-items: center; position: relative; color: #6f757a; }
 .site-header nav a[aria-current='page'] { color: var(--ink); font-weight: 600; }
 .site-header nav a[aria-current='page']::after { content: ''; position: absolute; height: 3px; bottom: -1px; left: 0; right: 0; background: var(--ink); }
 /* §3.1 "공식몰 링크는 얇은 캡슐형 테두리 버튼" — §4.3이 캡슐을 허용한 자리다 */
@@ -153,10 +162,10 @@ em { color: var(--hong); font-style: normal; }
 .hero-copy .eyebrow { display: flex; align-items: center; gap: 12px; }
 .tiny-star { font-size: 24px; font-weight: 400; }
 .hero-copy h1 { font-size: clamp(44px, 5.3vw, 76px); line-height: 1.43; margin-top: 28px; word-break: keep-all; }
-.hero-description { font-size: 14px; line-height: 1.95; color: #747a6d; margin: 24px 0 32px; }
+.hero-description { font-size: 14px; line-height: 1.95; color: #72797f; margin: 24px 0 32px; }
 .hero-copy .button { min-width: 238px; }
 .hero-footnote { display: flex; align-items: center; gap: 12px; font-size: 12px; letter-spacing: .06em; color: var(--muted); margin-top: 40px; }
-.hero-footnote .line { width: 27px; height: 1px; background: #989b88; }
+.hero-footnote .line { width: 27px; height: 1px; background: #929aa3; }
 .hero-visual { position: relative; padding: 0 24px 0 0; }
 .hero-image-frame { overflow: hidden; border-radius: 48% 48% 0 0; position: relative; border: 1px solid #e3dfd3; }
 .hero-image-frame .product-photo { width: 100%; height: auto; aspect-ratio: 1 / 1.06; object-fit: cover; }
@@ -172,9 +181,9 @@ em { color: var(--hong); font-style: normal; }
 .season-group { flex: 1; min-width: 172px; }
 .season-name { display: block; font-size: 12px; color: var(--muted); margin-bottom: 16px; }
 .season-group > div { display: flex; justify-content: space-between; }
-.term-mark { display: flex; flex-direction: column; align-items: center; gap: 12px; font-size: 12px; color: #777d70; position: relative; min-width: 24px; }
-.term-dot { width: 5px; height: 5px; border-radius: 50%; background: #cdd0c0; }
-.term-mark.done .term-dot { background: #81917a; }
+.term-mark { display: flex; flex-direction: column; align-items: center; gap: 12px; font-size: 12px; color: #757b82; position: relative; min-width: 24px; }
+.term-dot { width: 5px; height: 5px; border-radius: 50%; background: #c8cfd6; }
+.term-mark.done .term-dot { background: #838e98; }
 .term-mark.current { color: var(--hong); font-weight: 700; }
 .term-mark.current .term-dot { background: var(--hong); outline: 1px solid var(--hong); outline-offset: 4px; }
 .term-mark:hover { color: var(--hong); }
@@ -183,27 +192,27 @@ em { color: var(--hong); font-style: normal; }
 .section-intro > p, .community-banner p { color: var(--muted); line-height: 1.9; margin-top: 20px; font-size: 13px; }
 .section-intro .text-link { margin-top: 28px; }
 .seasonal-feature { display: grid; grid-template-columns: .95fr 1.15fr 1fr; gap: 64px; align-items: center; }
-.current-term-card { background: #e9ecdf; padding: 24px 28px; border: 1px solid #d2d9c5; position: relative; }
-.current-term-card::before { content: ''; position: absolute; inset: 7px; border: 1px solid #d2d9c5; pointer-events: none; }
-.term-card-top, .term-card-bottom { display: flex; justify-content: space-between; font-size: 12px; color: #69765e; }
+.current-term-card { background: #e7ebf0; padding: 24px 28px; border: 1px solid #cfd8e0; position: relative; }
+.current-term-card::before { content: ''; position: absolute; inset: 7px; border: 1px solid #cfd8e0; pointer-events: none; }
+.term-card-top, .term-card-bottom { display: flex; justify-content: space-between; font-size: 12px; color: #667381; }
 .term-calligraphy { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 20px 0; }
 .term-calligraphy h3 { font-family: var(--font-serif-kr), serif; font-size: 54px; font-weight: 500; letter-spacing: .12em; }
 .term-calligraphy > span { writing-mode: vertical-rl; font-family: var(--font-serif-kr), serif; font-size: 17px; letter-spacing: .15em; }
 .current-term-card > p { font-size: 12px; line-height: 1.9; text-align: center; min-height: 45px; word-break: keep-all; }
-.term-card-bottom { border-top: 1px solid #c9d0be; padding-top: 16px; margin-top: 20px; }
+.term-card-bottom { border-top: 1px solid #c7ced6; padding-top: 16px; margin-top: 20px; }
 .seasonal-note > .eyebrow { color: var(--muted); }
 .ingredient-names { margin-top: 16px; }
 .ingredient-names > div { display: flex; align-items: baseline; gap: 20px; border-bottom: 1px solid var(--line); padding: 12px 0; }
-.ingredient-names span { color: #8a8e7c; font-size: 12px; }
+.ingredient-names span { color: #858d95; font-size: 12px; }
 .ingredient-names span:last-child { margin-left: auto; font-size: 16px; }
 .ingredient-names strong { font-family: var(--font-serif-kr), serif; font-size: 20px; font-weight: 400; }
 .seasonal-note > p { font-size: 12px; line-height: 1.9; color: var(--muted); margin-top: 20px; }
 .seasonal-note .text-link { margin-top: 12px; }
-.market-section { background: #eceee3; }
+.market-section { background: #e9eef2; }
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
 .section-description { font-size: 13px; color: var(--muted); margin-top: 16px; }
 .product-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 36px; }
-.product-image { position: relative; overflow: hidden; background: #e4e5d9; }
+.product-image { position: relative; overflow: hidden; background: #e0e4e9; }
 .product-photo { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }
 .product-card .product-photo { transition: transform .5s; }
 .product-card:hover .product-photo { transform: scale(1.035); }
@@ -216,7 +225,7 @@ em { color: var(--hong); font-style: normal; }
 .product-price strong { color: var(--hong); font-size: 18px; }
 .product-price b { font-size: 18px; font-weight: 600; }
 .product-price del { font-size: 12px; color: var(--muted); }
-.market-details { margin-top: 32px; border-block: 1px solid #c9cebd; }
+.market-details { margin-top: 32px; border-block: 1px solid #c5ccd4; }
 .market-details summary { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; font-size: 13px; list-style: none; }
 summary::-webkit-details-marker { display: none; }
 .market-details summary > span { font-size: 20px; transition: transform .2s; }
@@ -229,21 +238,21 @@ summary::-webkit-details-marker { display: none; }
 .market-numbers strong { font-size: 22px; font-weight: 500; }
 .market-detail-body .fine-print { margin-top: 12px; }
 .community-banner { display: grid; grid-template-columns: 1fr 1fr; gap: 100px; align-items: center; }
-.community-art { position: relative; min-height: 340px; background: #dfe4d1; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.community-art::before, .community-art::after { content: ''; position: absolute; width: 240px; height: 240px; border: 1px solid #a7b092; border-radius: 50%; }
-.community-art::before { left: -120px; top: -110px; box-shadow: 0 0 0 22px #dfe4d1, 0 0 0 23px #a7b092, 0 0 0 45px #dfe4d1, 0 0 0 46px #a7b092; }
-.community-art::after { right: -130px; bottom: -105px; box-shadow: 0 0 0 22px #dfe4d1, 0 0 0 23px #a7b092, 0 0 0 45px #dfe4d1, 0 0 0 46px #a7b092; }
+.community-art { position: relative; min-height: 340px; background: #dbe2ea; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.community-art::before, .community-art::after { content: ''; position: absolute; width: 240px; height: 240px; border: 1px solid #a1aebb; border-radius: 50%; }
+.community-art::before { left: -120px; top: -110px; box-shadow: 0 0 0 22px #dbe2ea, 0 0 0 23px #a1aebb, 0 0 0 45px #dbe2ea, 0 0 0 46px #a1aebb; }
+.community-art::after { right: -130px; bottom: -105px; box-shadow: 0 0 0 22px #dbe2ea, 0 0 0 23px #a1aebb, 0 0 0 45px #dbe2ea, 0 0 0 46px #a1aebb; }
 .community-art > span { font-family: var(--font-serif-kr), serif; font-size: 52px; line-height: 1.6; letter-spacing: .12em; }
 .community-art > i { position: absolute; writing-mode: vertical-rl; right: 23px; top: 25px; font-style: normal; font-family: var(--font-serif-kr), serif; letter-spacing: .15em; font-size: 12px; }
 .community-banner .button { margin-top: 24px; }
 .closing-note { border-top: 1px solid var(--line); text-align: center; padding: 72px 24px; }
 .closing-note > p { font-family: var(--font-serif-kr), serif; font-size: 28px; line-height: 1.7; margin: 20px 0; }
-/* §3.6 푸터 — 짙은 먹초록, 본문보다 강하지 않게 높이를 줄인다 */
-.site-footer { background: var(--dancheong); color: #F5F1E7; padding: 32px max(24px, calc((100vw - 1180px) / 2)); margin-top: auto; }
+/* §3.6 푸터 — 짙은 남색(--night), 본문보다 강하지 않게 높이를 줄인다 */
+.site-footer { background: var(--night); color: #F5F1E7; padding: 32px max(24px, calc((100vw - 1180px) / 2)); margin-top: auto; }
 .footer-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 28px; }
-.footer-top p { font-family: var(--font-serif-kr), serif; font-size: 14px; color: #d2d6c5; }
+.footer-top p { font-family: var(--font-serif-kr), serif; font-size: 14px; color: #ced5dc; }
 .footer-top > a:last-child { font-size: 12px; }
-.footer-bottom { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #5b6959; padding-top: 20px; color: #bdc5b3; font-size: 12px; }
+.footer-bottom { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #5e676f; padding-top: 20px; color: #bbc3cb; font-size: 12px; }
 .inner-page { padding-top: 64px; padding-bottom: 72px; }
 .page-heading { display: flex; justify-content: space-between; align-items: center; gap: 32px; padding-bottom: 44px; }
 .page-heading h1 { font-size: clamp(34px, 4.3vw, 56px); line-height: 1.5; margin-top: 20px; word-break: keep-all; }
@@ -259,25 +268,25 @@ summary::-webkit-details-marker { display: none; }
 .builder-section-heading small { margin-left: auto; font-size: 12px; color: var(--muted); }
 .bread-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .bread-options button { padding: 12px 16px; border: 1px solid var(--line); font-size: 12px; transition: background .2s; }
-.bread-options button:hover { background: #e7ebdd; }
+.bread-options button:hover { background: #e4eaef; }
 .bread-options button.selected { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.builder-preview { position: relative; overflow: hidden; margin: 24px 0 36px; background: #e9e9dd; }
+.builder-preview { position: relative; overflow: hidden; margin: 24px 0 36px; background: #e4e8ed; }
 .builder-preview .product-photo { width: 100%; max-height: 450px; object-fit: cover; }
 .preview-label { position: absolute; top: 18px; left: 20px; font-size: 12px; letter-spacing: .16em; background: #f7f5eee8; padding: 8px 8px; }
 .picked-toppings { position: absolute; bottom: 50px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; padding: 12px; }
-.picked-toppings button { display: flex; align-items: center; gap: 8px; border: 1px solid #c8c6b4; padding: 8px 12px; background: #faf9f0f2; font-size: 12px; box-shadow: 0 3px 10px #263d3412; }
+.picked-toppings button { display: flex; align-items: center; gap: 8px; border: 1px solid #c8c6b4; padding: 8px 12px; background: #faf9f0f2; font-size: 12px; box-shadow: 0 3px 10px #2c394712; }
 .picked-toppings button > span:first-child { font-size: 22px; }
 .preview-caption { position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; padding: 12px; background: #f7f5eee8; font-size: 12px; }
 .ingredient-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .ingredient-options button { display: flex; align-items: center; gap: 8px; padding: 12px 12px; border: 1px solid var(--line); min-height: 70px; text-align: left; }
-.ingredient-options button:hover:not(:disabled) { border-color: #7a8a69; }
-.ingredient-options button.selected { background: #e3e9d5; border-color: #738563; }
+.ingredient-options button:hover:not(:disabled) { border-color: #768697; }
+.ingredient-options button.selected { background: #e0e8ef; border-color: #6f8294; }
 .ingredient-icon { font-size: 24px; }
 .ingredient-options strong { display: block; font-size: 12px; font-weight: 500; }
 .ingredient-options small { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
 .ingredient-check { margin-left: auto; font-size: 14px; }
 .bread-builder > .fine-print { margin-top: 12px; }
-.builder-result { margin-top: 32px; padding: 28px; border: 1px solid var(--line); background: #eeefe5; }
+.builder-result { margin-top: 32px; padding: 28px; border: 1px solid var(--line); background: #ebeef2; }
 .builder-result > h3 { font-family: var(--font-serif-kr), serif; font-weight: 500; line-height: 1.8; font-size: 20px; margin-top: 12px; }
 .builder-price { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-top: 1px solid var(--line); padding-top: 24px; margin-top: 24px; }
 .builder-price > span { font-size: 12px; }
@@ -287,10 +296,10 @@ summary::-webkit-details-marker { display: none; }
 .builder-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
 .builder-actions .button { gap: 8px; padding-inline: 16px; font-size: 12px; }
 .share-status { font-size: 12px; min-height: 18px; margin-top: 12px; color: var(--hong); }
-.season-story { padding: 32px; background: #e7eadc; border-top: 2px solid var(--dancheong); }
+.season-story { padding: 32px; background: #e3e9ee; border-top: 2px solid var(--dancheong); }
 .season-story h2 { font-size: 31px; line-height: 1.6; margin-top: 24px; }
-.season-story > p { color: #68735d; font-size: 13px; line-height: 1.9; margin-top: 20px; }
-.story-pairing { border-block: 1px solid #c9d0bc; padding-block: 24px; margin-block: 24px 12px; }
+.season-story > p { color: #65717c; font-size: 13px; line-height: 1.9; margin-top: 20px; }
+.story-pairing { border-block: 1px solid #c6ced7; padding-block: 24px; margin-block: 24px 12px; }
 .story-pairing span, .story-pairing strong { display: block; }
 .story-pairing span { font-size: 12px; color: var(--muted); }
 .story-pairing strong { font-family: var(--font-serif-kr), serif; font-size: 19px; font-weight: 500; margin-top: 8px; }
@@ -305,18 +314,18 @@ summary::-webkit-details-marker { display: none; }
 .inline-invitation h2 { font-size: 28px; margin-top: 12px; line-height: 1.7; }
 .inline-invitation p { font-size: 13px; color: var(--muted); margin-top: 12px; line-height: 1.9; }
 .inline-invitation .button { flex-shrink: 0; }
-.contest-banner { background: #e5e9d9; border-block: 1px solid #c5ceb6; padding: 32px; display: flex; align-items: center; justify-content: space-between; gap: 36px; }
+.contest-banner { background: #e2e8ee; border-block: 1px solid #c1ccd6; padding: 32px; display: flex; align-items: center; justify-content: space-between; gap: 36px; }
 .contest-title h2 { font-size: 28px; margin: 16px 0; }
 .contest-title > p { font-size: 12px; color: var(--muted); }
 .contest-title strong { color: var(--hong); margin-left: 8px; }
 .rewards { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
-.rewards li { border-left: 1px solid #c5ceb6; padding: 8px 24px; }
-.rewards li > span { font-family: var(--font-serif-kr), serif; font-size: 23px; color: #79856b; display: block; margin-bottom: 16px; }
+.rewards li { border-left: 1px solid #c1ccd6; padding: 8px 24px; }
+.rewards li > span { font-family: var(--font-serif-kr), serif; font-size: 23px; color: #758290; display: block; margin-bottom: 16px; }
 .rewards strong { font-size: 12px; font-weight: 500; }
 .rewards p { font-size: 12px; color: var(--muted); margin-top: 8px; }
 .gallery-section { padding-top: 56px; }
 .gallery-count { font-size: 12px; color: var(--muted); }
-.demo-note { font-size: 12px; color: #737763; line-height: 1.9; background: #eeeee3; border-left: 2px solid #9a9e84; padding: 12px 16px; margin: 24px 0; }
+.demo-note { font-size: 12px; color: #6c7781; line-height: 1.9; background: #e9eef2; border-left: 2px solid #919da8; padding: 12px 16px; margin: 24px 0; }
 .contest-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 28px; list-style: none; padding: 0; }
 
 /* 빵 카테고리별 1~3위.
@@ -337,7 +346,7 @@ summary::-webkit-details-marker { display: none; }
 .recipe-card.is-first .recipe-rank { background: var(--hong); color: #fffdf4; }
 .reference-label { position: absolute; right: 10px; bottom: 10px; font-size: 12px; padding: 4px 8px; background: #f7f5eeeb; }
 .recipe-content { padding: 24px; }
-.recipe-tags { display: flex; flex-wrap: wrap; gap: 12px; color: #7b826b; font-size: 12px; }
+.recipe-tags { display: flex; flex-wrap: wrap; gap: 12px; color: #74808d; font-size: 12px; }
 .recipe-content h4 { font-family: var(--font-serif-kr), serif; font-size: 23px; font-weight: 500; margin-top: 12px; }
 .recipe-content > p { color: var(--muted); line-height: 1.8; font-size: 12px; margin-top: 12px; min-height: 44px; }
 .recipe-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 20px; gap: 12px; }
@@ -361,24 +370,24 @@ summary::-webkit-details-marker { display: none; }
 .archive-season-nav { display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--line); }
 .archive-season-nav a { display: flex; align-items: center; gap: 16px; padding: 20px 28px; border-right: 1px solid var(--line); font-size: 13px; }
 .archive-season-nav a:first-child { border-left: 1px solid var(--line); }
-.archive-season-nav a > span:first-child { font-family: var(--font-serif-kr), serif; font-size: 27px; color: #788566; }
+.archive-season-nav a > span:first-child { font-family: var(--font-serif-kr), serif; font-size: 27px; color: #728293; }
 .archive-season-nav a > span:last-child { margin-left: auto; }
-.archive-season-nav a:hover { background: #e7ebdc; }
+.archive-season-nav a:hover { background: #e4eaf0; }
 .archive-season { padding-top: 40px; scroll-margin-top: 30px; }
 .archive-season-heading { display: flex; align-items: center; gap: 24px; margin-bottom: 24px; }
-.season-character { font-family: var(--font-serif-kr), serif; font-size: 44px; color: #839574; width: 55px; }
+.season-character { font-family: var(--font-serif-kr), serif; font-size: 44px; color: #8291a0; width: 55px; }
 .archive-season-heading h2 { font-size: 26px; margin-top: 8px; }
 .archive-season-heading > .fine-print { margin-left: auto; }
 .archive-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
 .archive-term { border: 1px solid var(--line); background: #f9f8f1; scroll-margin-top: 35px; }
 .archive-term summary { padding: 24px; list-style: none; }
-.archive-term.current { border-color: #7f906b; background: #e7ecd9; }
+.archive-term.current { border-color: #7c8c9d; background: #e4eaf1; }
 .archive-term:target { outline: 2px solid var(--hong); outline-offset: 3px; }
 .archive-term-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); gap: 12px; }
 .archive-term.current .archive-term-top > span:last-child { color: var(--hong); }
 .archive-term-name { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 .archive-term-name h3 { font-family: var(--font-serif-kr), serif; font-size: 28px; font-weight: 400; }
-.archive-term-name > span { font-family: var(--font-serif-kr), serif; font-size: 13px; color: #8f957f; }
+.archive-term-name > span { font-family: var(--font-serif-kr), serif; font-size: 13px; color: #89949e; }
 .archive-term-name > b { margin-left: auto; font-size: 18px; font-weight: 400; transition: transform .2s; }
 .archive-term[open] .archive-term-name > b { transform: rotate(45deg); }
 .archive-term summary > p { font-size: 12px; color: var(--muted); line-height: 1.8; margin-top: 16px; }
@@ -393,8 +402,8 @@ summary::-webkit-details-marker { display: none; }
 /* 제철 재료 — 그 무렵 나오는 재료. 만들 수 있는 제품명이 아니다 */
 .term-ingredients { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .term-ingredients > span { font-size: 12px; color: var(--muted); letter-spacing: .06em; margin-right: 3px; }
-.term-ingredients > b { font-weight: 400; font-size: 12px; color: #5c6b4f; background: #eceedf; border: 1px solid #dcdfcb; padding: 3px 8px; }
-.archive-term.current .term-ingredients > b { background: #f4f7ea; border-color: #c5cfb0; }
+.term-ingredients > b { font-weight: 400; font-size: 12px; color: #596878; background: #e8eef3; border: 1px solid #d6dee6; padding: 3px 8px; }
+.archive-term.current .term-ingredients > b { background: #f2f6fa; border-color: #c0ccd9; }
 /* 우승작 — 사진을 제일 위에 둔다 */
 .archive-winner { padding-top: 16px; }
 .archive-winner-photo { position: relative; overflow: hidden; margin-bottom: 12px; }
@@ -402,10 +411,10 @@ summary::-webkit-details-marker { display: none; }
 .archive-winner > strong { display: block; font-family: var(--font-serif-kr), serif; font-size: 17px; font-weight: 500; margin-top: 2px; }
 .archive-winner-likes { display: block; color: var(--hong); font-size: 12px; margin-top: 8px; }
 .archive-author { color: var(--hong); }
-.season-1 .season-character { color: #567d6c; }
+.season-1 .season-character { color: #61778e; }
 .season-2 .season-character { color: #9e6848; }
 .season-3 .season-character { color: #727d84; }
-.empty-note { padding: 40px 20px; background: #e9ecdf; text-align: center; font-size: 14px; line-height: 1.9; }
+.empty-note { padding: 40px 20px; background: #e7ebf0; text-align: center; font-size: 14px; line-height: 1.9; }
 @media (min-width: 1500px) { .home-hero { padding-block: 64px; } }
 @media (max-width: 1100px) {
   .page-width { width: calc(100% - 72px); }
@@ -525,7 +534,7 @@ summary::-webkit-details-marker { display: none; }
   .inline-invitation p { font-size: 12px; }
   .contest-banner { display: block; padding: 24px 20px; }
   .contest-title h2 { font-size: 24px; }
-  .rewards { margin-top: 24px; border-top: 1px solid #c5ceb6; padding-top: 20px; }
+  .rewards { margin-top: 24px; border-top: 1px solid #c1ccd6; padding-top: 20px; }
   .rewards li { padding: 0 12px; }
   .rewards li:first-child { border: 0; padding-left: 0; }
   .rewards li > span { font-size: 21px; margin-bottom: 8px; }

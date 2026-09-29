@@ -10,7 +10,7 @@
 .page h3 { font-family: inherit; letter-spacing: -.02em; }
 .page h1 b, .page h2 b, .page h1 strong { font-family: var(--font-geist-sans), sans-serif; }
 
-.card { background: var(--paper); border-radius: var(--r-card); padding: var(--pad-3) var(--pad-3) var(--pad-2); box-shadow: 0 1px 0 rgba(34, 53, 44, .05); }
+.card { background: var(--paper); border-radius: var(--r-card); padding: var(--pad-3) var(--pad-3) var(--pad-2); box-shadow: 0 1px 0 rgba(39, 51, 62, .05); }
 
 /* 카드 위에 얹는 한 줄 — 이 컨테이너가 무슨 이야기인지 먼저 말한다.
    종이(.card) 밖 배경 위에 서고, 본문이 고딕이라 여기만 명조로 목소리를 준다.
@@ -44,14 +44,14 @@
 
 /* ── 히어로 ─────────────────────────────── */
 /* ── 히어로 — 지시서 §3.3 ──────────────────────────────────────────────────
-   진한 먹초록 바탕 위 미색 텍스트. 안쪽 요소를 하나씩 고치지 않고 토큰을 이
+   진한 남색(--night) 바탕 위 미색 텍스트. 안쪽 요소를 하나씩 고치지 않고 토큰을 이
    블록 안에서만 다시 정의한다 — 자손 전부가 한 번에 따라온다.
-   값은 전부 먹초록(#1E3329) 위 WCAG AA 실측이다. */
+   값은 먹초록(#23303C) 위 WCAG AA 실측이다 — 남색 #1A3350은 휘도가 거의 같아 그대로 통과한다. */
 .hero {
-  background: var(--dancheong);
+  background: var(--night);
   color: #F5F1E7;
   --ink: #F5F1E7;                      /* 11.93:1 */
-  --muted: #A6AF9F;                    /*  5.93:1 */
+  --muted: #A6ADB4;                    /*  5.93:1 */
   --up: #E58A78;                       /*  5.28:1 — 어두운 바탕에서 #B04438은 2.39:1로 못 읽는다 */
   --down: #8FB4D4;                     /*  6.18:1 — 같은 이유로 #315F87을 올렸다 */
   --hong: #E8A08D;
@@ -75,7 +75,7 @@
   color: #F5F1E7; opacity: .045; pointer-events: none; z-index: -1;
 }
 /* 차트 툴팁은 반투명이면 글자가 겹쳐 안 읽힌다 — 바탕만 불투명하게 */
-.hero .tipBox { background: #16251D; border-color: rgba(245, 241, 231, .25); }
+.hero .tipBox { background: #1A232B; border-color: rgba(245, 241, 231, .25); }
 
 /* §3.3 상단 라벨 */
 .exchangeLabel { font-size: 12px; font-weight: 700; letter-spacing: .22em; color: var(--muted); text-align: center; margin: 0; }
@@ -141,7 +141,7 @@
 .module {
   display: grid; gap: 8px; align-content: start; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
   background: var(--paper); border: 2px solid transparent; border-radius: var(--r-card); padding: 16px 16px 12px; min-height: 104px;
-  box-shadow: 0 1px 0 rgba(34, 53, 44, .05); transition: border-color .15s ease, transform .15s ease;
+  box-shadow: 0 1px 0 rgba(39, 51, 62, .05); transition: border-color .15s ease, transform .15s ease;
 }
 .module:hover { transform: translateY(-1px); }
 .module[aria-expanded='true'] { border-color: var(--ink); }
@@ -170,7 +170,7 @@
 .pfName b { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pfName span { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 .pfShare { position: relative; height: 18px; background: var(--background); border-radius: 999px; overflow: hidden; }
-.pfShare i { position: absolute; inset: 0 auto 0 0; background: var(--dancheong); opacity: .5; }
+.pfShare i { position: absolute; inset: 0 auto 0 0; background: var(--brand); opacity: .5; }
 .pfShare b { position: absolute; right: 8px; top: 0; line-height: 18px; font-size: 12px; font-variant-numeric: tabular-nums; }
 /* 비중 막대는 이름 칸 아래에 둔다 — 줄 격자는 예약 버튼 자리로 쓰고 있다 */
 .pfName .pfShare { margin-top: 6px; max-width: 160px; color: var(--ink); }
@@ -194,7 +194,7 @@
 .topPick .pfSummary { margin-top: 8px; }
 
 /* ── 바텀시트 ─────────────────────────── */
-.overlay { position: fixed; inset: 0; background: #22352c99; display: grid; place-items: end center; z-index: 60; }
+.overlay { position: fixed; inset: 0; background: #27333e99; display: grid; place-items: end center; z-index: 60; }
 .sheet {
   position: relative; width: min(560px, 100%); background: var(--paper); border-radius: var(--r-sheet) var(--r-sheet) 0 0;
   padding: 12px 24px calc(20px + env(safe-area-inset-bottom, 0px)); max-height: 92vh; overflow-y: auto;
@@ -285,7 +285,7 @@
 .ghost, .primary { font: inherit; font-size: 15px; font-weight: 700; min-height: 52px; border-radius: var(--r-control); cursor: pointer; padding: 0 20px; }
 .ghost { background: var(--background); border: 0; color: var(--ink); white-space: nowrap; }
 .primary { background: var(--dancheong); border: 0; color: #fdfbf6; }
-.primary:disabled { background: #cfd2c3; color: #fdfbf6; opacity: 1; cursor: default; }
+.primary:disabled { background: #cbd2d8; color: #fdfbf6; opacity: 1; cursor: default; }
 /* 결제 링크는 <button>이 아니라 <a>다 — min-height·가운데 정렬이 그대로는 안 먹는다 */
 a.primary { display: flex; align-items: center; justify-content: center; text-decoration: none; margin-top: var(--gap-3); }
 
@@ -344,7 +344,7 @@ p.callout { cursor: default; }
 .pfLabel { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pfLabel em { font-style: normal; font-size: 12px; color: var(--dancheong); font-weight: 700; }
 .pfTrack { position: relative; height: 12px; background: var(--background); border-radius: 999px; overflow: hidden; }
-.pfTrack i { position: absolute; inset: 0 auto 0 0; background: var(--dancheong); opacity: .55; border-radius: 999px; transition: width .4s ease; }
+.pfTrack i { position: absolute; inset: 0 auto 0 0; background: var(--brand); opacity: .55; border-radius: 999px; transition: width .4s ease; }
 .ipoMini .pfTrack i { background: var(--mood); }
 .ipoMini li[data-mine='true'] .pfTrack i { opacity: .9; }
 .pfBars b, .ipoMini b { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px; }
@@ -505,7 +505,7 @@ p.callout { cursor: default; }
 
 /* TOP 3 남은 수량 — 항상 보인다. 줄어드는 게 마감 뒤 화면이 움직이는 이유다 */
 .topMeter { display: block; height: 6px; background: var(--paper); border-radius: 999px; overflow: hidden; margin-top: 4px; }
-.topMeter i { display: block; height: 100%; background: var(--dancheong); opacity: .7; border-radius: 999px; transition: width .5s ease; }
+.topMeter i { display: block; height: 100%; background: var(--brand); opacity: .7; border-radius: 999px; transition: width .5s ease; }
 .topMeter i[data-low='true'] { background: var(--up); }
 .liveDot { color: var(--muted); }
 .liveDot::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #4d8a4a; margin-right: 4px; vertical-align: 1px; animation: pulse 1.8s ease-in-out infinite; }
@@ -551,14 +551,14 @@ p.callout { cursor: default; }
 /* 국장이 닫혀 있으면 차트에서 색을 뺀다. 빨강·파랑은 '지금 움직이는 중'이라는 신호라,
    멈춘 그래프에 그대로 두면 장이 열려 있는 것처럼 읽힌다.
    아래 빵장은 그대로 색이 살아 있다 — 국장만 쉬고 빵장은 열려 있으니까 */
-.hero:not([data-phase='live']) .chartWrap { --dir: #9AA79F; }
+.hero:not([data-phase='live']) .chartWrap { --dir: #9EA4AB; }
 .hero:not([data-phase='live']) .area { opacity: .55; }
 .hero:not([data-phase='live']) .chart { cursor: default; }
 .closedMark {
   position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-  font-size: 10.5px; font-weight: 700; letter-spacing: .16em; color: #9AA79F;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .16em; color: #9EA4AB;
   background: color-mix(in srgb, var(--paper) 70%, transparent);
-  border: 1px solid color-mix(in srgb, #9AA79F 45%, transparent);
+  border: 1px solid color-mix(in srgb, #9EA4AB 45%, transparent);
   border-radius: 999px; padding: 3px 10px; pointer-events: none; z-index: 1;
 }
 .rangeTabs { display: inline-flex; gap: 8px; }
@@ -572,7 +572,7 @@ p.callout { cursor: default; }
 .area[data-done='true'] { opacity: 1; }
 .guide { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
 .hoverDot { fill: var(--paper); stroke: var(--dir); stroke-width: 2.5; }
-.tipBox { position: absolute; top: 8px; transform: translateX(12px); background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px 12px; box-shadow: 0 8px 24px -12px rgba(34, 53, 44, .35); display: grid; gap: 3px; font-size: 12.5px; white-space: nowrap; pointer-events: none; z-index: 3; }
+.tipBox { position: absolute; top: 8px; transform: translateX(12px); background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px 12px; box-shadow: 0 8px 24px -12px rgba(39, 51, 62, .35); display: grid; gap: 3px; font-size: 12.5px; white-space: nowrap; pointer-events: none; z-index: 3; }
 .tipBox[data-flip='true'] { transform: translateX(calc(-100% - 12px)); }
 .tipBox > b { font-size: 12px; color: var(--muted); font-weight: 600; }
 .tipBox strong { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -714,14 +714,14 @@ p.callout { cursor: default; }
 .mastheadAside > span { font-size: 14px; font-weight: 600; }
 .mastheadAside p { color: var(--muted); font-size: 14px; line-height: 1.8; margin: 12px 0 24px; }
 .mastheadAside a { display: flex; justify-content: space-between; gap: 32px; border-bottom: 1px solid var(--ink); padding-bottom: 12px; font-size: 13px; }
-.hero { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 0; padding: 0; border-radius: 6px; box-shadow: 0 16px 40px #1e332910; }
+.hero { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 0; padding: 0; border-radius: 6px; box-shadow: 0 16px 40px #23303c10; }
 .hero::after { display: none; }
 .marketChart { min-width: 0; padding: 32px; display: grid; gap: 16px; align-content: start; }
 .marketChart .index { font-size: 46px; font-weight: 500; font-family: var(--font-geist-mono), monospace; }
 .marketChart .pct { font-size: 16px; }
 .marketChart .chart { height: 200px; }
 .marketChart .rangeTabs button, .marketChart .viewTabs button { border-color: transparent; border-radius: 4px; min-height: 36px; }
-.marketChart .viewTabs button[aria-selected='true'], .marketChart .rangeTabs button[aria-selected='true'] { background: #f5f1e7; color: #1e3329; }
+.marketChart .viewTabs button[aria-selected='true'], .marketChart .rangeTabs button[aria-selected='true'] { background: #f5f1e7; color: #23303c; }
 .marketChart .factsTrack .fact { border: 0; background: none; border-radius: 0; padding-inline: 8px; font-weight: 400; }
 .marketResult { min-width: 0; padding: 32px; background: #ffffff06; border-left: 1px solid #f5f1e726; display: flex; flex-direction: column; align-items: flex-start; }
 .marketResult > .eyebrow { font-family: var(--font-geist-mono), monospace; font-size: 10px; letter-spacing: .15em; }
@@ -739,10 +739,10 @@ p.callout { cursor: default; }
 .rateDetails h2 { font-size: 18px; }
 .rateDetails .why1 { font-size: 12px; }
 .marketResult .rule { font-size: 11px; padding: 0; border: 0; background: none; line-height: 1.7; margin-top: 16px; }
-.marketCta { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 20px; padding: 16px 20px; font-size: 14px; background: #f5f1e7; color: #1e3329; border-radius: 3px; }
+.marketCta { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 20px; padding: 16px 20px; font-size: 14px; background: #f5f1e7; color: #23303c; border-radius: 3px; }
 .marketCta:hover { background: #efc9a1; }
 .card { padding: 28px; border: 1px solid var(--line); box-shadow: none; background: #fffcf480; }
-.portfolioCard { min-width: 0; background: #e9e9dc; }
+.portfolioCard { min-width: 0; background: #e3e8ee; }
 .portfolioCard .emptyBox { text-align: center; }
 .portfolioCard .emptyBtns { max-width: 360px; margin-inline: auto; }
 .portfolioCard .donutWrap { max-width: 720px; margin-inline: auto; gap: 40px; }
@@ -760,9 +760,9 @@ p.callout { cursor: default; }
 .cardHead { align-items: center; padding: 0 0 20px; gap: 16px; flex-wrap: wrap; }
 .cardHead h2 { font-size: 25px; }
 .cardHead h2 small { display: block; margin: 8px 0 0; font-family: var(--font-geist-sans), sans-serif; font-size: 12px; }
-.sort { gap: 4px; background: #e9e9df; padding: 4px; border-radius: 8px; }
+.sort { gap: 4px; background: #e4e9ed; padding: 4px; border-radius: 8px; }
 .sort button { min-height: 40px; padding: 8px 14px; border: 0; border-radius: 6px; }
-.sort button[aria-pressed='true'] { background: var(--paper); color: var(--ink); box-shadow: 0 1px 4px #22352c12; }
+.sort button[aria-pressed='true'] { background: var(--paper); color: var(--ink); box-shadow: 0 1px 4px #27333e12; }
 .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 16px; }
 .cell { min-width: 0; }
 .topCard { padding: 12px; background: var(--paper); gap: 8px; border: 1px solid var(--line); border-radius: 12px; height: 100%; }
@@ -777,9 +777,9 @@ p.callout { cursor: default; }
 .roles { padding-top: 20px; margin-top: 24px; border-top: 1px solid var(--line); gap: 12px; }
 .roles > div { padding: 0; background: transparent; }
 .emptyBox h2 { font-size: 25px; font-weight: 600; }
-.emptyMark { display: grid; place-items: center; width: 104px; height: 104px; margin: 28px auto; border: 1px solid #a9b29b; border-radius: 50%; font-size: 48px; font-family: serif; color: #7c896f; }
+.emptyMark { display: grid; place-items: center; width: 104px; height: 104px; margin: 28px auto; border: 1px solid #a6b0ba; border-radius: 50%; font-size: 48px; font-family: serif; color: #7a8693; }
 .emptyBox p { font-size: 13px; line-height: 1.9; }
-.emptyBtns .ghost { border: 1px solid #a9b29b; background: transparent; font-weight: 500; }
+.emptyBtns .ghost { border: 1px solid #a6b0ba; background: transparent; font-weight: 500; }
 .page > .lead { text-align: left; font-size: 28px; margin: 8px 0 -20px; }
 .fine { font-size: 12px; padding: 0; }
 @media (max-width: 900px) {
@@ -852,7 +852,7 @@ p.callout { cursor: default; }
 .dividend { margin-top: 14px; padding: 20px 18px; border-radius: 12px; background: var(--ink); color: var(--paper); display: grid; gap: 4px; }
 .dividend .eyebrow { color: var(--gold, #A8813F); }
 .dividend strong { font-size: 34px; font-weight: 800; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
-.dividend p { font-size: 12.5px; color: #C6D2C4; line-height: 1.6; }
+.dividend p { font-size: 12.5px; color: #C9D0D6; line-height: 1.6; }
 .dividend p b { color: var(--paper); font-weight: 700; }
 .dividend[data-none='true'] { background: var(--background); color: var(--muted); }
 .dividend[data-none='true'] strong { color: var(--muted); }
@@ -877,7 +877,7 @@ p.callout { cursor: default; }
 /* ── 오늘의 결론 ─────────────────────────────────────────
    TODAY 섹션 바로 위. 히어로가 '시장이 어떻게 움직였나'를 말하고,
    여기가 '그래서 오늘 얼마나 싸냐'에 답한다. 근거는 히어로의 서랍에 있다 */
-.todayCall { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px 14px; margin-bottom: 20px; background: #e9e9df; border-radius: 8px; }
+.todayCall { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px 14px; margin-bottom: 20px; background: #e4e9ed; border-radius: 8px; }
 .todayCall .eyebrow { display: inline-flex; align-items: center; gap: 8px; }
 .todayCall strong { font-size: 18px; font-weight: 600; letter-spacing: -.03em; line-height: 1.4; }
 .todayCall strong b { color: var(--mood); font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -920,10 +920,10 @@ p.callout { cursor: default; }
 }
 
 /* ── 휴장일 결산(DIVIDEND DAY) — 시안의 구성, 사이트 색 ── */
-.dayBanner { display: grid; gap: 6px; padding: 22px 20px; margin: calc(var(--pad-3) * -1) calc(var(--pad-3) * -1) 24px; border-radius: var(--r-card) var(--r-card) 0 0; background: var(--ink); color: var(--paper); }
+.dayBanner { display: grid; gap: 6px; padding: 22px 20px; margin: calc(var(--pad-3) * -1) calc(var(--pad-3) * -1) 24px; border-radius: var(--r-card) var(--r-card) 0 0; background: var(--night); color: var(--paper); }
 .dayBanner h2 { font-size: clamp(24px, 5.4vw, 34px); font-weight: 800; letter-spacing: -.02em; line-height: 1.2; text-wrap: balance; }
 .dayBanner p { font-size: 15px; font-weight: 600; }
-.dayBanner small { font-size: 12.5px; color: #C6D2C4; line-height: 1.6; word-break: keep-all; }
+.dayBanner small { font-size: 12.5px; color: #C9D0D6; line-height: 1.6; word-break: keep-all; }
 .closedPill { width: fit-content; font-size: 11px; font-weight: 800; letter-spacing: .14em; padding: 4px 10px; border-radius: var(--r-pill); background: var(--hong); color: #fdfbf6; }
 .reportTitle { font-size: 20px; font-weight: 800; letter-spacing: -.02em; margin-top: 6px; }
 .reportStats { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
@@ -940,11 +940,11 @@ p.callout { cursor: default; }
 .tierChip { font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--hong) 12%, transparent); color: var(--hong); white-space: nowrap; }
 .tierChip[data-none='true'] { background: var(--paper); color: var(--muted); }
 .divCard { display: grid; gap: 12px; margin-top: 16px; }
-.divNums { display: grid; gap: 4px; padding: 20px 18px; border-radius: 12px; background: var(--ink); color: var(--paper); }
+.divNums { display: grid; gap: 4px; padding: 20px 18px; border-radius: 12px; background: var(--night); color: var(--paper); }
 .divNums .eyebrow { color: #C9A765; }
-.divNums small { font-size: 12.5px; color: #C6D2C4; margin-top: 6px; }
+.divNums small { font-size: 12.5px; color: #C9D0D6; margin-top: 6px; }
 .divNums strong { font-size: 36px; font-weight: 800; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
-.divNums em { font-style: normal; font-size: 12.5px; color: #C6D2C4; }
+.divNums em { font-style: normal; font-size: 12.5px; color: #C9D0D6; }
 .divNums[data-none='true'] { background: var(--background); color: var(--muted); }
 .divNums[data-none='true'] small, .divNums[data-none='true'] em, .divNums[data-none='true'] .eyebrow { color: var(--muted); }
 .ruleChips { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }

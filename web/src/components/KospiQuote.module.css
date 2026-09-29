@@ -6,9 +6,9 @@
 .quoteHeader b { font-size: 12px; font-weight: 500; letter-spacing: .1em; color: var(--muted); }
 
 /* 장중이면 초록에 점이 뛰고, 마감이면 회색으로 가라앉는다 */
-.marketBadge { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 8px; border: 1px solid #cbd2bf; white-space: nowrap; }
-.marketBadge[data-tone='open'] { color: #446440; background: #edf2e5; }
-.marketBadge[data-tone='closed'] { color: #6b7166; background: #eeeee8; border-color: #d5d6cc; }
+.marketBadge { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 8px; border: 1px solid #c8d0d9; white-space: nowrap; }
+.marketBadge[data-tone='open'] { color: #4a5f73; background: #ecf0f5; }
+.marketBadge[data-tone='closed'] { color: #6a6f75; background: #ebeef1; border-color: #d1d6da; }
 .marketBadge[data-tone='sample'] { color: #866739; background: #f4edde; border-color: #e0d1b8; }
 .pulse { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulse 1.8s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
