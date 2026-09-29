@@ -27,11 +27,11 @@
 .rateBlock { display: grid; justify-items: end; gap: 8px; }
 .listTools { display: inline-flex; gap: 2px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
 .listTools button { font: inherit; font-size: 16px; line-height: 1; width: 34px; height: 34px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
-.listTools button:hover:not(:disabled) { background: var(--background); }
+.listTools button:hover:not(:disabled) { background: var(--soft); }
 .listTools button:disabled { opacity: .3; cursor: not-allowed; }
 
 /* '+'로 여는 후보 목록 */
-.addList { list-style: none; margin: 12px 0 0; padding: 12px; border: 1px dashed var(--line); border-radius: 8px; display: grid; gap: 4px; background: var(--background); }
+.addList { list-style: none; margin: 12px 0 0; padding: 12px; border: 1px dashed var(--line); border-radius: 8px; display: grid; gap: 4px; background: var(--soft); }
 .addList button { font: inherit; display: flex; align-items: baseline; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
 .addList button:hover:not(:disabled) { background: var(--paper); }
 /* 품절인 빵은 넣지 못한다. 왜 못 넣는지 그 자리에 적는다 — 그냥 흐려만 두면
@@ -82,7 +82,7 @@
   font: inherit; font-size: 12px; background: none; border: 1px solid var(--line);
   padding: 8px 16px; color: var(--muted); transition: background .2s, color .2s, border-color .2s;
 }
-.tabs button[aria-pressed='true'] { border-color: var(--dancheong); background: var(--dancheong); color: #fdfbf6; }
+.tabs button[aria-pressed='true'] { border-color: var(--dancheong); background: var(--dancheong); color: #fbfbfc; }
 
 .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .entry { display: flex; align-items: center; gap: 20px; border: 1px solid var(--line); background: var(--paper); padding: 16px 20px; }
@@ -100,8 +100,8 @@
   font: inherit; width: 42px; height: 42px; font-size: 17px; background: var(--paper);
   border: 1px solid var(--line); color: var(--muted); transition: background .2s, color .2s, border-color .2s;
 }
-.judge button[data-kind='ok'][aria-pressed='true'] { background: var(--dancheong); border-color: var(--dancheong); color: #fdfbf6; }
-.judge button[data-kind='no'][aria-pressed='true'] { background: var(--hong); border-color: var(--hong); color: #fdfbf6; }
+.judge button[data-kind='ok'][aria-pressed='true'] { background: var(--dancheong); border-color: var(--dancheong); color: #fbfbfc; }
+.judge button[data-kind='no'][aria-pressed='true'] { background: var(--hong); border-color: var(--hong); color: #fbfbfc; }
 .empty { font-size: 13px; color: var(--muted); border: 1px dashed var(--line); padding: 28px; text-align: center; }
 
 /* ── 수동 등록 ── */
@@ -120,7 +120,7 @@
   border: 1px solid var(--line); color: var(--ink); min-width: 0;
 }
 .field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--dancheong); outline-offset: 1px; }
-.submit { font: inherit; font-size: 13px; font-weight: 500; padding: 12px 24px; background: var(--dancheong); color: #fdfbf6; border: 1px solid var(--dancheong); }
+.submit { font: inherit; font-size: 13px; font-weight: 500; padding: 12px 24px; background: var(--dancheong); color: #fbfbfc; border: 1px solid var(--dancheong); }
 .submit:disabled { background: #cbd2d8; border-color: #cbd2d8; color: #7a8289; }
 .formNote { font-size: 12px; color: var(--muted); line-height: 1.9; margin-top: 12px; }
 
@@ -138,7 +138,7 @@
 /* ── 카페24 패널 ── */
 /* 후보 한 줄 — 테두리로 묶어 어디까지가 한 후보인지 보이게 한다 */
 .cafe24Row { display: flex; align-items: end; gap: 12px; flex-wrap: wrap;
-  padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--background); }
+  padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); }
 .cafe24Row .field { flex: 1 1 150px; min-width: 130px; max-width: 220px; }
 .outline {
   font: inherit; font-size: 13px; font-weight: 500; padding: 12px 20px;
@@ -191,7 +191,7 @@
 .fields small { font-size: 11.5px; color: var(--muted); line-height: 1.6; }
 .planActions button {
   font: inherit; font-size: 13px; font-weight: 600; padding: 10px 20px; cursor: pointer;
-  border: 1px solid var(--dancheong); background: var(--dancheong); color: #fdfbf6;
+  border: 1px solid var(--dancheong); background: var(--dancheong); color: #fbfbfc;
 }
 .planActions button:disabled { opacity: .45; cursor: default; }
 

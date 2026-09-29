@@ -33,7 +33,7 @@
                               굵은 큰 글자(3:1)만 통과한다. 브랜드색을 그대로 쓰라는 결정이다
        --night     #1B314B  히어로·푸터·배당 배너. 브랜드색과 같은 색상·채도를 어둡게(미색 글자 11.7:1)
 
-     대비 실측(배경 #F5F1E7 기준) — 지시서가 요구한 WCAG AA:
+     대비 실측(배경 #EFF1F4 기준) — 지시서가 요구한 WCAG AA:
        먹색 11.94:1 · 주색 4.99:1 · 도장색 5.47:1 · 상승 5.49:1 · 하락 6.57:1  전부 통과
        쑥색 3.74:1 — 그래프·상태 표시 전용이라 비문자 기준 3:1 통과
 
@@ -41,7 +41,9 @@
         지시서가 색표를 "권장"이라 적고 대비는 "확보한다"고 못박았으므로,
         4.5:1을 넘기는 조정값(지금은 남색 쪽으로 돌린 #686D73, 4.63:1)을 쓴다. 197곳에 걸린
         토큰이라 여기가 미달이면 화면 대부분이 미달이 된다. */
-  --background: #F5F1E7;
+  /* 바탕은 흰색(막지몰과 같다). 카드 안의 옅은 칸은 --soft — 흰 카드 위에서 구분된다 */
+  --background: #FFFFFF;
+  --soft: #F4F6F9;
   --foreground: #23303C;
   --ink: #23303C;
   --night: #1B314B;
@@ -49,8 +51,8 @@
   --dancheong: #5384C0;
   --hong: #A44232;
   --ssuk: #707D89;
-  --paper: #FFFCF4;
-  --line: #D8D3C5;
+  --paper: #FFFFFF;
+  --line: #E1E5EA;
   --muted: #686D73;
   /* 한국 증시 관례 — 상승 빨강, 하락 파랑. 정가보다 내려간 가격은 파랑으로 읽힌다 */
   --up: #B04438;
@@ -132,7 +134,7 @@ em { color: var(--hong); font-style: normal; }
 .button { display: inline-flex; align-items: center; justify-content: space-between; gap: 32px; min-height: 52px; padding: 16px 24px; font-size: 13px; font-weight: 500; transition: background .2s, transform .2s; border: 1px solid transparent; }
 .button span { font-size: 20px; line-height: 1; }
 .button:hover { transform: translateY(-2px); }
-.button-primary { background: var(--dancheong); color: #fffdf4; }
+.button-primary { background: var(--dancheong); color: #fcfdfd; }
 .button-primary:hover { background: #4672a8; }
 .button-outline { border-color: var(--dancheong); }
 .button-outline:hover { background: #e7ebf0; }
@@ -140,7 +142,7 @@ em { color: var(--hong); font-style: normal; }
 .text-link:hover { color: var(--hong); border-color: var(--hong); }
 .skip-link { position: fixed; left: 16px; top: -100px; z-index: 100; background: var(--ink); color: white; padding: 12px 20px; }
 .skip-link:focus { top: 12px; }
-.announcement { background: #313f4c; color: #f0efdf; text-align: center; padding: 8px 16px; font-size: 12px; letter-spacing: .06em; }
+.announcement { background: #313f4c; color: #eceff2; text-align: center; padding: 8px 16px; font-size: 12px; letter-spacing: .06em; }
 .announcement span { opacity: .75; margin-left: 16px; }
 /* §3.1 헤더 — 스크롤 시 상단 고정, 배경은 미색 반투명.
    backdrop-filter가 없는 브라우저에서도 글자가 읽히도록 바탕 자체를 92%로 깐다. */
@@ -167,10 +169,10 @@ em { color: var(--hong); font-style: normal; }
 .hero-footnote { display: flex; align-items: center; gap: 12px; font-size: 12px; letter-spacing: .06em; color: var(--muted); margin-top: 40px; }
 .hero-footnote .line { width: 27px; height: 1px; background: #929aa3; }
 .hero-visual { position: relative; padding: 0 24px 0 0; }
-.hero-image-frame { overflow: hidden; border-radius: 48% 48% 0 0; position: relative; border: 1px solid #e3dfd3; }
+.hero-image-frame { overflow: hidden; border-radius: 48% 48% 0 0; position: relative; border: 1px solid #dadfe6; }
 .hero-image-frame .product-photo { width: 100%; height: auto; aspect-ratio: 1 / 1.06; object-fit: cover; }
 .hero-vertical { position: absolute; right: 0; top: 42%; writing-mode: vertical-rl; font-family: var(--font-serif-kr), serif; font-size: 12px; letter-spacing: .4em; }
-.hero-stamp { position: absolute; bottom: 65px; left: -25px; border: 2px solid var(--hong); outline: 1px solid var(--hong); outline-offset: -6px; padding: 12px 16px; color: var(--hong); font-family: var(--font-serif-kr), serif; font-size: 23px; line-height: 1.3; transform: rotate(-8deg); background: #f7f5eee8; }
+.hero-stamp { position: absolute; bottom: 65px; left: -25px; border: 2px solid var(--hong); outline: 1px solid var(--hong); outline-offset: -6px; padding: 12px 16px; color: var(--hong); font-family: var(--font-serif-kr), serif; font-size: 23px; line-height: 1.3; transform: rotate(-8deg); background: #f4f5f7e8; }
 .hero-caption { display: flex; justify-content: space-between; margin-top: 16px; font-size: 12px; letter-spacing: .08em; color: var(--muted); }
 .mobile-only { display: none; }
 .season-strip { border-block: 1px solid var(--line); padding: 28px 0; display: flex; gap: 40px; align-items: center; }
@@ -216,8 +218,8 @@ em { color: var(--hong); font-style: normal; }
 .product-photo { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }
 .product-card .product-photo { transition: transform .5s; }
 .product-card:hover .product-photo { transform: scale(1.035); }
-.product-badge { position: absolute; left: 15px; top: 15px; background: #f8f7efee; font-size: 12px; padding: 8px 12px; }
-.product-arrow { position: absolute; right: 14px; bottom: 14px; display: grid; place-items: center; border-radius: 50%; width: 32px; height: 32px; background: #f8f7ef; }
+.product-badge { position: absolute; left: 15px; top: 15px; background: #f5f7f8ee; font-size: 12px; padding: 8px 12px; }
+.product-arrow { position: absolute; right: 14px; bottom: 14px; display: grid; place-items: center; border-radius: 50%; width: 32px; height: 32px; background: #f5f7f8; }
 .product-meta { padding: 20px 0; }
 .product-meta > span { font-size: 12px; color: var(--muted); letter-spacing: .15em; }
 .product-meta h3 { margin-top: 8px; font-size: 17px; font-weight: 500; }
@@ -248,7 +250,7 @@ summary::-webkit-details-marker { display: none; }
 .closing-note { border-top: 1px solid var(--line); text-align: center; padding: 72px 24px; }
 .closing-note > p { font-family: var(--font-serif-kr), serif; font-size: 28px; line-height: 1.7; margin: 20px 0; }
 /* §3.6 푸터 — 짙은 남색(--night), 본문보다 강하지 않게 높이를 줄인다 */
-.site-footer { background: var(--night); color: #F5F1E7; padding: 32px max(24px, calc((100vw - 1180px) / 2)); margin-top: auto; }
+.site-footer { background: var(--night); color: #EFF1F4; padding: 32px max(24px, calc((100vw - 1180px) / 2)); margin-top: auto; }
 .footer-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 28px; }
 .footer-top p { font-family: var(--font-serif-kr), serif; font-size: 14px; color: #ced5dc; }
 .footer-top > a:last-child { font-size: 12px; }
@@ -272,11 +274,11 @@ summary::-webkit-details-marker { display: none; }
 .bread-options button.selected { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .builder-preview { position: relative; overflow: hidden; margin: 24px 0 36px; background: #e4e8ed; }
 .builder-preview .product-photo { width: 100%; max-height: 450px; object-fit: cover; }
-.preview-label { position: absolute; top: 18px; left: 20px; font-size: 12px; letter-spacing: .16em; background: #f7f5eee8; padding: 8px 8px; }
+.preview-label { position: absolute; top: 18px; left: 20px; font-size: 12px; letter-spacing: .16em; background: #f4f5f7e8; padding: 8px 8px; }
 .picked-toppings { position: absolute; bottom: 50px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; padding: 12px; }
-.picked-toppings button { display: flex; align-items: center; gap: 8px; border: 1px solid #c8c6b4; padding: 8px 12px; background: #faf9f0f2; font-size: 12px; box-shadow: 0 3px 10px #2c394712; }
+.picked-toppings button { display: flex; align-items: center; gap: 8px; border: 1px solid #bfc6d0; padding: 8px 12px; background: #f7f9faf2; font-size: 12px; box-shadow: 0 3px 10px #2c394712; }
 .picked-toppings button > span:first-child { font-size: 22px; }
-.preview-caption { position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; padding: 12px; background: #f7f5eee8; font-size: 12px; }
+.preview-caption { position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; padding: 12px; background: #f4f5f7e8; font-size: 12px; }
 .ingredient-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .ingredient-options button { display: flex; align-items: center; gap: 8px; padding: 12px 12px; border: 1px solid var(--line); min-height: 70px; text-align: left; }
 .ingredient-options button:hover:not(:disabled) { border-color: #768697; }
@@ -343,8 +345,8 @@ summary::-webkit-details-marker { display: none; }
 .recipe-image .product-photo { aspect-ratio: 1.5; transition: transform .5s; }
 .recipe-card:hover .product-photo { transform: scale(1.025); }
 .recipe-rank { position: absolute; top: 15px; left: 15px; font-family: var(--font-serif-kr), serif; font-size: 17px; background: var(--paper); min-width: 42px; height: 42px; padding: 0 12px; display: grid; place-items: center; }
-.recipe-card.is-first .recipe-rank { background: var(--hong); color: #fffdf4; }
-.reference-label { position: absolute; right: 10px; bottom: 10px; font-size: 12px; padding: 4px 8px; background: #f7f5eeeb; }
+.recipe-card.is-first .recipe-rank { background: var(--hong); color: #fcfdfd; }
+.reference-label { position: absolute; right: 10px; bottom: 10px; font-size: 12px; padding: 4px 8px; background: #f4f5f7eb; }
 .recipe-content { padding: 24px; }
 .recipe-tags { display: flex; flex-wrap: wrap; gap: 12px; color: #74808d; font-size: 12px; }
 .recipe-content h4 { font-family: var(--font-serif-kr), serif; font-size: 23px; font-weight: 500; margin-top: 12px; }
@@ -363,7 +365,7 @@ summary::-webkit-details-marker { display: none; }
 .recipe-author { font-size: 12px; color: var(--muted); margin-top: 8px; overflow-wrap: anywhere; }
 .post-link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; font-size: 12px; color: var(--ink); border: 1px solid var(--line); background: var(--paper); padding: 12px 16px; min-height: 40px; transition: color .2s, border-color .2s, background .2s; }
 .post-link > span { font-size: 14px; line-height: 1; }
-.post-link:hover { color: var(--hong); border-color: var(--hong); background: #f4f2e7; }
+.post-link:hover { color: var(--hong); border-color: var(--hong); background: #f0f2f4; }
 .archive-total { display: flex; align-items: center; gap: 20px; }
 .archive-total strong { font-family: var(--font-serif-kr), serif; font-size: 76px; font-weight: 400; line-height: 1.1; }
 .archive-total > span { font-size: 12px; line-height: 2; color: var(--muted); }
@@ -379,7 +381,7 @@ summary::-webkit-details-marker { display: none; }
 .archive-season-heading h2 { font-size: 26px; margin-top: 8px; }
 .archive-season-heading > .fine-print { margin-left: auto; }
 .archive-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
-.archive-term { border: 1px solid var(--line); background: #f9f8f1; scroll-margin-top: 35px; }
+.archive-term { border: 1px solid var(--line); background: #f6f8f9; scroll-margin-top: 35px; }
 .archive-term summary { padding: 24px; list-style: none; }
 .archive-term.current { border-color: #7c8c9d; background: #e4eaf1; }
 .archive-term:target { outline: 2px solid var(--hong); outline-offset: 3px; }

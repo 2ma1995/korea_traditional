@@ -81,7 +81,7 @@
   width: 2px;
   height: 100%;
   margin-left: -1px;
-  background: linear-gradient(180deg, transparent, #fffdf6 22%, #fffdf6 78%, transparent);
+  background: linear-gradient(180deg, transparent, #fcfdfd 22%, #fcfdfd 78%, transparent);
   opacity: 0;
   animation: seamGlow 1.1s ease-out 0.42s forwards;
 }
@@ -133,7 +133,7 @@
   right: clamp(20px, 4vw, 46px);
   bottom: clamp(20px, 4vh, 42px);
   z-index: 5;
-  background: #faf8efc9;
+  background: #f6f8f9c9;
   border: 1px solid var(--line);
   color: var(--muted);
   font: inherit;
