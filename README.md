@@ -142,8 +142,8 @@ old/              지금 서비스와 안 맞는 이전 자료 — 원래 폴더
 ## 문서
 
 - [`web/supabase/지금_실행할_SQL.sql`](./web/supabase/지금_실행할_SQL.sql) — DB 준비 한 장 + 확인 쿼리
-- [`deck/MAKJI_최종발표덱_V10.html`](./deck/MAKJI_최종발표덱_V10.html) — 발표덱 (배포된 동작 기준 · 방향키로 넘김 · F 발표 모드)
-- [`deck/MAKJI_최종발표덱_V9_완성본.pptx`](./deck/) — 이전 PPTX 원본
+- [`deck/MAKJI_최종발표덱_v21.pptx`](./deck/MAKJI_최종발표덱_v21.pptx) — 최종 발표덱
+- 이전 판(V9 PPTX · V10 HTML)은 [`old/deck/`](./old/deck/)
 - [`docs/빵장_세팅_가이드.md`](./docs/빵장_세팅_가이드.md) — **기업 전달용.** Supabase · 카페24 · Vercel 세팅과 환경변수, 개발 지식 없이 따라 하는 순서
 - [`docs/인수인계/`](./docs/인수인계/) — 날짜별 인수인계. 새 세션은 가장 최근 것부터
 - [`docs/설계/팀공유_빵장_설계도.md`](./docs/설계/팀공유_빵장_설계도.md) — 지금 어떻게 돌고 있나
