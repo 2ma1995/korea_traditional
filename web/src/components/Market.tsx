@@ -631,7 +631,8 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
                     {o.saved > 0 && !holiday && preClose ? (
                       <>
                         <strong>{won(o.product.price)}원</strong>
-                        <em>15:30 예상 {won(o.price)}원 (−{Math.round((o.saved / o.product.price) * 100)}%)</em>
+                        {/* 큰 숫자(정가)는 고정하고, 예상가만 정가에서 굴러 내려온다 — 시세처럼 움직이되 지금 가격으로 읽히지 않게 */}
+                        <em>15:30 예상 <RollingPrice from={o.product.price} to={o.price} delay={base + (1 + step) * 90 + 500} />원 (−{Math.round((o.saved / o.product.price) * 100)}%)</em>
                       </>
                     ) : o.saved > 0 && !holiday ? (
                       <>
