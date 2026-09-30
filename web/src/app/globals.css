@@ -229,6 +229,11 @@ summary::-webkit-details-marker { display: none; }
 .community-banner .button { margin-top: 24px; }
 .closing-note { border-top: 1px solid var(--line); text-align: center; padding: 72px 24px; }
 .closing-note > p { font-family: var(--font-serif-kr), serif; font-size: 28px; line-height: 1.7; margin: 20px 0; }
+/* 관리자 미리보기 띠 — 손님에게는 안 보인다(page.tsx가 관리자일 때만 그린다) */
+.preview-banner { margin: 0; padding: 10px 16px; text-align: center; font-size: 13px;
+  background: var(--ink); color: #fff; }
+.preview-banner a { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+.admin-links { display: grid; justify-items: end; gap: 6px; font-size: 13px; }
 /* §3.6 푸터 — 짙은 남색(--night), 본문보다 강하지 않게 높이를 줄인다 */
 .site-footer { background: #EFEAE3; color: var(--ink); padding: 32px max(24px, calc((100vw - 1180px) / 2)); margin-top: auto; }
 .footer-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 28px; }

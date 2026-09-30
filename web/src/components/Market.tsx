@@ -412,7 +412,7 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
   /* ── 휴장일 결산 ──
      주말(토·일)은 DIVIDEND DAY — 이번 주 점수·배당이 주인공이다. 평일 휴장일(추석 등)은 배당이 없어
      휴장 안내와 쓸 수 있는 배당금 쿠폰, 다음 장 준비만 보여준다(배당은 토요일에 결산한다).
-     숫자는 전부 실제로 셀 수 있는 것만 쓴다 — 장바구니·알림 반응은 측정할 방법이 없어 '2단계'로 둔다.
+     숫자는 전부 실제로 셀 수 있는 것만 쓴다 — 장바구니·알림 반응은 잴 방법이 없어 화면에 올리지 않는다.
      구매는 결제 확인(주문 연동) 전이라 예약 기준이다 */
   const weekendDay = myWeek?.weekend ?? false;
   const tierName = (points: number) => ['', 'BASIC', 'PLUS', 'PRIME'][points] ?? '';
@@ -501,18 +501,6 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
               <b>거래일 출석</b>
               <small>{score.visitDays}일 방문 · {score.visitNeeded}일부터 인정{score.visitNeeded < 3 ? ' (휴장 주)' : ''}</small>
               <em>{score.attended ? '+1' : '0'}</em>
-            </li>
-            <li data-off="true">
-              <i aria-hidden="true">·</i>
-              <b>장바구니 담기</b>
-              <small>2단계 — 자사몰 장바구니 연동 뒤</small>
-              <em>—</em>
-            </li>
-            <li data-off="true">
-              <i aria-hidden="true">·</i>
-              <b>가격 알림 반응</b>
-              <small>2단계 — 알림 반응 기록 뒤</small>
-              <em>—</em>
             </li>
           </ul>
           <p className={styles.scoreTotal}>★ 총 {score.score} POINT → {score.score ? `${tierName(score.score)} · +${won(score.amount)}P` : '이번 주 배당 없음'}</p>

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import Market from '@/components/Market';
 import MarketIntro from '@/components/MarketIntro';
 import { PRODUCTS } from '@/data/products';
@@ -5,7 +6,8 @@ import { weekWindow, weeklyScoreFor } from '@/lib/dividend';
 import { loadFilled, loadSoldCounts, loadWeekReport, reservationsInWindow } from '@/lib/fills';
 import { fetchKospiHistory, getMarketSnapshot, seoulDateString } from '@/lib/market';
 import { buildToday, priceAt } from '@/lib/offers';
-import { isWeekend, OPEN_AT } from '@/lib/orderbook';
+import { isWeekend, nextOpenLabel, OPEN_AT } from '@/lib/orderbook';
+import { isAdmin } from '@/lib/adminAuth';
 import { loadTiers } from '@/lib/settings';
 import { bidState } from '@/lib/bidRight';
 import { loadAllotments, loadDividendPolicy, loadIpoEnabled } from '@/lib/appSettings';
@@ -22,8 +24,12 @@ import { activeCoupon, linkedMember, payoutFor, walletBalance } from '@/lib/payo
  *   시세(코스피 마감 + 당일 5분봉) · 구간 · 오늘 나간 수량 · 공모주 회차
  * 화면 순서와 상호작용은 Market(클라이언트)에 있다.
  */
-export default async function BreadMarketPage() {
+export default async function BreadMarketPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const now = new Date();
+  /* 관리자 미리보기 — 평일에도 휴장일 화면을 본다(발표 시연). 로그인한 관리자 브라우저에서만 먹고
+     화면만 바뀐다. 예약은 닫힌 장처럼 막히고, 쿠폰 쓰기는 서버(lib/payout.redeem)가 진짜 휴장일인지 다시 본다 */
+  const asked = (await searchParams).preview;
+  const preview = (asked === 'weekend' || asked === 'holiday') && (await isAdmin()) ? asked : null;
   /* 출석 — 주간 활동점수의 세 항목 중 하나. 하루 1회만 세므로 매 렌더 호출해도 된다.
      서버 컴포넌트는 쿠키를 발급할 수 없어 이미 있는 표식만 읽는다. 실패해도 삼킨다 */
   const visitor = await currentVisitorId();
@@ -41,6 +47,11 @@ export default async function BreadMarketPage() {
      손으로 적어둔 값이 열흘 묵어 생지를 품절로 걸러낸 적이 있다. */
   const products = applyStock(PRODUCTS, withSold(stock, await loadSoldCounts(now)));
   const today = buildToday(market, tiers, filled, now, products, signals, allotments.value);
+  if (preview && today.hours.reason !== 'holiday') {
+    today.hours = { open: false, reason: 'holiday', nowLabel: today.hours.nowLabel,
+      closedFor: preview === 'weekend' ? '주말' : '공휴일', nextOpen: nextOpenLabel(seoulDateString(now)) };
+  }
+  const weekend = preview ? preview === 'weekend' : isWeekend(now);
 
   /* 휴장일(주말·공휴일)에는 가격이 움직이지 않는다. 대신 이번 주 빵장이 어땠는지를 보여준다.
      fills에 visitor가 없어 개인 기록은 못 만든다 — 시장 전체 결산으로 쓴다.
@@ -54,7 +65,7 @@ export default async function BreadMarketPage() {
   const [week, score] = holiday
     ? await Promise.all([
         loadWeekReport(seoulDateString(weekAgo), seoulDateString(now)),
-        isWeekend(now) ? weeklyScoreFor(visitor, now, member) : null,
+        weekend ? weeklyScoreFor(visitor, now, member) : null,
       ])
     : [null, null];
   /* 배당금은 휴장일에 정가로 살 때 쓴다 — 평일 휴장일(추석)에도 통장은 보여준다 */
@@ -81,7 +92,7 @@ export default async function BreadMarketPage() {
           const add = row.unit ? product.options?.find(o => o.code === row.unit)?.add ?? 0 : 0;
           return sum + priceAt(product.price, row.depth).saved + priceAt(add, row.depth).saved;
         }, 0),
-        weekend: isWeekend(now),
+        weekend,
         payout,
         tiers: policy?.tiers ?? null,
       }
@@ -103,6 +114,13 @@ export default async function BreadMarketPage() {
 
   return (
     <main id="main-content">
+      {preview && (
+        <p className="preview-banner" role="status">
+          관리자 미리보기 · <b>{preview === 'weekend' ? '주말(DIVIDEND DAY)' : '평일 휴장일'}</b> 화면이에요. 손님에게는 보이지 않아요.{' '}
+          <Link href={preview === 'weekend' ? '/?preview=holiday#week' : '/?preview=weekend#week'}>{preview === 'weekend' ? '평일 휴장판 보기' : '주말판 보기'}</Link>
+          {' · '}<Link href="/">미리보기 끄기</Link>
+        </p>
+      )}
       <MarketIntro
         phase={introPhase}
         theme={today.mood.theme}

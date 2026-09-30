@@ -103,7 +103,12 @@ export default async function AdminPage() {
         <h1>검수와 <em>승인.</em></h1>
         <p>오늘의 호가 범위를 확인하고 자사몰에 반영합니다.</p>
       </div>
-      <a href="/" target="_blank" rel="noopener noreferrer">빵장 화면 확인 ↗</a>
+      <div className="admin-links">
+        <a href="/" target="_blank" rel="noopener noreferrer">빵장 화면 확인 ↗</a>
+        {/* 평일에도 휴장일 화면을 본다 — 이 브라우저(관리자 로그인)에서만 보인다 */}
+        <a href="/?preview=weekend#week" target="_blank" rel="noopener noreferrer">휴장일 미리보기 · 주말판 ↗</a>
+        <a href="/?preview=holiday#week" target="_blank" rel="noopener noreferrer">평일 휴장판 ↗</a>
+      </div>
     </header>
     <AdminConsole plan={plan} links={links} maxRate={MAX_DISCOUNT_RATE} allotmentDefault={ALLOTMENT_DEFAULT} />
     <TierSettings initial={tiers} maxRate={MAX_DISCOUNT_RATE} />

@@ -169,7 +169,7 @@ const isClosedDay = ({ weekday, date }: { weekday: string; date: string }) =>
   weekday === 'Sat' || weekday === 'Sun' || KRX_HOLIDAYS.has(date);
 
 /** 이 KST 날짜 다음의 첫 거래일 — "9/28(월)". UTC 자정으로만 더해 시간대가 끼지 않게 한다 */
-function nextOpenLabel(date: string): string {
+export function nextOpenLabel(date: string): string {
   const d = new Date(`${date}T00:00:00Z`);
   do d.setUTCDate(d.getUTCDate() + 1);
   while (d.getUTCDay() === 0 || d.getUTCDay() === 6 || KRX_HOLIDAYS.has(d.toISOString().slice(0, 10)));
