@@ -666,8 +666,11 @@ export default function Market({ today, points, kospi, tiers, round, ipo: initia
                   type="button"
                   className={styles.watch}
                   aria-pressed={n > 0}
-                  aria-label={`${o.product.name} 관심 ${n > 0 ? '해제' : '담기'}`}
-                  onClick={() => toggleProduct(no, unitOf(o))}
+                  aria-label={o.units.length > 0 ? `${o.product.name} 옵션 고르고 관심 담기` : `${o.product.name} 관심 ${n > 0 ? '해제' : '담기'}`}
+                  aria-haspopup={o.units.length > 0 ? 'dialog' : undefined}
+                  /* 옵션이 있는 빵은 어느 맛·구성인지 골라야 담을 수 있다 — 카드를 누른 것과 같은 상세 시트를 연다.
+                     전에는 첫 옵션을 멋대로 담아서, 초코를 원한 손님의 포트폴리오에 피칸이 들어갔다 */
+                  onClick={() => (o.units.length > 0 ? openFromList(no) : toggleProduct(no, null))}
                 >
                   {n > 0 ? '♥' : '♡'}
                 </button>
