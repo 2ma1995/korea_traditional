@@ -65,7 +65,7 @@ export default function DividendPayout({ mode }: { mode: 'wallet' | 'mileage' | 
         )}
 
         <div className={styles.planActions}>
-          <button type="button" onClick={() => call('GET')} disabled={busy}>{busy ? '계산 중…' : '미리보기'}</button>
+          <button type="button" className={styles.outline} onClick={() => call('GET')} disabled={busy}>{busy ? '계산 중…' : '미리보기'}</button>
           <button type="button" onClick={() => call('POST')} disabled={busy || !mode || !view?.lines?.length}>
             {busy ? '지급 중…' : mode === 'wallet' ? '배당금 적립' : '적립금 지급'}
           </button>

@@ -23,12 +23,17 @@
 .planTop strong { font-size: 17px; font-weight: 600; letter-spacing: -.015em; }
 .rate { font-size: 26px; font-weight: 600; color: var(--hong); letter-spacing: -.02em; }
 .reason { font-size: 12px; color: var(--muted); line-height: 1.9; margin-top: 8px; }
-/* 목록에 빵을 넣고 빼는 자리. 오늘 라인이 자동으로 고르지만 기업 요청으로 바뀐다 */
-.rateBlock { display: grid; justify-items: end; gap: 8px; }
-.listTools { display: inline-flex; gap: 2px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
-.listTools button { font: inherit; font-size: 16px; line-height: 1; width: 34px; height: 34px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
-.listTools button:hover:not(:disabled) { background: var(--soft); }
-.listTools button:disabled { opacity: .3; cursor: not-allowed; }
+/* 큰 할인율 — 무슨 숫자인지 이름을 위에 붙인다 */
+.rateBlock { display: grid; justify-items: end; gap: 2px; }
+.rateBlock small { font-size: 12px; color: var(--muted); }
+
+/* 목록 위 도구 — 넣고 빼는 버튼에 이름을 붙인다. 이름 없는 ＋/− 는 무엇을 하는지 몰랐다 */
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+.toolbar small { font-size: 12px; color: var(--muted); }
+.toolButton { font: inherit; font-size: 13px; font-weight: 600; min-height: 36px; padding: 0 14px; border: 1px solid var(--line);
+  border-radius: var(--r-control); background: var(--paper); color: var(--ink); cursor: pointer; }
+.toolButton:hover:not(:disabled) { border-color: var(--dancheong); color: var(--dancheong); }
+.toolButton:disabled { opacity: .4; cursor: not-allowed; }
 
 /* '+'로 여는 후보 목록 */
 .addList { list-style: none; margin: 12px 0 0; padding: 12px; border: 1px dashed var(--line); border-radius: 8px; display: grid; gap: 4px; background: var(--soft); }
@@ -45,23 +50,44 @@
 .stepper { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
 .stepper[data-busy='true'] { opacity: .5; }
 /* '예약 n건' — 무엇을 세는 수인지 칸 옆에 붙여 둔다 */
-.stepperLabel { font-size: 11px; color: var(--muted); padding: 0 6px; white-space: nowrap; }
+.stepperLabel { font-size: 12px; color: var(--muted); padding: 0 6px; white-space: nowrap; }
 .stepper button { font: inherit; font-size: 15px; line-height: 1; width: 30px; height: 30px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
 .stepper button:disabled { opacity: .35; cursor: not-allowed; }
-.stepper input { font: inherit; font-size: 12px; font-weight: 600; width: 52px; text-align: center; font-variant-numeric: tabular-nums;
+.stepper input { font: inherit; font-size: 13px; font-weight: 600; width: 48px; text-align: center; font-variant-numeric: tabular-nums;
   border: 0; background: transparent; color: var(--ink); padding: 6px 0; -moz-appearance: textfield; }
 .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .stepper input:focus-visible { outline: 2px solid var(--dancheong); outline-offset: -2px; border-radius: 4px; }
-/* 옵션별 최종가 — 옵션이 값을 바꾸는 상품은 기본가만 봐서는 손님이 얼마를 내는지
-   모른다. 줄 전체를 차지하게 두고(grid-column) 여러 개면 접히게 한다 */
-.optionPrices { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.optionRow { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
-  padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
-.optionRow i { font-style: normal; }
-.optionRow .stepper { border-color: transparent; }
-.optionRow .stepper input { width: 42px; }
-.optionPrices del { opacity: .7; }
-.optionPrices b { color: var(--ink); font-weight: 600; }
+/* ── 오늘 반영할 가격 — 칸 제목이 있는 표 ──
+   빵 한 줄 아래에 옵션 줄이 같은 칸에 맞춰 내려온다. 예전엔 옵션이 칩으로 흩어져
+   재고·예약·가격이 어느 칸인지 읽히지 않았다 */
+.planGrid { list-style: none; margin: 16px 0 0; padding: 0; }
+.gridHead, .gridRow { display: grid; grid-template-columns: 20px minmax(0, 1fr) 96px 196px 190px 128px; align-items: center; gap: 12px; }
+.gridHead { font-size: 12px; font-weight: 600; color: var(--muted); padding: 10px 0; border-bottom: 1px solid var(--line); }
+.planBlock { padding: 12px 0; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+.gridRow { font-size: 13px; font-variant-numeric: tabular-nums; }
+.gridRow input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--dancheong); }
+.cell { min-width: 0; }
+.priceCell del { color: var(--muted); font-size: 12px; margin-right: 4px; }
+.priceCell b { font-weight: 700; }
+.priceCell small { font-size: 12px; color: var(--muted); }
+.optRow { font-size: 12.5px; color: var(--ink); }
+.optRow .priceCell b { font-weight: 600; }
+.optName { color: var(--muted); padding-left: 4px; }
+.optSum { font-size: 12px; color: var(--muted); }
+.capCell { display: inline-grid; gap: 2px; justify-items: start; }
+.capNote { font-size: 12px; color: var(--hong); }
+.soldOut { font-size: 12px; font-weight: 600; color: var(--hong); }
+.notes { margin: 16px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12px; line-height: 1.7; color: var(--muted); }
+.notes b { color: var(--ink); font-weight: 600; }
+@media (max-width: 760px) {
+  .gridHead { display: none; }
+  .gridRow { grid-template-columns: 20px minmax(0, 1fr); row-gap: 8px; }
+  .gridRow > .cell { grid-column: 2; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .gridRow > .cell::before { content: attr(data-label); min-width: 84px; font-size: 12px; color: var(--muted); }
+  .gridRow > span:empty { display: none; }
+  .optRow { padding-left: 12px; border-left: 2px solid var(--line); margin-left: 20px; }
+  .optRow > .optName { grid-column: 1 / -1; }
+}
 
 /* 자사몰 재고 — 읽기 전용. 물량보다 적으면 ⚠️로 표시한다(재고가 이긴다) */
 .stock { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -72,8 +98,10 @@
 .planItems del { color: var(--muted); font-size: 12px; }
 .planItems b { font-weight: 600; }
 .planActions { display: flex; align-items: center; gap: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); flex-wrap: wrap; }
-.state { font-size: 12px; letter-spacing: .02em; padding: 8px 12px; border: 1px solid var(--line); color: var(--muted); }
-.state[data-on='published'] { border-color: var(--dancheong); color: var(--dancheong); background: #eeeae5; }
+.state { font-size: 12px; color: var(--muted); }
+.state::before { content: '●'; margin-right: 6px; font-size: 9px; vertical-align: 1px; color: var(--line); }
+.state[data-on='published'] { color: var(--ink); }
+.state[data-on='published']::before { color: #39733A; }
 .note { font-size: 12px; color: var(--muted); line-height: 1.9; }
 
 /* ── 검수 목록 ── */
@@ -151,7 +179,7 @@
 .planRow { gap: 12px; flex-wrap: wrap; }
 .planRow input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--dancheong); flex-shrink: 0; }
 .rowName { flex: 1; }
-.rowName small { color: var(--muted); font-size: 12px; }
+.rowName small { color: var(--muted); font-size: 12px; margin-left: 6px; font-weight: 400; }
 .unlinked { color: var(--hong) !important; }
 .rateBox { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--muted); }
 .rateBox input {
@@ -161,7 +189,14 @@
 .adjusted { font-size: 12px; color: var(--hong); }
 
 /* ── 구간 설정 ── */
-.tierRow { flex-wrap: wrap; gap: 8px; }
+.tierRow { flex-wrap: wrap; gap: 8px; align-items: center !important; }
+.planItems li.tierRow > span:first-child { flex: 0 0 auto; }
+.tierRow .rowRemove { margin-left: auto; }
+.plan > .planItems:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+/* 입력칸 옆 단위 — 원·%·P를 칸 안에 붙여 둔다 */
+.unitField { display: flex; align-items: center; border: 1px solid var(--line); background: var(--paper); }
+.unitField input { flex: 1; min-width: 0; border: 0 !important; outline-offset: -2px; }
+.unitField i { font-style: normal; font-size: 13px; color: var(--muted); padding: 0 12px; }
 .tierLabel {
   font: inherit; font-size: 12px; width: 92px; padding: 8px 8px;
   background: var(--paper); border: 1px solid var(--line); color: var(--ink);
@@ -194,6 +229,9 @@
   border: 1px solid var(--dancheong); background: var(--dancheong); color: #fbfbfc;
 }
 .planActions button:disabled { opacity: .45; cursor: default; }
+/* 보조 버튼(확인·미리보기·추가·끄기)은 테두리만 — 주 버튼 하나만 꽉 채운다 */
+.planActions button.outline { background: var(--paper); color: var(--dancheong); border-color: var(--dancheong); }
+.planActions button.outline:disabled { color: var(--muted); border-color: var(--line); }
 
 @media (max-width: 600px) {
   .head { align-items: flex-start; flex-direction: column; gap: 8px; }

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { priceAt } from '@/lib/offers';
+import { SHOP_BASE } from '@/lib/shop';
 import styles from './AdminConsole.module.css';
 
 /**
@@ -85,9 +86,11 @@ export default function AdminConsole({ plan, links, maxRate, allotmentDefault }:
   const [capMessage, setCapMessage] = useState('');
   const [savingCap, setSavingCap] = useState<string | null>(null);
 
-  async function saveCap(productNo: number, next: number, unit?: string) {
+  /* max — 그 빵(옵션)의 카페24 재고. 재고보다 많이 열어도 재고가 이기므로(lib/offers.unitsFor)
+     처음부터 재고까지만 받는다. 모르면(재고관리 꺼짐) 1000 */
+  async function saveCap(productNo: number, next: number, unit?: string, max = 1000) {
     const key = unit ? `${productNo}:${unit}` : String(productNo);
-    const value = Math.min(1000, Math.max(1, Math.round(next)));
+    const value = Math.min(max, 1000, Math.max(1, Math.round(next)));
     setCaps(prev => ({ ...prev, [key]: value }));
     setSavingCap(key);
     setCapMessage('');
@@ -153,6 +156,38 @@ export default function AdminConsole({ plan, links, maxRate, allotmentDefault }:
   const capOf = (productNo: number, unit?: string) =>
     (unit ? caps[`${productNo}:${unit}`] : undefined) ?? caps[String(productNo)] ?? allotmentDefault;
 
+  /* 화면에 보이는 값 = 실제로 걸리는 값. 예전에 재고보다 크게 저장해 둔 값은 재고로 눌러 보여준다 */
+  const limitOf = (quantity: number | null | undefined) => (quantity === null || quantity === undefined ? 1000 : quantity);
+  const shopHost = (() => { try { return new URL(SHOP_BASE).host; } catch { return SHOP_BASE; } })();
+
+  /* 예약 한도 칸 — 숫자를 직접 치는 게 먼저고 ± 는 한 건씩 미세 조정이다.
+     ± 는 누르는 즉시, 직접 친 값은 칸을 벗어날 때 저장한다. 재고를 넘는 숫자는 칠 수 없다 */
+  const capStepper = (productNo: number, name: string, max: number, unit?: string) => {
+    const key = unit ? `${productNo}:${unit}` : String(productNo);
+    if (max <= 0) return <span className={styles.soldOut}>재고 없음</span>;
+    const saved = capOf(productNo, unit);
+    const value = Math.min(saved, max);
+    return (
+      <span className={styles.capCell}>
+        <span className={styles.stepper} data-busy={savingCap === key}>
+          <button type="button" aria-label={`${name} 예약 한도 한 건 줄이기`}
+            disabled={value <= 1 || savingCap !== null}
+            onClick={() => saveCap(productNo, value - 1, unit, max)}>−</button>
+          <input type="number" min={1} max={max} aria-label={`${name} 예약 한도(건)`}
+            value={value} disabled={savingCap !== null}
+            onChange={event => setCaps(previous => ({ ...previous, [key]: Math.min(max, Number(event.target.value) || 1) }))}
+            onBlur={event => saveCap(productNo, Number(event.target.value) || 1, unit, max)}
+            onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
+          <span className={styles.stepperLabel}>건</span>
+          <button type="button" aria-label={`${name} 예약 한도 한 건 늘리기`}
+            disabled={value >= max || savingCap !== null}
+            onClick={() => saveCap(productNo, value + 1, unit, max)}>+</button>
+        </span>
+        {saved > max && <small className={styles.capNote}>재고에 맞춰 {won(max)}건</small>}
+      </span>
+    );
+  };
+
   const removeChecked = () => setRows(previous => previous.filter(row => !row.selected));
   const addProduct = (productNo: number) => {
     const item = catalog.find(entry => entry.productNo === productNo);
@@ -212,14 +247,14 @@ export default function AdminConsole({ plan, links, maxRate, allotmentDefault }:
   return (
     <section className={styles.section}>
       <p className={styles.warn}>
-        아래 <b>자사몰에 반영</b>은 실제로 makji.kr 판매가를 바꿉니다.
-        누르기 전에 <b>자사몰 현재가 확인</b>으로 실제 금액을 보세요.
+        <b>자사몰에 반영</b>을 누르면 <b>{shopHost}</b> 판매가가 바로 바뀝니다.
+        평일 15:30에는 자동으로 반영되니, 여기서는 손으로 다시 걸 때만 쓰고 누르기 전에 <b>자사몰 현재가 확인</b>으로 금액을 보세요.
       </p>
 
       <div className={styles.head}>
         <h2>오늘 자사몰에 반영할 가격</h2>
         <span className={styles.count}>
-          {plan.date} · 오늘 열린 최저호가 −{Math.round(plan.rate * 100)}%
+          {plan.date} · 오늘 기본 할인 {Math.round(plan.rate * 100)}%
         </span>
       </div>
 
@@ -230,17 +265,20 @@ export default function AdminConsole({ plan, links, maxRate, allotmentDefault }:
             <p className={styles.reason}>{plan.reason}</p>
           </div>
           <div className={styles.rateBlock}>
-            <span className={styles.rate}>−{Math.round(plan.rate * 100)}%</span>
-            {/* 오늘 라인이 자동으로 고르지만, 기업이 "이건 빼자"고 할 수 있다.
-                그때마다 코드를 고치게 할 수는 없어 여기서 넣고 뺀다 */}
-            <div className={styles.listTools}>
-              <button type="button" aria-label="빵 추가" onClick={() => setAdding(open => !open)}
-                disabled={!addable.length} aria-expanded={adding}
-                title={addable.length ? '빵 추가' : '더 넣을 빵이 없습니다'}>＋</button>
-              <button type="button" aria-label="고른 빵 빼기" onClick={removeChecked} disabled={!checked.length}
-                title={checked.length ? `고른 ${checked.length}종 빼기` : '뺄 빵을 체크하세요'}>−</button>
-            </div>
+            <small>오늘 기본 할인</small>
+            <span className={styles.rate}>{Math.round(plan.rate * 100)}%</span>
           </div>
+        </div>
+
+        {/* 오늘 라인이 자동으로 고르지만, 기업이 "이건 빼자"고 할 수 있다.
+            그때마다 코드를 고치게 할 수는 없어 여기서 넣고 뺀다 */}
+        <div className={styles.toolbar}>
+          <button type="button" className={styles.toolButton} onClick={() => setAdding(open => !open)}
+            disabled={!addable.length} aria-expanded={adding}>＋ 빵 추가</button>
+          <button type="button" className={styles.toolButton} onClick={removeChecked} disabled={!checked.length}>
+            선택한 빵 빼기{checked.length ? ` (${checked.length})` : ''}
+          </button>
+          <small>체크한 빵만 목록에서 빠집니다 · 빵장 손님 화면은 그대로예요</small>
         </div>
 
         {adding && (
@@ -272,100 +310,71 @@ export default function AdminConsole({ plan, links, maxRate, allotmentDefault }:
 
 
         {capMessage && <p className={styles.note} role="status">{capMessage}</p>}
-        <ul className={styles.planItems}>
+        <ul className={styles.planGrid}>
+          <li className={styles.gridHead} aria-hidden="true">
+            <span /><span>빵</span><span>자사몰 재고</span><span>하루 예약 한도</span><span>정가 → 할인가</span><span>할인율</span>
+          </li>
           {rows.map(row => {
             const linked = links[row.productNo];
+            const item = stockOf(row.productNo);
+            const opts = item?.options ?? [];
+            /* 옵션이 있으면 옵션마다 따로 연다 — 옵션마다 재고가 달라서 한 숫자로 걸면 재고를 넘는다 */
+            const optionSum = opts.reduce((sum, o) => sum + Math.max(0, Math.min(capOf(row.productNo, o.code), limitOf(o.quantity))), 0);
             return (
-              <li key={row.productNo} className={styles.planRow}>
-                <input
-                  type="checkbox"
-                  checked={row.selected}
-                  aria-label={`${row.name} 고르기 (− 로 빼기)`}
-                  onChange={() => setRow(row.productNo, { selected: !row.selected })}
-                />
-                <span className={styles.rowName}>
-                  {row.name}
-                  <small> · 자사몰 #{linked ?? row.productNo}{linked ? '' : ' (제품번호 그대로)'}</small>
-                </span>
-                {/* 카페24에서 읽어온 값이다. 여기서 바꾸지 않는다 — 재고는 기업이
-                    카페24에서 관리하고, 두 곳에서 관리하면 어느 쪽이 맞는지 모르게 된다 */}
-                <span className={styles.stock} title={stockOf(row.productNo)?.options.map(o => `${o.label} ${o.quantity ?? '—'}`).join(' · ') || '재고관리 꺼진 상품'}>
-                  {(() => {
-                    const total = stockOf(row.productNo)?.stock;
-                    if (total === null || total === undefined) return '재고 —';
-                    /* 재고가 물량보다 적으면 재고가 이긴다 — 없는 빵은 못 판다 */
-                    return `재고 ${won(total)}${total < capOf(row.productNo) ? ' ⚠️' : ''}`;
-                  })()}
-                </span>
-                {/* 이 빵의 하루 물량. 숫자를 직접 치는 것이 먼저고 ± 는 한 건씩 미세 조정이다 —
-                    5씩만 움직이면 37건 같은 수를 넣을 방법이 없었다.
-                    ± 는 누르는 즉시, 직접 친 값은 칸을 벗어날 때 저장한다 */}
-                <span className={styles.stepper} data-busy={savingCap === String(row.productNo)}>
-                  <span className={styles.stepperLabel}>{(stockOf(row.productNo)?.options.length ?? 0) > 0 ? '옵션당' : '예약'}</span>
-                  <button type="button" aria-label={`${row.name} 물량 한 건 줄이기`}
-                    disabled={capOf(row.productNo) <= 1 || savingCap !== null}
-                    onClick={() => saveCap(row.productNo, capOf(row.productNo) - 1)}>−</button>
-                  <input type="number" min={1} max={1000} aria-label={`${row.name} 물량(건)`}
-                    value={capOf(row.productNo)} disabled={savingCap !== null}
-                    onChange={event => setCaps(previous => ({ ...previous, [String(row.productNo)]: Number(event.target.value) || 1 }))}
-                    onBlur={event => saveCap(row.productNo, Number(event.target.value) || 1)}
-                    onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
-                  <span className={styles.stepperLabel}>건</span>
-                  <button type="button" aria-label={`${row.name} 물량 한 건 늘리기`}
-                    disabled={capOf(row.productNo) >= 1000 || savingCap !== null}
-                    onClick={() => saveCap(row.productNo, capOf(row.productNo) + 1)}>+</button>
-                </span>
-                <del>{won(row.price)}원</del>
-                <b>{won(finalPrice(row))}원</b>
-                <span className={styles.rateBox}>
+              <li key={row.productNo} className={styles.planBlock}>
+                <div className={styles.gridRow}>
                   <input
-                    value={Math.round(row.rate * 100)}
-                    inputMode="numeric"
-                    aria-label={`${row.name} 할인율`}
-                    onChange={event => setRow(row.productNo, {
-                      rate: Math.min(Math.max(Number(event.target.value) || 0, 0), maxRate * 100) / 100,
-                    })}
-                  />%
-                </span>
-                {row.rate !== row.suggested && (
-                  <small className={styles.adjusted}>제안 {Math.round(row.suggested * 100)}%</small>
-                )}
-                {/* 옵션이 값을 바꾸는 상품은 기본가만 봐서는 손님이 얼마를 내는지 모른다.
-                    추가금도 같은 비율로 깎이므로(lib/priceSync.applyPrices)
-                    어느 옵션을 골라도 할인율은 같다 — 그걸 눈으로 확인하는 자리다 */}
-                {(() => {
-                  const opts = stockOf(row.productNo)?.options ?? [];
-                  if (!opts.length) return null;
-                  return (
-                    <small className={styles.optionPrices}>
-                      {opts.map(o => {
-                        const key = `${row.productNo}:${o.code}`;
-                        return (
-                          <span key={o.code} className={styles.optionRow}>
-                            <i>{o.label}</i>
-                            {o.add > 0 && <b>{won(unitPrice(row, o.add))}원</b>}
-                            {o.quantity !== null && <span className={styles.stock}>재고 {won(o.quantity)}</span>}
-                            {/* 이 옵션에만 다른 수를 줄 때 쓴다. 비워 두면 빵 값이 그대로 걸린다 */}
-                            <span className={styles.stepper} data-busy={savingCap === key}>
-                              <span className={styles.stepperLabel}>예약</span>
-                              <input type="number" min={1} max={1000} aria-label={`${row.name} ${o.label} 자리 수`}
-                                value={capOf(row.productNo, o.code)} disabled={savingCap !== null}
-                                onChange={event => setCaps(previous => ({ ...previous, [key]: Number(event.target.value) || 1 }))}
-                                onBlur={event => saveCap(row.productNo, Number(event.target.value) || 1, o.code)}
-                                onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
-                              <span className={styles.stepperLabel}>건</span>
-                            </span>
-                          </span>
-                        );
+                    type="checkbox"
+                    checked={row.selected}
+                    aria-label={`${row.name} 고르기 (선택한 빵 빼기)`}
+                    onChange={() => setRow(row.productNo, { selected: !row.selected })}
+                  />
+                  <span className={styles.rowName}>
+                    {row.name}
+                    <small>자사몰 #{linked ?? row.productNo}</small>
+                  </span>
+                  {/* 카페24에서 읽어온 값이다. 여기서 바꾸지 않는다 — 재고는 기업이 카페24에서 관리한다 */}
+                  <span className={styles.cell} data-label="자사몰 재고">
+                    {item?.stock === null || item?.stock === undefined ? '관리 안 함' : `${won(item.stock)}개`}
+                  </span>
+                  <span className={styles.cell} data-label="하루 예약 한도">
+                    {opts.length
+                      ? <small className={styles.optSum}>옵션별 ↓ · 합계 {won(optionSum)}건</small>
+                      : capStepper(row.productNo, row.name, limitOf(item?.stock))}
+                  </span>
+                  <span className={`${styles.cell} ${styles.priceCell}`} data-label="정가 → 할인가">
+                    <del>{won(row.price)}원</del> <b>{won(finalPrice(row))}원</b>
+                  </span>
+                  <span className={`${styles.cell} ${styles.rateBox}`} data-label="할인율">
+                    <input
+                      value={Math.round(row.rate * 100)}
+                      inputMode="numeric"
+                      aria-label={`${row.name} 할인율`}
+                      onChange={event => setRow(row.productNo, {
+                        rate: Math.min(Math.max(Number(event.target.value) || 0, 0), maxRate * 100) / 100,
                       })}
-                    </small>
-                  );
-                })()}
+                    />%
+                    {row.rate !== row.suggested && <small className={styles.adjusted}>제안 {Math.round(row.suggested * 100)}%</small>}
+                  </span>
+                </div>
+                {/* 옵션마다 재고·예약 한도·최종가. 추가금도 같은 비율로 깎인다(lib/priceSync) */}
+                {opts.map(o => (
+                  <div key={o.code} className={`${styles.gridRow} ${styles.optRow}`}>
+                    <span />
+                    <span className={styles.optName}>└ {o.label}</span>
+                    <span className={styles.cell} data-label="재고">{o.quantity === null ? '관리 안 함' : `${won(o.quantity)}개`}</span>
+                    <span className={styles.cell} data-label="예약 한도">{capStepper(row.productNo, `${row.name} ${o.label}`, limitOf(o.quantity), o.code)}</span>
+                    <span className={`${styles.cell} ${styles.priceCell}`} data-label="할인가">
+                      <b>{won(unitPrice(row, o.add))}원</b>{o.add > 0 && <small> (추가 {won(o.add)}원 포함)</small>}
+                    </span>
+                    <span />
+                  </div>
+                ))}
                 {shopPrices[row.productNo] && (
                   <small className={styles.shopPrice}>
                     {shopPrices[row.productNo].startsWith('오류')
                       ? shopPrices[row.productNo]
-                      : `자사몰 ${won(Number(shopPrices[row.productNo]))}원 → ${won(priceAt(Number(shopPrices[row.productNo]), row.rate).price)}원`}
+                      : `자사몰 지금 ${won(Number(shopPrices[row.productNo]))}원 → 반영하면 ${won(priceAt(Number(shopPrices[row.productNo]), row.rate).price)}원`}
                   </small>
                 )}
               </li>
@@ -385,20 +394,11 @@ export default function AdminConsole({ plan, links, maxRate, allotmentDefault }:
 
         {published && <p className={styles.note} style={{ marginTop: 12, whiteSpace: 'pre-line' }}>{published}</p>}
 
-        <p className={styles.note} style={{ marginTop: 12 }}>
-          목록의 상품과 할인율은 <b>빵장의 오늘 할인</b>을 기준으로 제안합니다.
-          이 목록의 추가·제외와 할인율 수정은 자사몰 반영에만 사용되며, 빵장의 자동 진열 규칙은 바꾸지 않습니다.
-          <br />
-          <b>예약 n건</b>은 그 빵을 하루에 몇 <b>건</b>까지 할인가로 예약받을지입니다 —
-          빵 개수가 아닙니다. 한 건은 손님이 옵션 하나를 고르는 단위라, 30건을 열어두고
-          모두가 &lsquo;5개&rsquo;를 고르면 빵은 150개가 나갑니다.
-          <b>옵션별 상한은 카페24 재고</b>가 맡습니다 — 줄 아래 옵션마다 적힌 수가 그것이고,
-          둘 중 작은 쪽이 실제 한도입니다.
-          <br />
-          기본값은 코스피가 채웁니다. 재고나 기업 요청으로 빼거나 낮출 수 있고, 상한{' '}
-          {Math.round(maxRate * 100)}%(기업 확인값)는 넘지 못합니다.
-          할인은 <b>자사몰의 현재 판매가</b>를 기준으로 계산되며, 바꾸기 전 가격은 기록에 남습니다.
-        </p>
+        <ul className={styles.notes}>
+          <li>목록과 할인율은 <b>빵장의 오늘 할인</b>에서 가져옵니다. 여기서 바꾼 값은 <b>자사몰에 반영</b>을 누를 때만 쓰입니다.</li>
+          <li><b>하루 예약 한도</b>는 빵장에서 할인가로 예약받는 건수입니다(옵션 하나 = 1건). <b>카페24 재고를 넘길 수 없고</b>, 바꾸면 바로 저장됩니다.</li>
+          <li>할인율 상한은 {Math.round(maxRate * 100)}%(기업 확인값)입니다. 할인은 자사몰의 현재 판매가를 기준으로 걸리고, 바꾸기 전 가격은 기록에 남습니다.</li>
+        </ul>
       </div>
     </section>
   );

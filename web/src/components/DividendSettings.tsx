@@ -76,23 +76,32 @@ export default function DividendSettings({ initial, maxRate }: Props) {
         <div className={styles.fields}>
           <label>
             <span>평균 객단가</span>
-            <input type="number" inputMode="numeric" min={0} step={1000} value={aov}
-              onChange={event => setAov(event.target.value)} aria-label="평균 객단가(원)" />
+            <span className={styles.unitField}>
+              <input type="number" inputMode="numeric" min={0} step={1000} value={aov}
+                onChange={event => setAov(event.target.value)} aria-label="평균 객단가(원)" />
+              <i>원</i>
+            </span>
             <small>주문 한 건의 평균 결제액. 카페24 주문 통계에서 확인합니다</small>
           </label>
 
           <label>
             <span>목표 할인율</span>
-            <input type="number" inputMode="decimal" min={0.1} max={maxRate * 100} step={0.5} value={rate}
-              onChange={event => setRate(event.target.value)} aria-label="목표 할인율(%)" />
+            <span className={styles.unitField}>
+              <input type="number" inputMode="decimal" min={0.1} max={maxRate * 100} step={0.5} value={rate}
+                onChange={event => setRate(event.target.value)} aria-label="목표 할인율(%)" />
+              <i>%</i>
+            </span>
             <small>배당으로 돌려줄 비율. 상한 {Math.round(maxRate * 100)}%를 넘길 수 없습니다</small>
           </label>
 
           <label>
             <span>주간 예산</span>
-            <input type="number" inputMode="numeric" min={0} step={10000} value={budget}
-              onChange={event => setBudget(event.target.value)} aria-label="주간 예산 상한(원)" />
-            <small>한 주에 나갈 배당 총액의 한도</small>
+            <span className={styles.unitField}>
+              <input type="number" inputMode="numeric" min={0} step={10000} value={budget}
+                onChange={event => setBudget(event.target.value)} aria-label="주간 예산 상한(P)" />
+              <i>P</i>
+            </span>
+            <small>한 주에 나갈 배당 총액의 한도{Number(budget) > 0 ? ` — ${won(Number(budget))}P` : ''}</small>
           </label>
         </div>
 
@@ -110,13 +119,13 @@ export default function DividendSettings({ initial, maxRate }: Props) {
             {busy ? '저장 중…' : '저장'}
           </button>
           <span className={styles.state} data-on={saved.stored ? 'published' : undefined}>
-            {saved.stored ? 'DB 저장됨' : '메모리에만 있음'}
+            {saved.stored ? '저장돼 있어요' : '저장 안 됨 — 서버를 다시 켜면 기본값으로 돌아가요'}
           </span>
           {message && <span className={styles.note}>{message}</span>}
         </div>
 
         <p className={styles.note}>
-          점수는 <b>관심빵 담기 · Bread Market 구매 · 거래일 3일 이상 출석</b> 셋을 각각 주 1회만 셉니다.
+          점수는 <b>관심빵 담기 · 빵장 시간 구매(연결한 자사몰 아이디로 거래일 15:30~24:00 주문) · 거래일 3일 이상 출석</b> 셋을 각각 주 1회만 셉니다.
           휴장일이 낀 주는 출석 기준을 <b>거래일 − 1일</b>로 낮춥니다(최소 1일).
           같은 행동을 반복해도 점수가 쌓이지 않습니다.
           <br />

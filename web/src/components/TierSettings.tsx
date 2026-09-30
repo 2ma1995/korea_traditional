@@ -57,7 +57,7 @@ export default function TierSettings({ initial, maxRate }: Props) {
         <ul className={styles.planItems}>
           {tiers.map((tier, index) => (
             <li key={index} className={styles.tierRow}>
-              <span>코스피 등락</span>
+              <span>코스피가</span>
               <span className={styles.rateBox}>
                 <input
                   value={tier.minAbsChange}
@@ -66,7 +66,7 @@ export default function TierSettings({ initial, maxRate }: Props) {
                   onChange={event => update(index, { minAbsChange: Number(event.target.value) || 0 })}
                 />%
               </span>
-              <span>이상이면</span>
+              <span>이상 움직이면 →</span>
               <span className={styles.rateBox}>
                 <input
                   value={Math.round(tier.rate * 100)}
@@ -89,7 +89,7 @@ export default function TierSettings({ initial, maxRate }: Props) {
                 className={styles.rowRemove}
                 aria-label={`${index + 1}번째 구간 삭제`}
                 onClick={() => setTiers(previous => previous.filter((_, i) => i !== index))}
-              >✕</button>
+              >삭제</button>
             </li>
           ))}
         </ul>

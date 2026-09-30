@@ -67,11 +67,11 @@ export default function IpoSettings({ initial, stored }: Props) {
         </p>
 
         <div className={styles.planActions}>
-          <button type="button" onClick={() => toggle(true)} disabled={busy || enabled} aria-pressed={enabled}>
-            켜기
-          </button>
-          <button type="button" onClick={() => toggle(false)} disabled={busy || !enabled} aria-pressed={!enabled}>
-            끄기
+          {/* 지금 상태를 먼저 말하고, 바꾸는 버튼은 하나만 — 켜기·끄기 둘을 나란히 두면
+              흐린 쪽이 '지금 상태'인지 '못 누르는 버튼'인지 헷갈렸다 */}
+          <span className={styles.state} data-on={enabled ? 'published' : undefined}>지금 {enabled ? '켜져 있어요' : '꺼져 있어요'}</span>
+          <button type="button" className={enabled ? styles.outline : undefined} onClick={() => toggle(!enabled)} disabled={busy} aria-pressed={enabled}>
+            {busy ? '바꾸는 중…' : enabled ? '끄기' : '켜기'}
           </button>
         </div>
 
