@@ -133,6 +133,8 @@ npm run dev                  # http://localhost:3000
 | `/api/cron/restore` | `10 15 * * 1-5` | 화~토 00:10 | 기록해 둔 원가로 복원(기록 없으면 안 함) |
 | `/api/cron/dividend` | `5 15 * * *` | 매일 00:05 | 토요일이면 주간 배당 결산 → 휴장일이면 쿠폰 발급, 거래일이면 안 쓴 쿠폰 회수 |
 
+Vercel 무료(Hobby) 요금제는 크론이 최대 1시간 늦습니다. 15:30 반영은 [`web/supabase/크론_1531_Supabase.sql`](./web/supabase/크론_1531_Supabase.sql)로 Supabase(pg_cron)가 15:31에 정확히 부릅니다(두 번 불려도 한 번만 반영).
+
 ### 폴더
 
 ```
